@@ -1,0 +1,21 @@
+{
+  "name": "みっちー財政カルテ",
+  "short_name": "財政カルテ",
+  "description": "全国市区町村・都道府県の財政健全度をチェック",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e8d5f5",
+  "theme_color": "#a08be8",
+  "icons": [
+    {
+      "src": "mitchie_doctor.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "mitchie_doctor.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
