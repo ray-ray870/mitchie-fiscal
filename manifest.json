@@ -8,14 +8,16 @@
   "theme_color": "#a08be8",
   "icons": [
     {
-      "src": "mitchie_doctor.png",
+      "src": "mitchie_doctor_192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "mitchie_doctor.png",
+      "src": "mitchie_doctor_512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
