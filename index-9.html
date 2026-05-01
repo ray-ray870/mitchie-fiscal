@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta property="og:title" content="みっちー財政カルテ">
+<meta property="og:description" content="全国1800自治体の財政をチェック！みっちーが財政健全度を診断します🐧">
+<meta property="og:image" content="https://ray-ray870.github.io/mitchie-fiscal/ogp.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://ray-ray870.github.io/mitchie-fiscal/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="みっちー財政カルテ">
+<meta name="twitter:description" content="全国1800自治体の財政をチェック！みっちーが財政健全度を診断します🐧">
+<meta name="twitter:image" content="https://ray-ray870.github.io/mitchie-fiscal/ogp.jpg">
+<title>みっちー財政カルテ</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" id="appleTouchIcon" href="">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="財政カルテ">
+<meta name="theme-color" content="#a08be8">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&family=Kaisei+Tokumin:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Zen Maru Gothic',sans-serif;background:linear-gradient(160deg,#e8e0ff,#f5f0ff 40%,#fce8f5 70%,#fff0f8 100%);min-height:100vh;color:#3a3a4a;}
+.wrap{max-width:760px;margin:0 auto;padding:28px 16px 60px;}
+.header{text-align:center;margin-bottom:24px;}
+.header img{width:180px;height:180px;object-fit:contain;animation:float 3.5s ease-in-out infinite;filter:drop-shadow(0 10px 24px rgba(160,120,255,0.3));}
+@keyframes float{0%,100%{transform:translateY(0px);}50%{transform:translateY(-10px);}}
+h1{font-family:'Kaisei Tokumin',serif;font-size:28px;font-weight:900;letter-spacing:0.06em;margin-top:6px;margin-bottom:6px;background:linear-gradient(135deg,#6a3de8 0%,#b060d8 50%,#e060a8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 2px 6px rgba(140,60,200,0.2));position:relative;display:inline-block;}
+h1::after{content:'✦';font-size:14px;position:absolute;top:-6px;right:-18px;background:linear-gradient(135deg,#f0a0d0,#c070e8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:sparkle 2s ease-in-out infinite;}
+@keyframes sparkle{0%,100%{opacity:1;transform:scale(1) rotate(0deg);}50%{opacity:0.6;transform:scale(1.3) rotate(20deg);}}
+.sub{font-size:12px;color:#a090c8;letter-spacing:0.04em;background:rgba(255,255,255,0.5);padding:3px 12px;border-radius:50px;display:inline-block;margin-top:2px;margin-bottom:24px;}
+.row{display:flex;gap:8px;margin-bottom:10px;box-shadow:0 8px 32px rgba(140,100,255,0.28),0 2px 8px rgba(140,100,255,0.15);border-radius:50px;}
+.inp{flex:1;padding:14px 20px;border:none;border-radius:50px 0 0 50px;font-family:'Zen Maru Gothic',sans-serif;font-size:14px;background:white;outline:none;color:#3a2a6e;}
+.inp::placeholder{color:#c0b0e0;}
+.btn{padding:14px 22px;margin:5px;border:none;border-radius:50px;background:linear-gradient(135deg,#a08be8,#c070d8);color:white;font-family:'Zen Maru Gothic',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(160,100,240,0.3);transition:opacity 0.2s,transform 0.1s;}
+.note{font-size:11px;color:#9080c0;margin-bottom:32px;padding:0 4px;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:22px;}
+.chip{padding:7px 15px;border-radius:50px;font-size:12px;background:rgba(255,255,255,0.85);border:1.5px solid rgba(160,139,232,0.25);color:#6050a8;cursor:pointer;transition:all 0.2s;font-weight:500;box-shadow:0 2px 8px rgba(140,100,255,0.07);backdrop-filter:blur(4px);}
+.card{background:rgba(255,255,255,0.82);border-radius:18px;padding:22px;box-shadow:0 4px 20px rgba(120,100,200,0.1);}
+.hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;margin-bottom:18px;}
+.ava{position:relative;width:150px;height:150px;flex-shrink:0;}
+.ava img{width:100%;height:100%;object-fit:contain;}
+.badge{position:absolute;top:-4px;right:-4px;width:26px;height:26px;border-radius:50%;background:white;border:2px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:13px;}
+.cname{font-family:'Kaisei Tokumin',serif;font-size:20px;}
+.cpref{font-size:12px;color:#7a7a9a;margin-bottom:6px;}
+.hlbl{display:inline-block;padding:3px 10px;border-radius:50px;font-size:13px;font-weight:700;}
+.hmsg{font-size:13px;color:#7a7a9a;margin-top:5px;line-height:1.6;}
+.meter{margin-bottom:14px;cursor:pointer;padding:8px 10px;border-radius:12px;border:1.5px solid rgba(160,139,232,0.18);background:rgba(255,255,255,0.5);transition:all 0.2s ease;}
+.meter:hover{background:rgba(160,139,232,0.08);border-color:rgba(160,139,232,0.4);transform:translateY(-1px);box-shadow:0 3px 12px rgba(160,139,232,0.15);}
+.meter:active{transform:scale(0.98);opacity:0.85;}
+.mt{font-size:12px;color:#7a7a9a;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;}
+.mt-tap{font-size:10px;color:rgba(160,139,232,0.8);background:rgba(160,139,232,0.12);padding:2px 7px;border-radius:50px;flex-shrink:0;margin-left:6px;}
+.mb{height:8px;background:rgba(0,0,0,0.06);border-radius:8px;overflow:hidden;}
+.mf{height:100%;border-radius:8px;transition:width 1s ease;}
+.mv{display:flex;justify-content:space-between;font-size:11px;color:#7a7a9a;margin-top:3px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+.stat{padding:12px;border-radius:12px;text-align:center;cursor:pointer;border:1.5px solid transparent;transition:all 0.2s ease;}
+.stat:hover{opacity:0.9;transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,0.1);}
+.stat:active{transform:scale(0.97);opacity:0.8;}
+.si{font-size:18px;margin-bottom:3px;}
+.sl{font-size:11px;color:#7a7a9a;margin-bottom:2px;}
+.sv{font-size:17px;font-weight:700;}
+.su{font-size:10px;color:rgba(160,139,232,0.75);background:rgba(160,139,232,0.1);padding:2px 7px;border-radius:50px;display:inline-block;margin-top:4px;}
+.tap-hint{text-align:center;font-size:11px;color:rgba(160,139,232,0.7);margin:8px 0 4px;padding:5px 8px;background:rgba(160,139,232,0.07);border-radius:8px;}
+.adv{background:linear-gradient(135deg,#ede8fd,#d4f0e8);border-radius:12px;padding:12px 14px;margin-top:14px;font-size:13px;line-height:1.7;}
+.src{font-size:10px;color:#7a7a9a;margin-top:10px;text-align:right;}
+.src a{color:#a08be8;}
+.err{background:rgba(255,255,255,0.8);border-radius:18px;padding:22px;text-align:center;border:2px solid rgba(240,135,106,0.3);color:#7a7a9a;font-size:14px;line-height:1.8;}
+.load{text-align:center;padding:30px;color:#7a7a9a;}
+.load img{width:44px;height:44px;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ov{position:fixed;inset:0;background:rgba(40,30,80,0.45);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:flex-end;justify-content:center;}
+.sh{background:linear-gradient(160deg,#f4f0ff,#f0f8ff);border-radius:22px 22px 0 0;padding:18px 18px 32px;width:100%;max-width:760px;max-height:78vh;overflow-y:auto;}
+.sh-h{width:32px;height:4px;background:rgba(160,139,232,0.3);border-radius:4px;margin:0 auto 12px;}
+.sh-t{font-size:15px;font-weight:700;margin-bottom:4px;}
+.sh-d{font-size:13px;color:#7a7a9a;line-height:1.7;margin-bottom:14px;background:rgba(255,255,255,0.7);border-radius:10px;padding:10px 12px;}
+.sp-w{background:rgba(255,255,255,0.8);border-radius:12px;padding:12px;margin-bottom:12px;}
+.sp-l{display:flex;justify-content:space-between;font-size:10px;color:#7a7a9a;margin-top:4px;}
+.cl{width:100%;padding:11px;border:none;border-radius:50px;background:linear-gradient(135deg,#a08be8,#7bb8e8);color:white;font-family:'Zen Maru Gothic',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+.hidden{display:none!important;}
+.stars{font-size:22px;margin:8px 0 4px;letter-spacing:2px;}
+.footer{text-align:center;font-size:11px;color:#7a7a9a;margin-top:28px;line-height:1.8;opacity:0.7;}
+.footer a{color:#a08be8;}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1>みっちー財政カルテ</h1>
+    <p class="sub">全国市区町村・都道府県の財政健全度をチェック</p>
+  </div>
+  <div class="row">
+    <input class="inp" id="cityInput" type="text" placeholder="都道府県名または市区町村名を入力">
+    <button class="btn" id="searchBtn">診断する</button>
+  </div>
+  <p class="note">💡 同名自治体は「都道府県名＋自治体名」で検索（例：東京府中・広島府中）</p>
+  <p style="font-size:11px;color:#a090c8;padding:0 4px;margin-bottom:9px;display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:3px;height:12px;background:linear-gradient(#a08be8,#c070d8);border-radius:2px;"></span>よく検索される自治体</p>
+  <div class="chips">
+    <span class="chip" data-city="札幌市">札幌市</span>
+    <span class="chip" data-city="仙台市">仙台市</span>
+    <span class="chip" data-city="東京都">東京都</span>
+    <span class="chip" data-city="名古屋市">名古屋市</span>
+    <span class="chip" data-city="大阪市">大阪市</span>
+    <span class="chip" data-city="広島市">広島市</span>
+    <span class="chip" data-city="福岡市">福岡市</span>
+  </div>
+  <div id="loadEl" class="load hidden"><img id="loadImg" alt="loading"><br>みっちーが調べています…</div>
+  <div id="resEl" class="hidden"></div>
+  <div id="mitchieArea" style="text-align:center;padding:8px 0 20px;position:relative;">
+    <div style="position:absolute;top:0;right:calc(50% - 80px);background:white;border-radius:14px;padding:5px 10px;font-size:11px;color:#8070c0;box-shadow:0 3px 12px rgba(140,100,255,0.15);white-space:nowrap;animation:float 3.5s ease-in-out infinite;">調べてみよう！🔍</div>
+    <img id="topImg" alt="みっちー" style="width:180px;height:180px;object-fit:contain;animation:float 3.5s ease-in-out infinite;filter:drop-shadow(0 10px 24px rgba(160,120,255,0.3));">
+  </div>
+  <div class="footer">
+    <div style="font-size:11px;color:#a090c8;background:rgba(160,139,232,0.1);border-radius:50px;padding:4px 14px;display:inline-block;margin-bottom:10px;">📊 約<span id="municipality-count2"></span>自治体対応｜総務省令和5年度データ</div><br>
+    📊 出典：総務省「地方財政状況調査関係資料」令和5年度<br>
+    <a href="https://www.soumu.go.jp/iken/jokyo_chousa_shiryo.html" target="_blank">総務省 地方財政状況調査関係資料</a><br>
+    表示値は参考情報です。正確な数値は各自治体の公式資料をご確認ください。<br><br>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:700;color:#6a3de8;margin-bottom:10px;">アプリをオススメする！</div>
+      <div style="display:flex;justify-content:center;gap:10px;margin-bottom:6px;">
+        <button onclick="shareX()" style="background:black;color:white;border:none;border-radius:50px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.912-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </button>
+        <button onclick="shareLine()" style="background:#06C755;color:white;border:none;border-radius:50px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer;">
+          LINE
+        </button>
+      </div>
+      <div style="font-size:10px;color:#b0a0d0;">※診断結果の共有ではありません</div>
+    </div>
+    <span style="font-size:11px;color:#a090c8;background:rgba(160,139,232,0.12);border-radius:50px;padding:3px 12px;display:inline-block;margin-bottom:4px;">【非公式】</span><br>
+    ©The Path to Rebirth / Mitchie<br>
+    Created with AI<br>
+    Created by @Ray
+  </div>
+</div>
+<div id="ovEl" class="ov hidden">
+  <div class="sh">
+    <div class="sh-h"></div>
+    <div id="shTitle" class="sh-t"></div>
+    <div id="shDesc" class="sh-d"></div>
+    <div class="sp-w">
+      <svg id="spSvg" viewBox="0 0 300 75" style="width:100%;height:75px;overflow:visible;"></svg>
+      <div id="spLabels" class="sp-l"></div>
+    </div>
+    <button id="closeBtn" class="cl">とじる</button>
+  </div>
+</div>
+<script src="images.js"></script>
+<script>
+(function() {
+  // 画像データは images.js で定義
+  document.getElementById("appleTouchIcon").href = "data:image/png;base64," + IMGS.doctor;
+
+  document.getElementById("topImg").src = "data:image/png;base64," + IMGS.top; // original = "data:image/png;base64," + IMGS.top;
+  document.getElementById("loadImg").src = "data:image/png;base64," + IMGS.top;
+
+  var cur = null;
+  var curName = "";
+
+  function calcH(f,d,x) {
+    return Math.round(Math.min(Math.min(f/1.2*40,50)+Math.max((25-Math.min(d,25))/25*30,0)+Math.max((100-x)/25*20,0),100));
+  }
+
+  var DB = null;
+
+  var dataFiles = [
+    "data-hokkaido-tohoku.json",
+    "data-kanto.json",
+    "data-chubu.json",
+    "data-kinki.json",
+    "data-chugoku-shikoku.json",
+    "data-kyushu.json"
+  ];
+  Promise.all(dataFiles.map(function(f){ return fetch(f).then(function(r){ return r.json(); }); }))
+    .then(function(results){
+      DB = {};
+      results.forEach(function(data){ Object.assign(DB, data); });
+      var cnt = Object.keys(DB).length;
+      var el2 = document.getElementById("municipality-count2");
+      if (el2) el2.textContent = cnt;
+      console.log("データ読み込み完了: " + cnt + "自治体");
+    })
+    .catch(function(e){
+      console.error("データ読み込み失敗", e);
+    });
+
+  var ALIAS = {
+    "東京":"東京都","大阪":"大阪市","名古屋":"名古屋市","横浜":"横浜市",
+    "川崎":"川崎市","神戸":"神戸市","京都":"京都市","福岡":"福岡市",
+    "広島":"広島市","仙台":"仙台市","千葉":"千葉市","熊本":"熊本市",
+    "北九州":"北九州市","静岡":"静岡市","浜松":"浜松市","新潟":"新潟市",
+    "堺":"堺市","姶良":"姶良市","霧島":"霧島市","鹿児島":"鹿児島市",
+    "夕張":"夕張市","旭川":"旭川市","函館":"函館市","豊田":"豊田市",
+    "四条畷":"四條畷市","四条畷市":"四條畷市","しじょうなわて":"四條畷市","四條畷":"四條畷市",
+    "富山県朝日町":"朝日町（富山）","富山朝日町":"朝日町（富山）",
+    "南部町":"南部町（青森）","青森南部町":"南部町（青森）","山梨南部町":"南部町（山梨）","鳥取南部町":"南部町（鳥取）",
+    "美郷町":"美郷町（秋田）","秋田美郷町":"美郷町（秋田）","島根美郷町":"美郷町（島根）","宮崎美郷町":"美郷町（宮崎）",
+    "朝日町":"朝日町（山形）","山形朝日町":"朝日町（山形）","三重朝日町":"朝日町","三重県朝日町":"朝日町",
+    "川西町":"川西町（山形）","山形川西町":"川西町（山形）","奈良川西町":"川西町（奈良）",
+    "小国町":"小国町（山形）","山形小国町":"小国町（山形）","熊本小国町":"小国町（熊本）",
+    "昭和村":"昭和村（福島）","福島昭和村":"昭和村（福島）","群馬昭和村":"昭和村（群馬）",
+    "日高町":"日高町（北海道）","北海道日高町":"日高町（北海道）","和歌山日高町":"日高町（和歌山）",
+    "松前町":"松前町（北海道）","北海道松前町":"松前町（北海道）","愛媛松前町":"松前町（愛媛）",
+    "森町":"森町（北海道）","北海道森町":"森町（北海道）","静岡森町":"森町（静岡）",
+    "清水町":"清水町（北海道）","北海道清水町":"清水町（北海道）","静岡清水町":"清水町（静岡）",
+    "池田町":"池田町（北海道）","北海道池田町":"池田町（北海道）","岐阜池田町":"池田町（岐阜）",
+    "川崎町":"川崎町（宮城）","宮城川崎町":"川崎町（宮城）","福岡川崎町":"川崎町（福岡）",
+    "美里町":"美里町（宮城）","宮城美里町":"美里町（宮城）","埼玉美里町":"美里町（埼玉）","熊本美里町":"美里町（熊本）",
+    "府中市":"府中市（東京）","東京府中":"府中市（東京）","広島府中":"府中市（広島）",
+    "南牧村":"南牧村（群馬）","群馬南牧村":"南牧村（群馬）","長野南牧村":"南牧村（長野）",
+    "高山村":"高山村（群馬）","群馬高山村":"高山村（群馬）","長野高山村":"高山村（長野）",
+    "明和町":"明和町（群馬）","群馬明和町":"明和町（群馬）","三重明和町":"明和町（三重）",
+    "美浜町":"美浜町（愛知）","愛知美浜町":"美浜町（愛知）","和歌山美浜町":"美浜町（和歌山）",
+    "川上村":"川上村（長野）","長野川上村":"川上村（長野）","奈良川上村":"川上村（奈良）",
+    "高森町":"高森町（長野）","長野高森町":"高森町（長野）","熊本高森町":"高森町（熊本）",
+    "弥富市":"弥富市（愛知）","愛知弥富":"弥富市（愛知）","三重弥富":"弥富市（三重）",
+    "広川町":"広川町（和歌山）","和歌山広川町":"広川町（和歌山）","福岡広川町":"広川町（福岡）",
+    "日野町":"日野町（滋賀）","滋賀日野町":"日野町（滋賀）","鳥取日野町":"日野町（鳥取）"
+  };
+
+  function find(q) {
+    q = q.trim();
+    if (!q) return null;
+    if (DB[q]) return {k:q, d:DB[q]};
+    if (ALIAS[q] && DB[ALIAS[q]]) return {k:ALIAS[q], d:DB[ALIAS[q]]};
+    var keys = Object.keys(DB);
+    for (var i=0; i<keys.length; i++) {
+      if (keys[i].indexOf(q)>=0 || q.indexOf(keys[i])>=0) return {k:keys[i], d:DB[keys[i]]};
+    }
+    return null;
+  }
+
+  function advice(name, d) {
+    var h = calcH(d.f,d.d,d.x);
+    var r = d.r!=null ? d.r.toFixed(1) : "－";
+    var g = d.g!=null ? (d.g>=0?"+":"")+d.g.toFixed(1) : "－";
+    if (d.d>25) return name+"は実質公債費比率が"+d.d+"%と非常に重く財政再建が急務です🚨 ただし財政調整基金が"+r+"億円あり、返済が進めば将来的な改善も期待できます";
+    if (d.f>=1.0) return name+"は財政力指数"+d.f.toFixed(2)+"の優良団体です⭐ 国に頼らない財政運営ができています。ただし人口増減率"+g+"%の動向に注目です";
+    if (h>=80) return name+"の財政は総合的に健全です💙 財政力指数"+d.f.toFixed(2)+"・経常収支比率"+d.x.toFixed(1)+"%ともに良好で、住民サービスへのさらなる投資が期待されます";
+    if (d.x>95) return name+"の財政はかなりしんどい状態です😔 収入の"+d.x.toFixed(1)+"%が固定費に消えています。一方で財政調整基金は"+r+"億円あり、行財政改革の努力に期待です🐧";
+    if (d.g<-1.0) return name+"は人口減少率"+g+"%と深刻で税収への長期的影響が懸念されます😔 ただし財政調整基金"+r+"億円を抱えており、財政の底力は残っています🐧";
+    if (h<50) return name+"の財政は厳しい状況です😔 財政力指数"+d.f.toFixed(2)+"と自主財源が乏しく、国からの交付税に依存しています。財政調整基金"+r+"億円の活用と歳出改革が課題です";
+    return name+"の財政は全国平均的な水準です🐧 財政力指数"+d.f.toFixed(2)+"で大きな問題はありませんが、将来の人口減少・社会保障費増大への備えが重要です";
+  }
+
+  function prof(s) {
+    if (s>=85) return {l:"絶好調みっちー",c:"#6dcfad",bg:"#d4f0e8",e:"⭐",m:"財政は非常に健全です。貯蓄も潤沢で投資余力も十分あります。",img:"happy"};
+    if (s>=70) return {l:"元気なみっちー",c:"#7bb8e8",bg:"#e8f4fd",e:"💙",m:"財政はおおむね安定しています。引き続き堅実な運営が続けられています。",img:"normal"};
+    if (s>=50) return {l:"ちょっとしんどいみっちー",c:"#f0c46a",bg:"#fdf5d4",e:"⚠️",m:"財政にやや課題があります。借入比率が高めで改善が必要な状態です。",img:"tired"};
+    if (s>=30) return {l:"ぐったりみっちー",c:"#f0876a",bg:"#fde8e0",e:"🆘",m:"財政状況はかなり厳しい状態です。構造的な改革が急務です。",img:"sick"};
+    return {l:"ひんし状態みっちー",c:"#d0505a",bg:"#ffe0e4",e:"🚨",m:"財政は非常に危機的な状況です。財政再生団体に相当する深刻な問題を抱えています。",img:"critical"};
+  }
+
+  function diagnose() {
+    var q = document.getElementById("cityInput").value;
+    if (!q.trim()) return;
+    if (!DB) { alert("データを読み込み中です。少し待ってからもう一度お試しください。"); return; }
+    var ld = document.getElementById("loadEl");
+    var re = document.getElementById("resEl");
+    var ma = document.getElementById("mitchieArea");
+    re.classList.add("hidden");
+    ld.classList.remove("hidden");
+    if (ma) ma.classList.add("hidden");
+    setTimeout(function() {
+      ld.classList.add("hidden");
+      var found = find(q);
+      if (!found) {
+        re.innerHTML = "<div class='err'>😢 「"+q+"」のデータが見つかりません。<br>例：姶良市、東京都、夕張市</div>";
+      } else {
+        render(found);
+      }
+      re.classList.remove("hidden");
+    }, 500);
+  }
+
+  function stars(h) {
+    var n = h>=85?5:h>=70?4:h>=50?3:h>=30?2:1;
+    var s = "";
+    for(var i=0;i<5;i++) s += i<n?"★":"☆";
+    return s;
+  }
+
+  function render(found) {
+    cur = found.d;
+    var nm = found.k;
+    curName = nm;
+    var d = found.d;
+    var h = calcH(d.f,d.d,d.x);
+    var pr = prof(h);
+    var fc = d.f>=1.0?"#6dcfad":d.f>=0.7?"#7bb8e8":"#f0876a";
+    var dc = d.d<10?"#6dcfad":d.d<18?"#7bb8e8":d.d<25?"#f0c46a":"#f0876a";
+    var xc = d.x<88?"#6dcfad":d.x<92?"#7bb8e8":d.x<96?"#f0c46a":"#f0876a";
+    var uc = d.u<=0?"#6dcfad":d.u<100?"#7bb8e8":"#f0876a";
+    var rc = d.r>30?"#6dcfad":d.r>10?"#7bb8e8":"#f0c46a";
+    var gc = d.g>=0?"#6dcfad":d.g>=-0.5?"#f0c46a":"#f0876a";
+    var ul = d.u<=0?"－":d.u>=999?"再建中":d.u.toFixed(1)+"%";
+    var chc = d.ch>=120?"#6dcfad":d.ch>=90?"#7bb8e8":d.ch>=70?"#f0c46a":"#f0876a";
+    var chl = d.ch!=null ? d.ch.toFixed(1)+"万円" : "－";
+    var educ = d.edu>=10?"#6dcfad":d.edu>=8?"#7bb8e8":d.edu>=6?"#f0c46a":"#f0876a";
+    var edul = d.edu!=null ? d.edu.toFixed(1)+"%" : "－";
+    var eoc = d.eog>=0?"#6dcfad":d.eog>=-0.5?"#f0c46a":"#f0876a";
+    var eic = d.eig>=0?"#6dcfad":d.eig>=-0.5?"#f0c46a":"#f0876a";
+    var eol = d.eo ? d.eo.toLocaleString()+"億円" : "－";
+    var eil = d.ei ? d.ei.toLocaleString()+"億円" : "－";
+    var eogs = d.eog!=null ? (d.eog>=0?"+":"")+d.eog.toFixed(1)+"%" : "";
+    var eigs = d.eig!=null ? (d.eig>=0?"+":"")+d.eig.toFixed(1)+"%" : "";
+    var el = document.getElementById("resEl");
+    el.innerHTML =
+      "<div class='card'>" +
+      "<div class='hero'>" +
+        "<div class='ava'>" +
+          "<img src='data:image/png;base64," + IMGS[pr.img] + "' alt='みっちー'>" +
+          "<div class='badge' style='color:"+pr.c+";border-color:"+pr.c+";'>"+pr.e+"</div>" +
+        "</div>" +
+        "<div>" +
+          "<div class='cname'>"+nm+"</div>" +
+          "<div class='cpref'>"+d.p+"</div>" +
+          "<div class='hlbl' style='background:"+pr.bg+";color:"+pr.c+";'>"+pr.l+"</div>" +
+          "<div class='stars'>"+stars(h)+"</div>" +
+          "<div class='hmsg'>"+pr.m+"</div>" +
+        "</div>" +
+      "</div>" +
+      "<div class='meter' id='m0'><div class='mt'><span>総合財政健全度スコア（参考値）</span><span class='mt-tap'>タップで詳細 ▶</span></div>" +
+        "<div class='mb'><div id='hbar' class='mf' style='width:0%;background:"+pr.c+";'></div></div>" +
+        "<div class='mv'><span>危険</span><span style='color:"+pr.c+";font-weight:700;'>"+h+" / 100</span><span>優良</span></div>" +
+      "</div>" +
+      "<div class='meter' id='m1'><div class='mt'><span>実質公債費比率</span><span class='mt-tap'>タップで詳細 ▶</span></div>" +
+        "<div class='mb'><div id='dbar' class='mf' style='width:0%;background:"+dc+";'></div></div>" +
+        "<div class='mv'><span>0%</span><span style='color:"+dc+";font-weight:700;'>"+d.d+"%</span><span>35%+</span></div>" +
+      "</div>" +
+      "<div class='tap-hint'>📊 各項目をタップすると説明とグラフが表示されます</div>" +
+      "<div class='grid'>" +
+        "<div class='stat' id='s0' style='background:"+fc+"18;border-color:"+fc+"44;'><div class='si'>💪</div><div class='sl'>財政力指数</div><div class='sv' style='color:"+fc+";'>"+d.f.toFixed(2)+"</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s1' style='background:"+xc+"18;border-color:"+xc+"44;'><div class='si'>📊</div><div class='sl'>経常収支比率</div><div class='sv' style='color:"+xc+";'>"+d.x.toFixed(1)+"%</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s2' style='background:"+uc+"18;border-color:"+uc+"44;'><div class='si'>🏦</div><div class='sl'>将来負担比率</div><div class='sv' style='color:"+uc+";'>"+ul+"</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s3' style='background:"+rc+"18;border-color:"+rc+"44;'><div class='si'>🐧</div><div class='sl'>財政調整基金</div><div class='sv' style='color:"+rc+";'>"+d.r+"億円</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s4' style='background:"+gc+"18;border-color:"+gc+"44;'><div class='si'>👥</div><div class='sl'>人口増減率</div><div class='sv' style='color:"+gc+";'>"+(d.g>=0?"+":"")+d.g.toFixed(1)+"%</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s5' style='background:#7bb8e818;border-color:#7bb8e844;'><div class='si'>💹</div><div class='sl'>歳出／歳入</div><div class='sv' style='font-size:13px;line-height:1.7;'><span style='color:"+eoc+";display:block;'>💸 歳出 "+eol+" <small style='font-size:11px;'>"+eogs+"</small></span><span style='color:"+eic+";display:block;'>💰 歳入 "+eil+" <small style='font-size:11px;'>"+eigs+"</small></span></div></div>" +
+        "<div class='stat' id='s6' style='background:"+educ+"18;border-color:"+educ+"44;'><div class='si'>📚</div><div class='sl'>教育費一般財源比率</div><div class='sv' style='color:"+educ+";'>"+edul+"</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s7' style='background:"+chc+"18;border-color:"+chc+"44;'><div class='si'>👧</div><div class='sl'>子ども1人当たり投資額</div><div class='sv' style='color:"+chc+";'>"+chl+"</div><div class='su'>詳細を見る ▶</div></div>" +
+      "</div>" +
+      "<div class='adv'><strong>みっちーからのひとこと</strong><br>"+advice(nm,d)+"</div>" +
+      "<div class='src'>📋 総務省「地方財政状況調査関係資料」令和5年度 | <a href='https://www.soumu.go.jp/iken/jokyo_chousa_shiryo.html' target='_blank'>総務省公式</a></div>" +
+      "</div>";
+    el.classList.remove("hidden");
+    setTimeout(function(){
+      document.getElementById("hbar").style.width = h+"%";
+      document.getElementById("dbar").style.width = Math.min(d.d/35*100,100)+"%";
+    }, 100);
+    document.getElementById("m0").addEventListener("click", function(){ openD("health"); });
+    document.getElementById("m1").addEventListener("click", function(){ openD("debt"); });
+    document.getElementById("s0").addEventListener("click", function(){ openD("fiscalPower"); });
+    document.getElementById("s1").addEventListener("click", function(){ openD("flex"); });
+    document.getElementById("s2").addEventListener("click", function(){ openD("future"); });
+    document.getElementById("s3").addEventListener("click", function(){ openD("reserve"); });
+    document.getElementById("s4").addEventListener("click", function(){ openD("growth"); });
+    document.getElementById("s5").addEventListener("click", function(){ openD("budget"); });
+    document.getElementById("s6").addEventListener("click", function(){ openD("education"); });
+    document.getElementById("s7").addEventListener("click", function(){ openD("childInvest"); });
+  }
+
+  var META = {
+    health:{icon:"🏥",label:"総合財政健全度スコア",desc:"財政力指数・実質公債費比率・経常収支比率をもとに算出した参考スコアです（0〜100点）。公式指標ではありません。\n\n目安\n85点以上 → 絶好調\n70点以上 → 元気\n50点以上 → ちょっとしんどい\n30点以上 → ぐったり\n30点未満 → ひんし状態",unit:"pt",hib:true},
+    debt:{icon:"💳",label:"実質公債費比率",desc:"一般会計等が負担する実質的な公債費の標準財政規模に対する比率。25%以上で早期健全化基準、35%以上で財政再生基準となります。出典：総務省令和5年度\n\n目安\n10%未満 → 健全\n18%超 → 注意\n25%以上 → 早期健全化基準\n35%以上 → 財政再生基準\n\n📈 高くなる理由\n① 過去の大型公共事業・施設建設で地方債を多く発行した\n② 合併特例債など特別な借入が多い\nなど。\n\n📉 低くなる理由\n① 堅実な財政運営で借入を抑制してきた\n② 財政力が高く税収が豊富なため借入が少ない\nなど。",unit:"%",hib:false},
+    fiscalPower:{icon:"💪",label:"財政力指数",desc:"基準財政収入額を基準財政需要額で割った値。1.0以上の団体には地方交付税が交付されません（不交付団体）。出典：総務省令和5年度\n\n目安\n1.0以上 → 不交付団体（財政力豊か）\n0.7以上 → 比較的安定\n0.5未満 → 交付税依存度が高い\n\n📈 高くなる理由\n① 企業・工場が多く法人税・固定資産税が豊富\n② 人口が多く個人住民税が充実している\nなど。\n\n📉 低くなる理由\n① 産業が乏しく税収基盤が弱い\n② 人口減少・高齢化で税収が低下している\nなど。",unit:"",hib:true},
+    flex:{icon:"📊",label:"経常収支比率",desc:"毎年度の経常的収入のうち人件費・扶助費・公債費など経常的経費に充当された割合。低いほど財政に弾力性があります。出典：総務省令和5年度\n\n目安\n全国平均：約90%、中央値：約91%\n88%未満 → 財政に弾力性がある状態\n88〜95% → 普通\n95%超 → 硬直化した状態\n\n📈 高くなる理由\n① 人件費・社会保障費など固定的な支出が大きい\n② 過去の借金返済（公債費）が重い\nなど。\n\n📉 低くなる理由\n① 税収が豊富で財政に余裕がある\n② 行財政改革で人件費・固定費を削減した\nなど。",unit:"%",hib:false},
+    future:{icon:"🏦",label:"将来負担比率",desc:"一般会計等が将来負担すべき実質的な負債総額の標準財政規模に対する比率。350%以上で早期健全化基準。出典：総務省令和5年度\n\n目安\n0% → 将来負担なし\n100%未満 → 一定の負担あり\n100%以上 → 要注意\n350%以上 → 早期健全化基準\n\n📈 高くなる理由\n① 過去の借入が多く残債が大きい\n② 公営企業・第三セクターの債務も含まれる\nなど。\n\n📉 低くなる理由\n① 借入を抑制し着実に返済してきた\n② 財政調整基金など充当可能財源が多い\nなど。",unit:"%",hib:false},
+    reserve:{icon:"🐧",label:"財政調整基金残高",desc:"年度間の財源不足に備えて積み立てている自治体の貯金です。残高が多いほど不測の事態への備えがあります。出典：総務省基金残高等一覧令和5年度（概算）\n\n目安（歳出総額比）\n10%以上 → 安定的\n5〜10% → やや余裕少なめ\n5%未満 → 余裕が少ない状態\n\n📈 多い理由\n① 税収が安定し積立を続けてきた\n② 原発立地など特別な収入がある\nなど。\n\n📉 少ない理由\n① 財政難で取り崩しが続いている\n② 大規模災害・事業で緊急支出があった\nなど。",unit:"億円",hib:true},
+    growth:{icon:"👥",label:"人口増減率",desc:"住民基本台帳に基づく前年比人口増減率。人口減少は税収低下や社会保障費増加につながります。出典：総務省令和5年\n\n目安\n0%以上 → 人口増加\n-0.5%以上 → 緩やかな減少\n-1%以下 → 深刻な人口減少\n\n📈 増加の理由\n① 子育て支援・住環境が充実した新興住宅地\n② 企業誘致・雇用創出が成功している\nなど。\n\n📉 減少の理由\n① 若者が都市部へ流出している\n② 少子高齢化が急速に進んでいる\nなど。",unit:"%",hib:true},
+    budget:{icon:"💹",label:"歳出／歳入",desc:"一般会計の歳出・歳入総額（億円）。自治体の予算規模を示します。歳出は人件費・扶助費・公債費・投資的経費などの総支出、歳入は地方税・地方交付税・国庫支出金・地方債などの総収入です。出典：総務省令和5年度地方財政状況調査\n\n目安\n歳入＞歳出 → 黒字基調\n歳入＝歳出 → 収支均衡\n歳入＜歳出 → 赤字基調（要注意）",unit:"億円",hib:true},
+    education:{icon:"📚",label:"教育費一般財源比率",desc:"歳出総額に占める教育費の割合です（総務省令和5年度データ）。\n\n目安\n全国平均：約8〜10%\n10%超 → 教育重視\n6〜10% → 標準的\n6%未満 → 財政的制約が大きい可能性\n\n📈 比率が高くなる理由\n① 学校施設の老朽化対応（校舎・体育館の改修・建替え）\n② 少子化でも学校を統廃合できず固定費がかかる\n③ 教育・子育てを重点政策と位置づけ積極的に投資している\n④ 過疎地・離島で小規模校を存続させている\nなど。\n\n📉 比率が低くなる理由\n① 子ども人口が多く相対的に比率が下がる\n② 子育て・教育より、他の政策を優先する政策判断のため。（他の政策→インフラ・高齢者福祉などが考えられる）\nなど。",unit:"%",hib:false},
+    childInvest:{icon:"👧",label:"子ども1人当たり投資額",desc:"教育費と児童福祉費の合計を18歳未満人口で割った値です（総務省令和5年度データ）。\n\n目安\n全国平均：約83万円\n120万円超 → 手厚い投資\n70〜120万円 → 標準的\n70万円未満 → 財政的制約が大きい状態\n\n📉 数値が低い理由\n① 子育て世代が多く子ども人口が多い新興住宅地（分母が大きい）\n② 財政が厳しく教育・子育てへの支出が少ない\n③ 子育て・教育より、他の政策を優先する政策判断のため。（他の政策→インフラ・高齢者福祉などが考えられる）\nなど。\n\n📈 数値が高い理由\n① 過疎地で子ども数が極少なため1人当たりコストが膨らむ\n② 教育・子育てを重点政策と位置づけ積極的に投資している\nなど。",unit:"万円",hib:true}
+  };
+
+  function openD(key) {
+    if (!cur) return;
+    var m = META[key];
+    if (!m) return;
+    var val = key==="health"?calcH(cur.f,cur.d,cur.x):key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?cur.u:key==="reserve"?cur.r:key==="budget"?(cur.eo||0):key==="education"?(cur.edu||0):key==="childInvest"?(cur.ch||0):cur.g;
+    var seed = (Math.abs(val*137) + key.charCodeAt(0)*31) % 100;
+    var yrs = hasGrowthHistory ? ["2年","3年","4年","5年","6年（最新）"] : ["元年","2年","3年","4年","5年（最新）"];
+    var vals = [];
+    // f・x・d・healthは過去実績データを使用、growthは市・都道府県のみ実績
+    var hasHistory = (key==="fiscalPower"||key==="debt"||key==="flex"||key==="health"||key==="future") && (cur.f_r1!=null||cur.u_r1!=null);
+    var hasGrowthHistory = key==="growth" && cur.g_r2!=null;
+    if (hasHistory) {
+      var getVal = function(yr) {
+        if (key==="fiscalPower") return yr==="r5"?cur.f:cur["f_"+yr];
+        if (key==="debt") return yr==="r5"?cur.d:cur["d_"+yr];
+        if (key==="flex") return yr==="r5"?cur.x:cur["x_"+yr];
+        if (key==="future") return yr==="r5"?cur.u:cur["u_"+yr];
+        if (key==="health") {
+          var f=yr==="r5"?cur.f:cur["f_"+yr];
+          var d=yr==="r5"?cur.d:cur["d_"+yr];
+          var x=yr==="r5"?cur.x:cur["x_"+yr];
+          return (f!=null&&d!=null&&x!=null)?calcH(f,d,x):null;
+        }
+        return null;
+      };
+      ["r1","r2","r3","r4","r5"].forEach(function(yr){
+        var v2 = getVal(yr);
+        vals.push(v2!=null ? parseFloat(parseFloat(v2).toFixed(1)) : null);
+      });
+    } else if (hasGrowthHistory) {
+      ["r2","r3","r4","r5"].forEach(function(yr){
+        var v2 = cur["g_"+yr];
+        vals.push(v2!=null ? parseFloat(parseFloat(v2).toFixed(2)) : null);
+      });
+      vals.push(parseFloat(cur.g.toFixed(2)));
+    } else {
+      // 推計（従来ロジック）
+      var v = val * (0.88 + (seed%20)/100);
+      for (var i=0; i<5; i++) { v = v + Math.sin(i*2.1+seed*0.1)*Math.abs(val)*0.08; vals.push(parseFloat(v.toFixed(1))); }
+      vals.push(val);
+    }
+    var cmap = {health:"#6dcfad",debt:"#f0876a",fiscalPower:val>=1?"#6dcfad":"#7bb8e8",flex:val<88?"#6dcfad":val<92?"#7bb8e8":val<96?"#f0c46a":"#f0876a",future:val<=0?"#6dcfad":val<100?"#7bb8e8":"#f0876a",reserve:val>30?"#6dcfad":val>10?"#7bb8e8":"#f0c46a",growth:val>=0?"#6dcfad":"#f0876a",budget:"#7bb8e8",education:val>=10?"#6dcfad":val>=8?"#7bb8e8":val>=6?"#f0c46a":"#f0876a",childInvest:val>=120?"#6dcfad":val>=90?"#7bb8e8":val>=70?"#f0c46a":"#f0876a"};
+    var c = cmap[key]||"#a08be8";
+    document.getElementById("shTitle").textContent = m.icon+" "+m.label;
+    var descHtml = m.desc.replace(/\n/g,"<br>");
+    if (key === "reserve" && cur && cur.eo && cur.eo > 0) {
+      var ratio = cur.r / cur.eo * 100;
+      var judge = ratio >= 10 ? "安定的" : ratio >= 5 ? "やや余裕少なめ" : "余裕が少ない状態";
+      var judgeColor = ratio >= 10 ? "#6dcfad" : ratio >= 5 ? "#f0c46a" : "#f0876a";
+      descHtml += "<br><br><strong style='color:"+judgeColor+";'>"+curName+"は歳出総額比"+ratio.toFixed(1)+"%で、"+judge+"です。</strong>";
+      if (ratio < 5 && cur.x > 95) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 貯金が少ない＋固定費も重い→日常の支出でギリギリで、災害や不況に備える余裕がない危うい状態です</span>";
+      else if (ratio < 5 && cur.u > 100) descHtml += "<br><span style='color:#d0505a;font-size:12px;'>🚨 貯金が少ない＋将来への借金も重い→今の備えがなく将来の返済も重い、綱渡りの財政状態です</span>";
+      else if (ratio < 5 && cur.f < 0.5) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 貯金が少ない＋自力収入も乏しい→稼ぐ力が弱く備えもない、一度の大きな支出で財政が揺らぐリスクがあります</span>";
+      else if (ratio < 5) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 貯金が少ない→災害・不況などの緊急時に対応できる余裕が限られています。積立を増やすことが課題です</span>";
+      else if (ratio < 10 && cur.x > 95) descHtml += "<br><span style='color:#f0c46a;font-size:12px;'>⚠️ 貯金がやや少なめ＋固定費も重い→余裕は限られており、固定費の削減と積立増加が同時に必要です</span>";
+      else if (ratio < 10) descHtml += "<br><span style='color:#f0c46a;font-size:12px;'>⚠️ 貯金がやや少なめ→大きな問題はないが、もう少し積み増せると緊急時の備えとして安心できます</span>";
+      else if (ratio >= 10 && cur.u <= 0) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 貯金が十分＋将来への借金もない→備えも万全で負債もゼロ、将来世代にやさしい理想的な財政です</span>";
+      else if (ratio >= 10 && cur.x < 88) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 貯金が十分＋固定費も軽い→財政に余裕があり支出も適正、危機対応力の高い状態です</span>";
+      else descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 財政調整基金が十分に積まれている→いざというときの「自治体の貯金」として機能する、安心感のある状態です</span>";
+    }
+    if (key === "growth" && cur && cur.pop) {
+      var popStr = cur.pop.toLocaleString();
+      var gSign = cur.g >= 0 ? "+" : "";
+      var popColor = cur.g >= 0 ? "#6dcfad" : cur.g >= -0.5 ? "#f0c46a" : "#f0876a";
+      descHtml += "<br><br><strong style='color:"+popColor+";'>"+curName+"の人口は"+popStr+"人（令和6年1月1日時点）。前年比"+gSign+cur.g+"%です。</strong>";
+      if (cur.g >= 0 && cur.f >= 0.7) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 人口が増えている＋財政力も安定→人が集まることで税収も増え、好循環が生まれやすい状態です</span>";
+      else if (cur.g >= 0 && cur.ch >= 100) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 人口が増えている＋子どもへの投資も手厚い→子育て環境の充実が若い世代を引き寄せている可能性があります</span>";
+      else if (cur.g >= 0) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 人口が増加中→住民が増えれば税収も増え、財政の安定にもつながります。この流れを維持したいところです</span>";
+      else if (cur.g < -1.0 && cur.x > 95) descHtml += "<br><span style='color:#d0505a;font-size:12px;'>🚨 人口が急減している＋固定費が重い→税収が減るのに支出が固定化、財政悪化が加速しやすい危険な組み合わせです</span>";
+      else if (cur.g < -1.0 && cur.f < 0.5) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 人口が急減している＋財政力も弱い→人口減少が税収減を招き、財政がじわじわ悪化するリスクが高い状態です</span>";
+      else if (cur.g < -0.5) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 人口の減少が続いている→住民1人あたりの行政コストが上がり、財政を圧迫しやすくなります。定住促進策が急務です</span>";
+      else descHtml += "<br><span style='color:#f0c46a;font-size:12px;'>⚠️ 人口はやや減少傾向→緩やかな減少でも長期的には財政に影響します。子育て支援・移住促進が重要です</span>";
+    }
+    // 各項目の判定メッセージ
+    if (key === "health" && cur) {
+      var h2 = calcH(cur.f, cur.d, cur.x);
+      var hj = h2>=85?"絶好調な状態":h2>=70?"おおむね安定した状態":h2>=50?"やや課題がある状態":h2>=30?"かなり厳しい状態":"非常に危機的な状態";
+      var hc = h2>=85?"#6dcfad":h2>=70?"#7bb8e8":h2>=50?"#f0c46a":h2>=30?"#f0876a":"#d0505a";
+      descHtml += "<br><br><strong style='color:"+hc+";'>"+curName+"の総合スコアは"+h2+"点で、"+hj+"です。</strong>";
+    }
+    if (key === "debt" && cur) {
+      var dj = cur.d<10?"健全な水準":cur.d<18?"注意が必要な水準":cur.d<25?"要改善の水準":"早期健全化基準を超えています";
+      var dc2 = cur.d<10?"#6dcfad":cur.d<18?"#7bb8e8":cur.d<25?"#f0c46a":"#f0876a";
+      descHtml += "<br><br><strong style='color:"+dc2+";'>"+curName+"の実質公債費比率は"+cur.d+"%で、"+dj+"。</strong>";
+      if (cur.d > 18 && cur.f < 0.5) descHtml += "<br><span style='color:#d0505a;font-size:12px;'>🚨 借金返済が重い＋自力収入が乏しい→返済で手一杯なのに稼ぐ力もない、最も厳しい二重苦です</span>";
+      else if (cur.d > 18 && cur.x > 95) descHtml += "<br><span style='color:#d0505a;font-size:12px;'>🚨 借金返済が重い＋固定費も硬直化→お金の出口がふさがれており、新しい政策に回せる余地がほぼありません</span>";
+      else if (cur.d > 18) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 借金返済の負担が大きい→収入の多くが返済に消えており、住民サービスへの影響が出やすい状態です</span>";
+      else if (cur.d < 10 && cur.f >= 0.7 && cur.x < 88) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 借金返済が軽い＋自力収入も豊か＋固定費も適正→返済の心配がなく政策投資もできる、理想的な状態です</span>";
+      else if (cur.d < 10 && cur.f >= 0.7) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 借金返済が軽い＋自力収入も豊か→返済の心配がなく、新しい政策にも積極的に投資できる状態です</span>";
+      else if (cur.d < 10 && cur.eo && cur.r/cur.eo*100 >= 10) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 借金返済が軽い＋貯金も十分（歳出比10%以上）→いざというときの備えもあり、とても健全な財政です</span>";
+      else if (cur.d < 10 && cur.x > 95) descHtml += "<br><span style='color:#f0c46a;font-size:12px;'>⚠️ 借金返済は軽いが固定費が重い→返済の心配はないものの、人件費・社会保障費が財政を圧迫しています</span>";
+      else if (cur.d < 10) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 借金返済の負担が軽く、財政に余裕があります。この水準を維持できると理想的です</span>";
+      else if (cur.d < 18 && cur.x > 95) descHtml += "<br><span style='color:#f0c46a;font-size:12px;'>⚠️ 返済負担は標準的だが固定費が重い→借金は普通でも固定費に圧迫されており、政策の自由度が低い状態です</span>";
+      else if (cur.d < 18 && cur.f >= 0.7) descHtml += "<br><span style='color:#7bb8e8;font-size:12px;'>📋 返済負担は標準的＋自力収入も安定→大きな心配はありませんが、借入残高の推移は引き続き注視を</span>";
+      else descHtml += "<br><span style='color:#f0c46a;font-size:12px;'>⚠️ 返済負担がやや重め＋自力収入が少ない→交付税頼みになりやすく、国の制度変更の影響を受けやすい状態です</span>";
+    }
+    if (key === "fiscalPower" && cur) {
+      var fj = cur.f>=1.0?"不交付団体（財政力豊か）":cur.f>=0.7?"比較的安定した財政力":cur.f>=0.5?"やや交付税依存":"交付税依存度が高い状態";
+      var fc2 = cur.f>=1.0?"#6dcfad":cur.f>=0.7?"#7bb8e8":cur.f>=0.5?"#f0c46a":"#f0876a";
+      descHtml += "<br><br><strong style='color:"+fc2+";'>"+curName+"の財政力指数は"+cur.f.toFixed(2)+"で、"+fj+"です。</strong>";
+      if (cur.f < 0.5 && cur.x > 95) descHtml += "<br><span style='color:#d0505a;font-size:12px;'>🚨 自力収入が乏しい＋固定費が重い→稼げないのにお金が出ていく一方、最も身動きが取りにくい状態です</span>";
+      else if (cur.f < 0.5 && cur.u > 100) descHtml += "<br><span style='color:#d0505a;font-size:12px;'>🚨 自力収入が乏しい＋将来への借金も重い→今も苦しく将来も重荷を背負っており、構造的な改革が必要です</span>";
+      else if (cur.f < 0.5) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 自力で稼ぐ力が弱い→国からの交付税に大きく依存しており、国の財政事情に左右されやすい状態です</span>";
+      else if (cur.f >= 1.0 && cur.x < 88) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 自力収入が豊か＋固定費も軽い→収入も支出もバランス良く、政策の自由度が高い理想的な財政です</span>";
+      else if (cur.f >= 1.0 && cur.eo && cur.r/cur.eo*100 >= 10) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 自力収入が豊か＋貯金も十分（歳出比10%以上）→財政力があり備えもある、とても安定した状態です</span>";
+      else if (cur.f >= 1.0 && cur.x > 95) descHtml += "<br><span style='color:#f0c46a;font-size:12px;'>⚠️ 自力収入は豊かだが固定費が重い→稼ぐ力はあるのに固定費に消えており、政策投資の余地が限られています</span>";
+      else if (cur.f >= 1.0) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 国からの交付税に頼らず自立した財政→住民サービスを自分たちの収入でまかなえる、強い自治体です</span>";
+      else if (cur.f >= 0.7 && cur.x < 95) descHtml += "<br><span style='color:#7bb8e8;font-size:12px;'>📋 財政力は安定＋固定費も許容範囲→大きな問題はなく、引き続きこの水準の維持が目標です</span>";
+      else descHtml += "<br><span style='color:#f0c46a;font-size:12px;'>⚠️ 交付税依存が高め→自主財源を増やす取り組み（企業誘致・定住促進など）が長期的な課題です</span>";
+    }
+    if (key === "flex" && cur) {
+      var xj = cur.x<88?"財政に弾力性がある状態":cur.x<95?"標準的な水準":"硬直化した状態";
+      var xc2 = cur.x<88?"#6dcfad":cur.x<95?"#7bb8e8":"#f0876a";
+      descHtml += "<br><br><strong style='color:"+xc2+";'>"+curName+"の経常収支比率は"+cur.x.toFixed(1)+"%で、"+xj+"です。</strong>";
+      if (cur.x > 95 && cur.f < 0.5) descHtml += "<br><span style='color:#d0505a;font-size:12px;'>🚨 固定費が重い＋自力収入も乏しい→収入が少ないのに出費が固定化、新しいことに一切お金を使えない状態です</span>";
+      else if (cur.x > 95 && cur.r < 10) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 固定費が重い＋貯金も少ない→日常の支出でギリギリで、いざというときの備えもない、じわじわ危ない状態です</span>";
+      else if (cur.x > 95 && cur.u > 100) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 固定費が重い＋将来への借金も多い→今の家計も苦しく将来の返済も重い、二重の重荷を抱えています</span>";
+      else if (cur.x > 95) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 固定費が重く硬直化→人件費・社会保障費・借金返済が収入の大半を占め、政策の自由度が低い状態です</span>";
+      else if (cur.x < 88 && cur.r > 20) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 固定費が軽い＋貯金も十分→支出に余裕があり備えもある、財政運営の理想的な姿です</span>";
+      else if (cur.x < 88 && cur.f >= 1.0) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 固定費が軽い＋自力収入も豊か→稼いでいて使い方も健全、新しい政策に積極投資できる状態です</span>";
+      else if (cur.x < 88) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 固定費が適正で財政に弾力性がある→急な支出や新しい施策にも対応しやすい、健全な状態です</span>";
+      else if (cur.x < 95 && cur.f >= 0.7) descHtml += "<br><span style='color:#7bb8e8;font-size:12px;'>📋 固定費は標準的＋財政力も安定→大きな問題はありませんが、固定費が増えすぎないよう注視が必要です</span>";
+      else descHtml += "<br><span style='color:#7bb8e8;font-size:12px;'>📋 固定費は標準的な水準→大きな問題はありませんが、95%を超えると硬直化します。推移を注視しましょう</span>";
+    }
+    if (key === "future" && cur) {
+      var ul2 = cur.u<=0?"将来負担なし":cur.u<100?"一定の負担あり（注意水準）":cur.u<350?"要注意の水準":"早期健全化基準を超えています";
+      var uc2 = cur.u<=0?"#6dcfad":cur.u<100?"#7bb8e8":cur.u<350?"#f0876a":"#d0505a";
+      var uv = cur.u<=0?"0%":cur.u>=999?"再建中":cur.u.toFixed(1)+"%";
+      descHtml += "<br><br><strong style='color:"+uc2+";'>"+curName+"の将来負担比率は"+uv+"で、"+ul2+"です。</strong>";
+      if (cur.u > 100 && cur.r < 10) descHtml += "<br><span style='color:#d0505a;font-size:12px;'>🚨 将来への借金が重い＋貯金も少ない→今も苦しく将来も重荷、借金まみれで備えもない綱渡りの状態です</span>";
+      else if (cur.u > 100 && cur.x > 95) descHtml += "<br><span style='color:#d0505a;font-size:12px;'>🚨 将来への借金が重い＋毎年の固定費も重い→過去の借金に縛られながら今も出費が固定化、構造改革が急務です</span>";
+      else if (cur.u > 100 && cur.f < 0.5) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 将来への借金が重い＋自力収入も乏しい→借金を返す力が弱く、長期的に財政が悪化するリスクがあります</span>";
+      else if (cur.u > 100) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 将来世代への借金が重い→今の住民が使ったお金を将来世代が返す構図で、世代間の公平性が問われます</span>";
+      else if (cur.u <= 0 && cur.eo && cur.r/cur.eo*100 >= 10) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 将来への借金がない＋貯金も十分（歳出比10%以上）→将来世代に負担を残さず、備えもある。財政の優等生です</span>";
+      else if (cur.u <= 0 && cur.f >= 1.0) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 将来への借金がない＋自力収入も豊か→借金ゼロで稼ぐ力もある、非常に健全な財政状態です</span>";
+      else if (cur.u <= 0) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 将来世代への負担がない→過去の借金を着実に返し終えており、次世代に重荷を残さない健全な状態です</span>";
+      else if (cur.u < 100 && cur.eo && cur.r/cur.eo*100 >= 10) descHtml += "<br><span style='color:#7bb8e8;font-size:12px;'>📋 将来への負担は一定あるが貯金（歳出比10%以上）で備えもある→心配しすぎる必要はないが、借入残高の推移は要注視です</span>";
+      else if (cur.u < 100 && cur.x > 95) descHtml += "<br><span style='color:#f0c46a;font-size:12px;'>⚠️ 将来への借金がやや重い＋固定費も重い→返済余力が乏しく、借入残高の削減が急務です</span>";
+      else descHtml += "<br><span style='color:#f0c46a;font-size:12px;'>⚠️ 将来への借金がやや重め→公共施設の維持費・更新費も増える中、新規借入の抑制が課題です</span>";
+    }
+    if (key === "education" && cur && cur.edu!=null) {
+      var ej = cur.edu>=10?"教育に積極投資しています":cur.edu>=6?"標準的な水準です":"教育への投資が少ない状態です";
+      var ec2 = cur.edu>=10?"#6dcfad":cur.edu>=6?"#7bb8e8":"#f0876a";
+      descHtml += "<br><br><strong style='color:"+ec2+";'>"+curName+"の教育費比率は"+cur.edu.toFixed(1)+"%で、"+ej+"。</strong>";
+      if (cur.edu >= 10 && cur.ch != null && cur.ch >= 100) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 教育費が多い＋子ども1人あたりの投資も手厚い→お金も手間もかけて子どもを育てる姿勢が数字に表れています</span>";
+      else if (cur.edu >= 10 && cur.x > 95) descHtml += "<br><span style='color:#f0c46a;font-size:12px;'>⚠️ 教育には力を入れているが固定費も重い→苦しい財政の中でも教育を優先している姿勢は評価できますが、持続可能性に注意が必要です</span>";
+      else if (cur.edu >= 10 && cur.f < 0.5) descHtml += "<br><span style='color:#7bb8e8;font-size:12px;'>📋 財政力は弱いが教育には力を入れている→苦しい中でも未来への投資を優先している姿勢が見えます</span>";
+      else if (cur.edu >= 10) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 教育への支出が手厚い→子どもの学びへの投資は将来の地域力につながる、前向きな財政です</span>";
+      else if (cur.edu < 6 && cur.x > 95) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 教育費が少ない＋固定費が重い→固定費に圧迫されて教育への投資が削られている可能性があります</span>";
+      else if (cur.edu < 6) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 教育への支出が少なめ→財政的制約がある可能性がありますが、子どもへの投資は将来の税収にも影響します</span>";
+      else descHtml += "<br><span style='color:#7bb8e8;font-size:12px;'>📋 教育費は標準的な水準→引き続き子どもへの投資の量と質を確認していきましょう</span>";
+    }
+    if (key === "childInvest" && cur && cur.ch!=null) {
+      var cj2 = cur.ch>=120?"子どもへの投資が手厚い状態です":cur.ch>=70?"標準的な水準です":"子どもへの投資が少ない状態です";
+      var cc2 = cur.ch>=120?"#6dcfad":cur.ch>=70?"#7bb8e8":"#f0876a";
+      descHtml += "<br><br><strong style='color:"+cc2+";'>"+curName+"の子ども1人当たり投資額は"+cur.ch.toFixed(1)+"万円で、"+cj2+"。</strong>";
+      if (cur.ch >= 120 && cur.edu >= 10) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 子ども1人への投資が手厚い＋教育費比率も高い→量も割合も子どもに手をかけている、子育て支援に本気な自治体です</span>";
+      else if (cur.ch >= 120 && cur.g >= 0) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 子どもへの投資が手厚い＋人口も増えている→子育て環境の充実が人口流入につながっている好循環です</span>";
+      else if (cur.ch >= 120) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 子ども1人あたりへの投資が手厚い→将来の地域を担う子どもへの投資は、長期的に見て最も大切な支出です</span>";
+      else if (cur.ch < 70 && cur.x > 95) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 子どもへの投資が少ない＋固定費が重い→固定費に圧迫されて将来世代への投資が削られている構図です</span>";
+      else if (cur.ch < 70 && cur.g < -0.5) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 子どもへの投資が少ない＋人口も減少中→投資不足が子育て世代の流出を招いている可能性があります</span>";
+      else if (cur.ch < 70) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 子どもへの投資が少なめ→保育・教育・医療費補助などの充実が、将来の定住促進にもつながります</span>";
+      else descHtml += "<br><span style='color:#7bb8e8;font-size:12px;'>📋 子どもへの投資は標準的→近隣自治体と比較しながら、子育て世代に選ばれる地域づくりを目指したいところです</span>";
+    }
+    if (key === "budget" && cur && cur.eo && cur.ei) {
+      var bj = cur.ei>=cur.eo?"黒字基調です":cur.ei>=cur.eo*0.99?"ほぼ均衡しています":"赤字基調です";
+      var bc2 = cur.ei>=cur.eo?"#6dcfad":cur.ei>=cur.eo*0.99?"#7bb8e8":"#f0876a";
+      descHtml += "<br><br><strong style='color:"+bc2+";'>"+curName+"の歳出は"+cur.eo.toLocaleString()+"億円、歳入は"+cur.ei.toLocaleString()+"億円で、"+bj+"。</strong>";
+      if (cur.ei < cur.eo && cur.x > 95) descHtml += "<br><span style='color:#d0505a;font-size:12px;'>🚨 収支が赤字＋固定費も重い→支出が収入を超えているのに固定費が大半を占め、改善の余地がほぼない最も厳しい状態です</span>";
+      else if (cur.ei < cur.eo && cur.r < 10) descHtml += "<br><span style='color:#d0505a;font-size:12px;'>🚨 収支が赤字＋貯金も少ない→赤字を補う備えもなく、財政の持続可能性に黄信号です</span>";
+      else if (cur.ei < cur.eo && cur.u > 100) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 収支が赤字＋将来への借金も重い→今も赤字で将来の返済も重く、収支改善が急務です</span>";
+      else if (cur.ei < cur.eo) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 収入より支出が多い→財政調整基金や借入で補っている可能性があります。収支のバランス改善が課題です</span>";
+      else if (cur.ei >= cur.eo && cur.x > 95) descHtml += "<br><span style='color:#f0876a;font-size:12px;'>⚠️ 収支は均衡しているが固定費が大半を占めている→数字上は黒字でも人件費・返済・社会保障で身動きが取れない硬直した状態です</span>";
+      else if (cur.ei >= cur.eo && cur.x > 88) descHtml += "<br><span style='color:#f0c46a;font-size:12px;'>⚠️ 収支は均衡しているが固定費がやや重め→収支は安定しているものの、新しい政策への投資余地は限られています</span>";
+      else if (cur.ei >= cur.eo && cur.f >= 1.0) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 収支が黒字＋財政力も高い＋固定費も適正→自力で稼ぎ支出も健全、最も理想的な財政運営です</span>";
+      else if (cur.ei >= cur.eo && cur.r > 20) descHtml += "<br><span style='color:#6dcfad;font-size:12px;'>✨ 収支が黒字＋貯金も十分＋固定費も適正→稼いでいて備えもある、とても安定した財政運営です</span>";
+      else descHtml += "<br><span style='color:#7bb8e8;font-size:12px;'>📋 収支は均衡＋固定費も標準的→大きな問題はありませんが、社会保障費の増加など将来の支出増に備えた積立が重要です</span>";
+    }
+    document.getElementById("shDesc").innerHTML = descHtml;
+    document.getElementById("spLabels").innerHTML = yrs.map(function(y){return "<span>"+y+"</span>";}).join("");
+    if (key === "budget") {
+      // 歳出・歳入 2本線グラフ
+      var eoVal = cur.eo || 0, eiVal = cur.ei || 0;
+      var eoSeed = (Math.abs(eoVal*137) + 31) % 100;
+      var eiSeed = (Math.abs(eiVal*137) + 61) % 100;
+      var eoVals = [], eiVals = [];
+      var ev = eoVal * (0.88 + (eoSeed%20)/100);
+      var iv = eiVal * (0.88 + (eiSeed%20)/100);
+      for (var i=0; i<5; i++) {
+        ev = ev + Math.sin(i*2.1+eoSeed*0.1)*Math.abs(eoVal)*0.08;
+        iv = iv + Math.sin(i*2.1+eiSeed*0.1)*Math.abs(eiVal)*0.08;
+        eoVals.push(parseFloat(ev.toFixed(0)));
+        eiVals.push(parseFloat(iv.toFixed(0)));
+      }
+      eoVals.push(eoVal); eiVals.push(eiVal);
+      var allV = eoVals.concat(eiVals);
+      var W=300,H=75,P=14;
+      var mn2=Math.min.apply(null,allV), mx2=Math.max.apply(null,allV);
+      var rng2 = Math.max(mx2-mn2, mx2*0.15) || 1;
+      mn2 = mn2 - rng2*0.1; mx2 = mx2 + rng2*0.1; rng2 = mx2 - mn2;
+      function px2(i){return P+(i/(eoVals.length-1))*(W-P*2);}
+      function py2(v){return H-P-((v-mn2)/rng2)*(H-P*2);}
+      function mkLine(arr){ var l="M"+px2(0)+","+py2(arr[0]); for(var j=1;j<arr.length;j++) l+=" L"+px2(j)+","+py2(arr[j]); return l; }
+      function fmtB(v){ return v>=10000 ? Math.round(v/100)/10+"千億" : v+"億"; }
+      var eoLine=mkLine(eoVals), eiLine=mkLine(eiVals);
+      var svgH = H+20;
+      var dots2="";
+      // 歳出ドット
+      for(var k=0;k<eoVals.length;k++){
+        var last2=k===eoVals.length-1;
+        dots2+="<circle cx='"+px2(k)+"' cy='"+py2(eoVals[k])+"' r='"+(last2?5:3)+"' fill='"+(last2?"#a08be8":"white")+"' stroke='#a08be8' stroke-width='2'/>";
+        if(last2) dots2+="<text x='"+px2(k)+"' y='"+(py2(eoVals[k])-8)+"' text-anchor='middle' font-size='10' fill='#a08be8' font-weight='700'>"+fmtB(eoVals[k])+"</text>";
+      }
+      // 歳入ドット
+      for(var k=0;k<eiVals.length;k++){
+        var last3=k===eiVals.length-1;
+        dots2+="<circle cx='"+px2(k)+"' cy='"+py2(eiVals[k])+"' r='"+(last3?5:3)+"' fill='"+(last3?"#7bb8e8":"white")+"' stroke='#7bb8e8' stroke-width='2'/>";
+        if(last3) dots2+="<text x='"+(px2(k)-2)+"' y='"+(py2(eiVals[k])+18)+"' text-anchor='middle' font-size='10' fill='#7bb8e8' font-weight='700'>"+fmtB(eiVals[k])+"</text>";
+      }
+      // 凡例
+      var legend="<text x='"+P+"' y='"+(svgH-2)+"' font-size='10' fill='#a08be8'>■ 歳出</text><text x='"+(P+50)+"' y='"+(svgH-2)+"' font-size='10' fill='#7bb8e8'>■ 歳入</text><text x='"+P+"' y='"+(svgH+9)+"' font-size='8' fill='#aaa'>※元〜4年は参考値（推計）</text>";
+      var spSvg = document.getElementById("spSvg");
+      spSvg.setAttribute("viewBox","0 0 "+W+" "+(svgH+10));
+      spSvg.style.height=(svgH+10)+"px";
+      spSvg.innerHTML =
+        "<path d='"+eoLine+"' fill='none' stroke='#a08be8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>" +
+        "<path d='"+eiLine+"' fill='none' stroke='#7bb8e8' stroke-width='2' stroke-dasharray='4,3' stroke-linecap='round' stroke-linejoin='round'/>" +
+        dots2 + legend;
+    } else {
+    var validVals = vals.filter(function(v){ return v!=null; });
+    var mn=Math.min.apply(null,validVals), mx=Math.max.apply(null,validVals), rng=mx-mn||1;
+    var W=300,H=65,P=14;
+    function px(i){return P+(i/(vals.length-1))*(W-P*2);}
+    function py(v){return H-P-((v-mn)/rng)*(H-P*2);}
+    var area="", line="", dots="";
+    var firstValid = true;
+    for(var j=0;j<vals.length;j++){
+      if(vals[j]==null) continue;
+      if(firstValid){ area="M"+px(j)+","+py(vals[j]); line="M"+px(j)+","+py(vals[j]); firstValid=false; }
+      else { area+=" L"+px(j)+","+py(vals[j]); line+=" L"+px(j)+","+py(vals[j]); }
+    }
+    // areaの閉じ
+    var lastIdx=vals.length-1;
+    area+=" L"+px(lastIdx)+","+H+" L"+px(0)+","+H+" Z";
+    for(var k=0;k<vals.length;k++){
+      if(vals[k]==null) continue;
+      var last=k===vals.length-1;
+      dots+="<circle cx='"+px(k)+"' cy='"+py(vals[k])+"' r='"+(last?5:3)+"' fill='"+(last?c:"white")+"' stroke='"+c+"' stroke-width='2'/>";
+      var dispVal = (m.unit==="億円" && vals[k]>=10000) ? Math.round(vals[k]/100)/10+"千億" : vals[k]+(m.unit==="%"?"%":m.unit==="億円"?"億":"");
+      if(last) dots+="<text x='"+px(k)+"' y='"+(py(vals[k])-8)+"' text-anchor='middle' font-size='11' fill='"+c+"' font-weight='700'>"+dispVal+"</text>";
+    }
+    var noteText = hasHistory ? "※令和元〜5年の実績値" : hasGrowthHistory ? "※令和2〜5年の実績値（市・都道府県）" : key==="growth" ? "※元〜4年は参考値（推計）※町村はデータなし" : "※元〜4年は参考値（推計）";
+    var noteColor = (hasHistory||hasGrowthHistory) ? "#6dcfad" : "#aaa";
+    document.getElementById("spSvg").innerHTML = "<defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='"+c+"' stop-opacity='0.2'/><stop offset='100%' stop-color='"+c+"' stop-opacity='0'/></linearGradient></defs><path d='"+area+"' fill='url(#g)'/><path d='"+line+"' fill='none' stroke='"+c+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+dots+"<text x='"+P+"' y='"+(H+12)+"' font-size='8' fill='"+noteColor+"'>"+noteText+"</text>";
+    }
+    document.getElementById("ovEl").classList.remove("hidden");
+    document.body.style.overflow="hidden";
+  }
+
+  document.getElementById("searchBtn").addEventListener("click", diagnose);
+  document.getElementById("cityInput").addEventListener("keydown", function(e){ if(e.key==="Enter") diagnose(); });
+  document.getElementById("closeBtn").addEventListener("click", function(){ document.getElementById("ovEl").classList.add("hidden"); document.body.style.overflow=""; });
+  document.getElementById("ovEl").addEventListener("click", function(e){ if(e.target===this){ document.getElementById("ovEl").classList.add("hidden"); document.body.style.overflow=""; }});
+  document.querySelectorAll(".chip").forEach(function(el){ el.addEventListener("click", function(){ document.getElementById("cityInput").value=this.getAttribute("data-city"); diagnose(); }); });
+
+})();
+
+function shareX() {
+  var text = "みっちー財政カルテ🐧\n全国1800自治体の財政をチェックできます！\n#みっちー財政カルテ";
+  var url = "https://ray-ray870.github.io/mitchie-fiscal/?v=2";
+  window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(url), "_blank");
+}
+
+function shareLine() {
+  var text = "みっちー財政カルテ🐧\n全国1800自治体の財政をチェックできます！\n#みっちー財政カルテ";
+  window.open("https://social-plugins.line.me/lineit/share?url=" + encodeURIComponent("https://ray-ray870.github.io/mitchie-fiscal/") + "&text=" + encodeURIComponent(text), "_blank");
+}
+</script>
+</body>
+</html>
