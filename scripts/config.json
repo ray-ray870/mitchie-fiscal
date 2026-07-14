@@ -16,8 +16,8 @@
     "_note": "この1ファイルに市町村・都道府県データが両方含まれます"
   },
   "budget": {
-    "city": "https://www.soumu.go.jp/main_content/001061669.xlsx",
-    "town": "https://www.soumu.go.jp/main_content/001061674.xlsx",
+    "city": "https://www.soumu.go.jp/main_content/001061670.xlsx",
+    "town": "https://www.soumu.go.jp/main_content/001061675.xlsx",
     "pref": "https://www.soumu.go.jp/main_content/001056118.xlsx"
   },
   "purpose_expenditure": {
