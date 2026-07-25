@@ -94,7 +94,7 @@
     var btnLabel = inList ? "✓ 追加済み" : "🔖 比較する";
     var countLabel = count === 0 ? (COMPARE_MAX + "つまで") : (count + "/" + COMPARE_MAX);
     wrap.innerHTML =
-      "<div class='" + btnClass + "' id='compareBtn'>" + btnLabel + "</div>" +
+      "<div class='" + btnClass + "' id='compareBtn' role='button' tabindex='0'>" + btnLabel + "</div>" +
       "<div class='compare-count" + (atMax ? " limit" : "") + "'>" + countLabel + "</div>";
     if (!atMax) {
       document.getElementById("compareBtn").addEventListener("click", function(){ toggleCompare(name); });
@@ -149,7 +149,7 @@
       var key = healthState(s);
       var lab = HEALTH_LABELS[key];
       var mark = multi && i===bestHI ? "🏆 " : (multi && i===worstHI && bestHI!==worstHI ? "😥 " : "");
-      return "<td class='compare-cell-detail' data-city='"+e.name+"' data-metric='health' style='color:"+lab[1]+";font-weight:700;font-size:"+scoreFontSize+";'>"+mark+s+"<br><img src='data:image/png;base64,"+IMGS[key]+"' style='width:"+imgSize+";height:"+imgSize+";object-fit:contain;margin-top:3px;'><br><span style='font-size:"+labelFontSize+";color:"+lab[1]+";font-weight:700;'>"+lab[0]+"</span></td>";
+      return "<td class='compare-cell-detail' data-city='"+e.name+"' data-metric='health' style='color:"+lab[1]+";font-weight:700;font-size:"+scoreFontSize+";'>"+mark+s+"<br><img src='data:image/png;base64,"+IMGS[key]+"' alt='\"+HEALTH_LABELS[key][0]+\"' style='width:"+imgSize+";height:"+imgSize+";object-fit:contain;margin-top:3px;'><br><span style='font-size:"+labelFontSize+";color:"+lab[1]+";font-weight:700;'>"+lab[0]+"</span></td>";
     }).join("");
 
     var headCells = entries.map(function(e){
@@ -343,7 +343,7 @@
       "<div class='sc-pref'>"+d.p+"</div>" +
       "<div class='sc-top'>" +
         "<div class='sc-top-left'>" +
-          "<img src='data:image/png;base64,"+IMGS[pr.img]+"' style='width:190px;height:190px;object-fit:contain;'>" +
+          "<img src='data:image/png;base64,"+IMGS[pr.img]+"' alt='\"+pr.l+\"' style='width:190px;height:190px;object-fit:contain;'>" +
           "<div class='sc-score-sub'>総合財政健全度スコア</div>" +
           "<div class='sc-score' style='color:"+pr.c+";'>"+h+"<span style='font-size:30px;'>/100</span></div>" +
           "<div class='sc-state-label' style='color:"+pr.c+";'>"+stateLabel+"</div>" +
@@ -704,9 +704,9 @@
     el.innerHTML =
       "<div class='card'>" +
       "<div class='compare-corner-wrap' id='compareBtnWrap'></div>" +
-      "<div class='hero'>" +
+      "<h2 class='sr-only'>診断結果</h2><div class='hero'>" +
         "<div class='ava'>" +
-          "<img src='data:image/png;base64," + IMGS[pr.img] + "' alt='みっちー'>" +
+          "<img src='data:image/png;base64," + IMGS[pr.img] + "' alt='" + pr.l + "'>" +
           "<div class='badge' style='color:"+pr.c+";border-color:"+pr.c+";'>"+pr.e+"</div>" +
         "</div>" +
         "<div>" +
@@ -718,24 +718,24 @@
           "<div class='hmsg'>"+pr.m+"</div>" +
         "</div>" +
       "</div>" +
-      "<div class='meter' id='m0' style='border:3px solid "+pr.c+";background:"+pr.c+"10;'><div class='mt'><span>総合財政健全度スコア（参考値）</span></div>" +
+      "<h2 class='sr-only'>健康度スコア</h2><div class='meter' id='m0' role='button' tabindex='0' style='border:3px solid "+pr.c+";background:"+pr.c+"10;'><div class='mt'><span>総合財政健全度スコア（参考値）</span></div>" +
         "<div class='mb'><div id='hbar' class='mf' style='width:0%;background:"+pr.c+";'></div></div>" +
         "<div class='mv'><span style='color:"+pr.c+";font-weight:700;'>"+h+" / 100</span><span class='mt-tap'>タップでスコアの似た自治体と詳細を見る▶</span></div>" +
       "</div>" +
-      "<div class='meter' id='m1'><div class='mt'><span>実質公債費比率</span><span class='mt-tap'>タップで詳細 ▶</span></div>" +
+      "<div class='meter' id='m1' role='button' tabindex='0'><div class='mt'><span>実質公債費比率</span><span class='mt-tap'>タップで詳細 ▶</span></div>" +
         "<div class='mb'><div id='dbar' class='mf' style='width:0%;background:"+dc+";'></div></div>" +
         "<div class='mv'><span>0%</span><span style='color:"+dc+";font-weight:700;'>"+d.d+"%</span><span>35%+</span></div>" +
       "</div>" +
       "<div class='tap-hint'>📊 各項目をタップすると説明とグラフが表示されます</div>" +
-      "<div class='grid'>" +
-        "<div class='stat' id='s0' style='background:"+fc+"18;border-color:"+fc+"44;'><div class='si'>💪</div><div class='sl'>財政力指数</div><div class='sv' style='color:"+fc+";'>"+d.f.toFixed(2)+"</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s1' style='background:"+xc+"18;border-color:"+xc+"44;'><div class='si'>📊</div><div class='sl'>経常収支比率</div><div class='sv' style='color:"+xc+";'>"+d.x.toFixed(1)+"%</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s2' style='background:"+uc+"18;border-color:"+uc+"44;'><div class='si'>🏦</div><div class='sl'>将来負担比率</div><div class='sv' style='color:"+uc+";'>"+ul+"</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s3' style='background:"+rc+"18;border-color:"+rc+"44;'><div class='si'>🐧</div><div class='sl'>財政調整基金</div><div class='sv' style='color:"+rc+";'>"+d.r+"億円</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s4' style='background:"+gc+"18;border-color:"+gc+"44;'><div class='si'>👥</div><div class='sl'>人口増減率</div><div class='sv' style='color:"+gc+";'>"+(d.g>=0?"+":"")+d.g.toFixed(1)+"%</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s5' style='background:#7bb8e818;border-color:#7bb8e844;'><div class='si'>💹</div><div class='sl'>歳出／歳入</div><div class='sv' style='font-size:14px;line-height:1.7;'><span style='color:"+eoc+";display:block;'>💸 歳出 "+eol+" <small style='font-size:13px;'>"+eogs+"</small></span><span style='color:"+eic+";display:block;'>💰 歳入 "+eil+" <small style='font-size:13px;'>"+eigs+"</small></span></div></div>" +
-        "<div class='stat' id='s6' style='background:"+educ+"18;border-color:"+educ+"44;'><div class='si'>📚</div><div class='sl'>教育費一般財源比率</div><div class='sv' style='color:"+educ+";'>"+edul+"</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s7' style='background:"+chc+"18;border-color:"+chc+"44;'><div class='si'>👧</div><div class='sl'>子ども1人当たり投資額</div><div class='sv' style='color:"+chc+";'>"+chl+"</div><div class='su'>詳細を見る ▶</div></div>" +
+      "<h2 class='sr-only'>財政指標の一覧</h2><div class='grid'>" +
+        "<div class='stat' id='s0' role='button' tabindex='0' style='background:"+fc+"18;border-color:"+fc+"44;'><div class='si'>💪</div><div class='sl'>財政力指数</div><div class='sv' style='color:"+fc+";'>"+d.f.toFixed(2)+"</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s1' role='button' tabindex='0' style='background:"+xc+"18;border-color:"+xc+"44;'><div class='si'>📊</div><div class='sl'>経常収支比率</div><div class='sv' style='color:"+xc+";'>"+d.x.toFixed(1)+"%</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s2' role='button' tabindex='0' style='background:"+uc+"18;border-color:"+uc+"44;'><div class='si'>🏦</div><div class='sl'>将来負担比率</div><div class='sv' style='color:"+uc+";'>"+ul+"</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s3' role='button' tabindex='0' style='background:"+rc+"18;border-color:"+rc+"44;'><div class='si'>🐧</div><div class='sl'>財政調整基金</div><div class='sv' style='color:"+rc+";'>"+d.r+"億円</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s4' role='button' tabindex='0' style='background:"+gc+"18;border-color:"+gc+"44;'><div class='si'>👥</div><div class='sl'>人口増減率</div><div class='sv' style='color:"+gc+";'>"+(d.g>=0?"+":"")+d.g.toFixed(1)+"%</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s5' role='button' tabindex='0' style='background:#7bb8e818;border-color:#7bb8e844;'><div class='si'>💹</div><div class='sl'>歳出／歳入</div><div class='sv' style='font-size:14px;line-height:1.7;'><span style='color:"+eoc+";display:block;'>💸 歳出 "+eol+" <small style='font-size:13px;'>"+eogs+"</small></span><span style='color:"+eic+";display:block;'>💰 歳入 "+eil+" <small style='font-size:13px;'>"+eigs+"</small></span></div></div>" +
+        "<div class='stat' id='s6' role='button' tabindex='0' style='background:"+educ+"18;border-color:"+educ+"44;'><div class='si'>📚</div><div class='sl'>教育費一般財源比率</div><div class='sv' style='color:"+educ+";'>"+edul+"</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s7' role='button' tabindex='0' style='background:"+chc+"18;border-color:"+chc+"44;'><div class='si'>👧</div><div class='sl'>子ども1人当たり投資額</div><div class='sv' style='color:"+chc+";'>"+chl+"</div><div class='su'>詳細を見る ▶</div></div>" +
       "</div>" +
       "<div class='adv'><strong>みっちーからのひとこと</strong><br>"+advice(nm,d)+"</div>" +
       "<div style='text-align:center;margin:16px 0 4px;'><button id='shareImgBtn' style='background:linear-gradient(135deg,#a08be8,#e060a8);color:white;border:none;border-radius:50px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(140,80,220,0.3);display:inline-flex;align-items:center;gap:8px;'>結果を共有する<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='18' cy='5' r='3'></circle><circle cx='6' cy='12' r='3'></circle><circle cx='18' cy='19' r='3'></circle><line x1='8.59' y1='13.51' x2='15.42' y2='17.49'></line><line x1='15.41' y1='6.51' x2='8.59' y2='10.49'></line></svg></button></div>" +
@@ -1521,3 +1521,12 @@ function shareLine() {
   }
   window.open("https://social-plugins.line.me/lineit/share?url=" + encodeURIComponent("https://ray-ray870.github.io/mitchie-fiscal/") + "&text=" + encodeURIComponent(text), "_blank");
 }
+
+/* --- アクセシビリティ: role="button" をキーボードでも押せるようにする --- */
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+  var el = e.target;
+  if (!el || !el.getAttribute || el.getAttribute("role") !== "button") return;
+  e.preventDefault();
+  el.click();
+});
