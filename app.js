@@ -511,12 +511,12 @@
   var DB = null;
 
   var dataFiles = [
-    "../data-hokkaido-tohoku.json",
-    "../data-kanto.json",
-    "../data-chubu.json",
-    "../data-kinki.json",
-    "../data-chugoku-shikoku.json",
-    "../data-kyushu.json"
+    "data-hokkaido-tohoku.json",
+    "data-kanto.json",
+    "data-chubu.json",
+    "data-kinki.json",
+    "data-chugoku-shikoku.json",
+    "data-kyushu.json"
   ];
   Promise.all(dataFiles.map(function(f){ return fetch(f).then(function(r){ return r.json(); }); }))
     .then(function(results){
