@@ -525,6 +525,47 @@
      集中してしまう。都道府県は高校・国道・河川など大規模な資産を抱えるため、
      将来負担比率や経常収支比率の水準が構造的に高いことによる。
      47県の実際の分布をもとに、中央値の県が中位に来るよう基準を引き直した。 */
+  /* --- スコアと指標の食い違いを知らせる帯 ---
+     総合スコアだけを見て判断されるのを防ぐため、
+     スコアが高いのに弱い指標があるとき／低いのに強い指標があるときに
+     スコアバーの直上へ1行を出す。 */
+  function noteHtml(d, h, isPref) {
+    var GOOD = "#6dcfad", WARN = "#f0c46a";
+    var warn = [], good = [];
+    var cxv = colorX(d.x), cuv = colorU(d.u, isPref);
+    var cdv = (d.d == null) ? "#7bb8e8"
+            : d.d < 10 ? "#6dcfad" : d.d < 18 ? "#7bb8e8" : d.d < 25 ? "#f0c46a" : "#f0876a";
+    var isWeak = function(c){ return c === "#f0c46a" || c === "#f0876a"; };
+    var isBest = function(c){ return c === "#6dcfad"; };
+
+    if (h >= 70) {
+      if (isWeak(cxv)) warn.push("経常収支比率");
+      if (isWeak(cuv)) warn.push("将来負担比率");
+      if (isWeak(cdv)) warn.push("実質公債費比率");
+    }
+    if (h < 50) {
+      if (isBest(cxv)) good.push("経常収支比率");
+      if (isBest(cuv)) good.push("将来負担比率");
+      if (isBest(cdv)) good.push("実質公債費比率");
+    }
+    if (!warn.length && !good.length) return "";
+
+    var row = function(color, bg, icon, text) {
+      return "<div style='background:" + bg + ";border-left:3px solid " + color +
+        ";padding:9px 11px;margin-bottom:6px;display:flex;gap:8px;align-items:flex-start;'>" +
+        "<span style='font-size:15px;flex-shrink:0;' aria-hidden='true'>" + icon + "</span>" +
+        "<span style='font-size:13px;line-height:1.5;color:#6a5a2a;'>" + text + "</span></div>";
+    };
+    var out = "";
+    warn.forEach(function(n){
+      out += row(WARN, "#fdf5d4", "⚠️", "ただし、" + n + "は高い水準です");
+    });
+    good.forEach(function(n){
+      out += row(GOOD, "#d4f0e8", "💡", n + "は健全な水準です");
+    });
+    return out;
+  }
+
   function calcHPref(f,d,x,u,r,eo) {
     function band(v, zero, full) {
       if (v == null) return 0;
@@ -761,7 +802,7 @@
           "<div class='hmsg'>"+pr.m+"</div>" +
         "</div>" +
       "</div>" +
-      "<h2 class='sr-only'>健康度スコア</h2><div class='meter' id='m0' role='button' tabindex='0' style='border:3px solid "+pr.c+";background:"+pr.c+"10;'><div class='mt'><span>総合財政健全度スコア（参考値）</span></div>" +
+      "<h2 class='sr-only'>健康度スコア</h2>" + noteHtml(d, h, d.p === nm) + "<div class='meter' id='m0' role='button' tabindex='0' style='border:3px solid "+pr.c+";background:"+pr.c+"10;'><div class='mt'><span>総合財政健全度スコア（参考値）</span></div>" +
         "<div class='mb'><div id='hbar' class='mf' style='width:0%;background:"+pr.c+";'></div></div>" +
         "<div class='mv'><span style='color:"+pr.c+";font-weight:700;'>"+h+" / 100</span><span class='mt-tap'>タップでスコアの似た自治体と詳細を見る▶</span></div>" +
       "</div>" +
@@ -809,7 +850,7 @@
   }
 
   var META = {
-    health:{icon:"🏥",label:"総合財政健全度スコア",desc:"総務省の公式データから財政力・借金返済・固定費・将来負担・貯金の5指標を用いて算出した、本アプリ独自の参考スコアです（0〜100点）。公式の格付けではありません。\n\n都道府県は高校・国道・河川など大規模な資産を抱えるため、将来負担比率や経常収支比率の水準が市区町村より構造的に高くなります。そのため都道府県には専用の基準を用いており、市区町村の点数とは直接比較できません。\n\n目安\n85点以上 → 絶好調\n70点以上 → 元気\n50点以上 → ちょっとしんどい\n30点以上 → ぐったり\n30点未満 → ひんし状態",unit:"pt",hib:true},
+    health:{icon:"🏥",label:"総合財政健全度スコア",desc:"総務省の公式データから財政力・借金返済・固定費・将来負担・貯金の5指標を用いて算出した、本アプリ独自の参考スコアです（0〜100点）。公式の格付けではありません。\n\n都道府県は高校・国道・河川など大規模な資産を抱えるため、将来負担比率や経常収支比率の水準が市区町村より構造的に高くなります。そのため都道府県には専用の基準を用いており、市区町村の点数とは直接比較できません。\n\n目安\n85点以上 → 絶好調\n70点以上 → 元気\n50点以上 → ちょっとしんどい\n30点以上 → ぐったり\n30点未満 → ひんし状態\n\nスコアの上に出る帯について\n⚠️「ただし、〜は高い水準です」\n総合スコアは高めでも、その指標だけが弱い場合に出ます。たとえば税収などの体力はあるものの、毎年の支出が固まっていて、新しい取り組みに回せるお金は少ない、という状態です。\n\n💡「〜は健全な水準です」\n総合スコアは低めでも、その指標は明確に良い場合に出ます。全体としては厳しくても、その部分の管理はできている、という意味です。\n\nスコアは5つの指標をまとめた参考値です。1つの数字だけで判断せず、各指標もあわせて見てください。",unit:"pt",hib:true},
     debt:{icon:"💳",label:"実質公債費比率",desc:"一般会計等が負担する実質的な公債費の標準財政規模に対する比率。25%以上で早期健全化基準、35%以上で財政再生基準となります。出典：総務省令和6年度\n\n目安\n10%未満 → 健全\n18%超 → 注意\n25%以上 → 早期健全化基準\n35%以上 → 財政再生基準\n\n📈 高くなる理由\n① 過去の大型公共事業・施設建設で地方債を多く発行した\n② 合併特例債など特別な借入が多い\nなど。\n\n📉 低くなる理由\n① 堅実な財政運営で借入を抑制してきた\n② 財政力が高く税収が豊富なため借入が少ない\nなど。",unit:"%",hib:false},
     fiscalPower:{icon:"💪",label:"財政力指数",desc:"基準財政収入額を基準財政需要額で割った値。1.0以上の団体には地方交付税が交付されません（不交付団体）。出典：総務省令和6年度\n\n目安\n1.0以上 → 不交付団体（財政力豊か）\n0.7以上 → 比較的安定\n0.5未満 → 交付税依存度が高い\n\n📈 高くなる理由\n① 企業・工場が多く法人税・固定資産税が豊富\n② 人口が多く個人住民税が充実している\nなど。\n\n📉 低くなる理由\n① 産業が乏しく税収基盤が弱い\n② 人口減少・高齢化で税収が低下している\nなど。",unit:"",hib:true},
     flex:{icon:"📊",label:"経常収支比率",desc:"毎年度の経常的収入のうち人件費・扶助費・公債費など経常的経費に充当された割合。低いほど財政に弾力性があります。出典：総務省令和6年度\n\n目安\nかつて「75〜80%が望ましい」とされてきましたが、これは法令上の基準ではなく慣例的な目安です。社会保障費の増加により全国的に上昇し、2003年度以降は全国平均が90%を超え続けています。\n\n🟢 90%未満 → 全国の中では余裕があるほう\n🔵 90〜95% → 標準的な水準（市区町村の中央値91.5%／都道府県93.8%）\n🟡 95〜98% → 新しい取り組みに回せるお金が少ない\n🟠 98%以上 → 余力がほぼない（全体の約9%）\n\nこの数字だけで良し悪しは判断できません。実質公債費比率や財政力指数と合わせて見てください。\n\n📈 高くなる理由\n① 人件費・社会保障費など固定的な支出が大きい\n② 過去の借金返済（公債費）が重い\nなど。\n\n📉 低くなる理由\n① 税収が豊富で財政に余裕がある\n② 行財政改革で人件費・固定費を削減した\nなど。",unit:"%",hib:false},
