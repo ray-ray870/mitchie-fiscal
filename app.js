@@ -137,7 +137,7 @@
     var scoreFontSize = compact ? "13px" : "15px";
     var imgSize = compact ? "34px" : "38px";
     var labelFontSize = compact ? "10px" : "11px";
-    var healthScores = entries.map(function(e){ return calcH(e.d.f,e.d.d,e.d.x,e.d.u,e.d.r,e.d.eo); });
+    var healthScores = entries.map(function(e){ return calcH(e.d.f,e.d.d,e.d.x,e.d.u,e.d.r,e.d.eo,e.d.__pref); });
     var bestHI=0, worstHI=0;
     for (var i=1;i<healthScores.length;i++){
       if (healthScores[i]>healthScores[bestHI]) bestHI=i;
@@ -520,7 +520,27 @@
     return v < 60 ? "#7bb8e8" : v < 100 ? "#f0c46a" : "#f0876a";
   }
 
-  function calcH(f,d,x,u,r,eo) {
+  /* --- 都道府県専用のスコア ---
+     市区町村向けの基準をそのまま使うと、47都道府県のうち46県が下位2段階に
+     集中してしまう。都道府県は高校・国道・河川など大規模な資産を抱えるため、
+     将来負担比率や経常収支比率の水準が構造的に高いことによる。
+     47県の実際の分布をもとに、中央値の県が中位に来るよう基準を引き直した。 */
+  function calcHPref(f,d,x,u,r,eo) {
+    function band(v, zero, full) {
+      if (v == null) return 0;
+      var t = (zero - Math.min(Math.max(v, Math.min(zero, full)), Math.max(zero, full))) / (zero - full);
+      return Math.min(Math.max(t, 0), 1);
+    }
+    var sf = Math.min(Math.max((f - 0.20) / (0.90 - 0.20), 0), 1) * 25;
+    var sd = band(d, 20, 6) * 20;
+    var sx = band(x, 101, 86) * 20;
+    var su = (!u || u <= 0) ? 20 : band(u, 340, 80) * 20;
+    var sr = (eo && eo > 0 && r != null) ? Math.min((r / eo * 100) / 5 * 15, 15) : 7.5;
+    return Math.round(Math.min(sf + sd + sx + su + sr, 100));
+  }
+
+  function calcH(f,d,x,u,r,eo,isPref) {
+    if (isPref) return calcHPref(f,d,x,u,r,eo);
     var sf = Math.min(f/1.2*25, 25);
     var sd = Math.max((25-Math.min(d,25))/25*20, 0);
     var sx = Math.min(Math.max((100-x)/15*20, 0), 20);
@@ -544,6 +564,7 @@
     .then(function(results){
       DB = {};
       results.forEach(function(data){ Object.assign(DB, data); });
+      Object.keys(DB).forEach(function(k){ if (DB[k] && DB[k].p === k) DB[k].__pref = true; });
       var cnt = Object.keys(DB).length;
       window.mitchieMunicipalityCount = cnt;
       var el2 = document.getElementById("municipality-count2");
@@ -613,7 +634,7 @@
   }
 
   function advice(name, d) {
-    var h = calcH(d.f,d.d,d.x,d.u,d.r,d.eo);
+    var h = calcH(d.f,d.d,d.x,d.u,d.r,d.eo,d.__pref);
     var r = d.r!=null ? d.r.toFixed(1) : "－";
     var g = d.g!=null ? (d.g>=0?"+":"")+d.g.toFixed(1) : "－";
     if (d.d>25) return name+"は実質公債費比率が"+d.d+"%と非常に重く財政再建が急務です🚨 ただし財政調整基金が"+r+"億円あり、返済が進めば将来的な改善も期待できます";
@@ -630,7 +651,7 @@
     if (s>=70) return {l:"元気なみっちー",c:"#7bb8e8",bg:"#e8f4fd",e:"💙",m:"財政はおおむね安定しています。引き続き堅実な運営が続けられています。",img:"normal"};
     if (s>=50) return {l:"ちょっとしんどいみっちー",c:"#f0c46a",bg:"#fdf5d4",e:"⚠️",m:"財政にやや課題があります。借入比率が高めで改善が必要な状態です。",img:"tired"};
     if (s>=30) return {l:"ぐったりみっちー",c:"#f0876a",bg:"#fde8e0",e:"🆘",m:"財政状況はかなり厳しい状態です。構造的な改革が急務です。",img:"sick"};
-    return {l:"ひんし状態みっちー",c:"#d0505a",bg:"#ffe0e4",e:"🚨",m:"財政は非常に危機的な状況です。財政再生団体に相当する深刻な問題を抱えています。",img:"critical"};
+    return {l:"ひんし状態みっちー",c:"#d0505a",bg:"#ffe0e4",e:"🚨",m:"財政は非常に厳しい状態です。複数の指標が全国でも下位の水準にあります。",img:"critical"};
   }
 
   function diagnose() {
@@ -703,7 +724,7 @@
         gtag('event', 'search_city', { city_name: nm });
       }
     }
-    var h = calcH(d.f,d.d,d.x,d.u,d.r,d.eo);
+    var h = calcH(d.f,d.d,d.x,d.u,d.r,d.eo,d.__pref);
     var pr = prof(h);
     var fc = d.f>=1.0?"#6dcfad":d.f>=0.7?"#7bb8e8":"#f0876a";
     var dc = d.d<10?"#6dcfad":d.d<18?"#7bb8e8":d.d<25?"#f0c46a":"#f0876a";
@@ -788,7 +809,7 @@
   }
 
   var META = {
-    health:{icon:"🏥",label:"総合財政健全度スコア",desc:"総務省の公式データから財政力・借金返済・固定費・将来負担・貯金の5指標を用いてAIが独自に算出した参考スコアです（0〜100点）。\n\n目安\n85点以上 → 絶好調\n70点以上 → 元気\n50点以上 → ちょっとしんどい\n30点以上 → ぐったり\n30点未満 → ひんし状態",unit:"pt",hib:true},
+    health:{icon:"🏥",label:"総合財政健全度スコア",desc:"総務省の公式データから財政力・借金返済・固定費・将来負担・貯金の5指標を用いて算出した、本アプリ独自の参考スコアです（0〜100点）。公式の格付けではありません。\n\n都道府県は高校・国道・河川など大規模な資産を抱えるため、将来負担比率や経常収支比率の水準が市区町村より構造的に高くなります。そのため都道府県には専用の基準を用いており、市区町村の点数とは直接比較できません。\n\n目安\n85点以上 → 絶好調\n70点以上 → 元気\n50点以上 → ちょっとしんどい\n30点以上 → ぐったり\n30点未満 → ひんし状態",unit:"pt",hib:true},
     debt:{icon:"💳",label:"実質公債費比率",desc:"一般会計等が負担する実質的な公債費の標準財政規模に対する比率。25%以上で早期健全化基準、35%以上で財政再生基準となります。出典：総務省令和6年度\n\n目安\n10%未満 → 健全\n18%超 → 注意\n25%以上 → 早期健全化基準\n35%以上 → 財政再生基準\n\n📈 高くなる理由\n① 過去の大型公共事業・施設建設で地方債を多く発行した\n② 合併特例債など特別な借入が多い\nなど。\n\n📉 低くなる理由\n① 堅実な財政運営で借入を抑制してきた\n② 財政力が高く税収が豊富なため借入が少ない\nなど。",unit:"%",hib:false},
     fiscalPower:{icon:"💪",label:"財政力指数",desc:"基準財政収入額を基準財政需要額で割った値。1.0以上の団体には地方交付税が交付されません（不交付団体）。出典：総務省令和6年度\n\n目安\n1.0以上 → 不交付団体（財政力豊か）\n0.7以上 → 比較的安定\n0.5未満 → 交付税依存度が高い\n\n📈 高くなる理由\n① 企業・工場が多く法人税・固定資産税が豊富\n② 人口が多く個人住民税が充実している\nなど。\n\n📉 低くなる理由\n① 産業が乏しく税収基盤が弱い\n② 人口減少・高齢化で税収が低下している\nなど。",unit:"",hib:true},
     flex:{icon:"📊",label:"経常収支比率",desc:"毎年度の経常的収入のうち人件費・扶助費・公債費など経常的経費に充当された割合。低いほど財政に弾力性があります。出典：総務省令和6年度\n\n目安\nかつて「75〜80%が望ましい」とされてきましたが、これは法令上の基準ではなく慣例的な目安です。社会保障費の増加により全国的に上昇し、2003年度以降は全国平均が90%を超え続けています。\n\n🟢 90%未満 → 全国の中では余裕があるほう\n🔵 90〜95% → 標準的な水準（市区町村の中央値91.5%／都道府県93.8%）\n🟡 95〜98% → 新しい取り組みに回せるお金が少ない\n🟠 98%以上 → 余力がほぼない（全体の約9%）\n\nこの数字だけで良し悪しは判断できません。実質公債費比率や財政力指数と合わせて見てください。\n\n📈 高くなる理由\n① 人件費・社会保障費など固定的な支出が大きい\n② 過去の借金返済（公債費）が重い\nなど。\n\n📉 低くなる理由\n① 税収が豊富で財政に余裕がある\n② 行財政改革で人件費・固定費を削減した\nなど。",unit:"%",hib:false},
@@ -844,7 +865,7 @@
       });
       return;
     }
-    var val = key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo):key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?cur.u:key==="reserve"?cur.r:key==="budget"?(cur.eo||0):key==="education"?(cur.edu||0):key==="childInvest"?(cur.ch||0):cur.g;
+    var val = key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref):key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?cur.u:key==="reserve"?cur.r:key==="budget"?(cur.eo||0):key==="education"?(cur.edu||0):key==="childInvest"?(cur.ch||0):cur.g;
     var seed = (Math.abs(val*137) + key.charCodeAt(0)*31) % 100;
     var MAX_HIST = 7; // 過去最大7年分＋最新=8ポイントまで
     function countHist(prefix, startIdx) {
@@ -873,11 +894,11 @@
         if (key==="future") return cur["u"+suffix];
         if (key==="health") {
           var f=cur["f"+suffix], d=cur["d"+suffix], x=cur["x"+suffix];
-          return (f!=null&&d!=null&&x!=null)?calcH(f,d,x,cur.u,cur.r,cur.eo):null;
+          return (f!=null&&d!=null&&x!=null)?calcH(f,d,x,cur.u,cur.r,cur.eo,cur.__pref):null;
         }
         return null;
       };
-      var mainVal = key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?cur.u:key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo):null;
+      var mainVal = key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?cur.u:key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref):null;
       var lastFiscalHist = N>0 ? getVal(N) : null;
       var fiscalIsDup = (mainVal!=null && lastFiscalHist!=null && Math.abs(mainVal-lastFiscalHist) < 0.05);
       if (fiscalIsDup) { N = N - 1; }
@@ -935,7 +956,7 @@
     if (rankableKeys[key] && cur && DB) {
       var lowerBetter = (key==="debt"||key==="flex"||key==="future");
       var getRankVal = function(e){
-        if (key==="health") return (e.f!=null&&e.d!=null&&e.x!=null)?calcH(e.f,e.d,e.x,e.u,e.r,e.eo):null;
+        if (key==="health") return (e.f!=null&&e.d!=null&&e.x!=null)?calcH(e.f,e.d,e.x,e.u,e.r,e.eo,e.__pref):null;
         if (key==="fiscalPower") return e.f;
         if (key==="debt") return e.d;
         if (key==="flex") return e.x;
@@ -976,7 +997,7 @@
     var peersHtml = "";
     var curTypeLabel = "";
     if (key === "health" && cur && DB) {
-      var myScore = calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo);
+      var myScore = calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref);
       var peerType = function(e){
         var fLv = e.f>=1.0 ? "財政力高め" : e.f>=0.6 ? "財政力標準" : "財政力低め";
         var uLv = (e.u==null||e.u<=0) ? "借金なし" : e.u<100 ? "借金少なめ" : "借金重め";
@@ -993,7 +1014,7 @@
           if (k3 === e.p) return; // 都道府県自身は除外
         }
         if (e.f==null||e.d==null||e.x==null) return;
-        var s = calcH(e.f,e.d,e.x,e.u,e.r,e.eo);
+        var s = calcH(e.f,e.d,e.x,e.u,e.r,e.eo,e.__pref);
         peerList.push({k:k3, s:s, diff:Math.abs(s-myScore), type:peerType(e)});
       });
       var typeNums = {};
@@ -1121,7 +1142,7 @@
     }
     // 各項目の判定メッセージ
     if (key === "health" && cur) {
-      var h2 = calcH(cur.f, cur.d, cur.x, cur.u, cur.r, cur.eo);
+      var h2 = calcH(cur.f, cur.d, cur.x, cur.u, cur.r, cur.eo, cur.__pref);
       var hj = h2>=85?"絶好調な状態":h2>=70?"おおむね安定した状態":h2>=50?"やや課題がある状態":h2>=30?"かなり厳しい状態":"非常に危機的な状態";
       var hc = h2>=85?"#6dcfad":h2>=70?"#7bb8e8":h2>=50?"#f0c46a":h2>=30?"#f0876a":"#d0505a";
       descHtml += "<div style='background:rgba(232,160,150,0.1);border:1.5px solid rgba(232,160,150,0.3);border-radius:10px;padding:10px 12px;margin-top:10px;'><strong style='color:"+hc+";'>"+curName+"の総合スコアは"+h2+"点で、"+hj+"です。</strong>" + (curTypeLabel ? " <span style='color:#8070c0;font-size:12px;'>（"+curTypeLabel+"）</span>" : "") + "</div>";
