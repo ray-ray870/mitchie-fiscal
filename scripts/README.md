@@ -38,6 +38,18 @@ GitHubアプリで `scripts/config.json` を開き、鉛筆アイコンで編集
 https://github.com/ray-ray870/mitchie-fiscal/actions/workflows/update-data.yml で「Run workflow」を実行。
 安全設計により、検証に成功した場合のみ自動コミットされます。
 
+### ③.5 デプロイを手動で実行
+
+https://github.com/ray-ray870/mitchie-fiscal/actions/workflows/deploy-with-check.yml
+で「ワークフローの実行」を実行します。
+
+⚠️ **この手順を忘れると、データは更新されているのにサイトに反映されません。**
+
+GitHubの仕様上、ワークフロー（bot）がコミットした変更は別のワークフローを起動しません。
+`update-data.yml` はbotがコミットするため、公開処理が自動で走らないためです。
+
+1〜2分で公開されます。
+
 ### ④ index.htmlの年度表記を手動更新
 
 index.html内に直接書かれている「令和6年度」のような年度表記（吹き出しメッセージ、各指標の出典表記、起債許可団体等のバッジ表示など）を、新しい年度に手動で書き換えてコミット。
