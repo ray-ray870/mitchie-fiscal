@@ -1,0 +1,130 @@
+name: 構文チェック後にデプロイ
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Node.jsをセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: app.js の構文チェック
+        run: node --check app.js
+
+      - name: images.js の構文チェック
+        run: node --check images.js
+
+      - name: 必要なファイルが揃っているか確認
+        run: |
+          python3 - << 'PYEOF'
+          import os, sys
+          need = ['index.html', 'style.css', 'app.js', 'images.js', 'manifest.json',
+                  'data-hokkaido-tohoku.json', 'data-kanto.json', 'data-chubu.json',
+                  'data-kinki.json', 'data-chugoku-shikoku.json', 'data-kyushu.json']
+          miss = [f for f in need if not os.path.exists(f)]
+          if miss:
+              print('::error::ファイルが見つかりません: ' + ', '.join(miss))
+              sys.exit(1)
+          print('必要ファイル: OK (%d件)' % len(need))
+          PYEOF
+
+      - name: 読み込みタグと順序を確認
+        run: |
+          python3 - << 'PYEOF'
+          import sys
+          h = open('index.html', encoding='utf-8').read()
+          ng = False
+          if 'style.css' not in h:
+              print('::error::index.html に style.css の読み込みがありません。')
+              ng = True
+          if 'app.js' not in h:
+              print('::error::index.html に app.js の読み込みがありません。')
+              ng = True
+          i, c, a = h.find('images.js'), h.find('html2canvas'), h.find('app.js')
+          if not (i != -1 and c != -1 and a != -1 and i < c < a):
+              print('::error::読み込み順序が違います。images.js → html2canvas → app.js の順である必要があります。')
+              ng = True
+          if 'G-5BGX6KQZFL' not in h:
+              print('::error::GA4タグが消えています。')
+              ng = True
+          if 'og:image' not in h:
+              print('::error::OGPタグが消えています。')
+              ng = True
+          if ng:
+              sys.exit(1)
+          print('読み込みタグと順序: OK')
+          PYEOF
+
+      - name: HTMLタグの開閉バランスを確認
+        run: |
+          python3 - << 'PYEOF'
+          import sys
+          h = open('index.html', encoding='utf-8').read()
+          o, c = h.count('<div'), h.count('</div>')
+          if o != c:
+              print('::error::<div>の数(%d)と</div>の数(%d)が一致していません。' % (o, c))
+              sys.exit(1)
+          print('<div>タグのバランス: OK (%d組)' % o)
+          PYEOF
+
+      - name: データファイルの中身を確認
+        run: |
+          python3 - << 'PYEOF'
+          import json, glob, sys
+          total = 0
+          for f in sorted(glob.glob('data-*.json')):
+              try:
+                  d = json.load(open(f, encoding='utf-8'))
+              except Exception as e:
+                  print('::error::%s が壊れています: %s' % (f, e))
+                  sys.exit(1)
+              if not isinstance(d, dict) or len(d) == 0:
+                  print('::error::%s の中身が空です。' % f)
+                  sys.exit(1)
+              print('  %s %d件' % (f, len(d)))
+              total += len(d)
+          if total < 1700:
+              print('::error::データ件数が %d件しかありません。1,700件を下回っています。' % total)
+              sys.exit(1)
+          print('データ合計: %d件 OK' % total)
+          PYEOF
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Pagesの設定を準備
+        uses: actions/configure-pages@v5
+
+      - name: 公開用データをまとめる
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: GitHub Pagesに公開
+        id: deployment
+        uses: actions/deploy-pages@v4
