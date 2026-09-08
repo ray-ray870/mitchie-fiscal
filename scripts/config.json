@@ -28,5 +28,9 @@
   "age_population": {
     "muni": "https://www.soumu.go.jp/main_content/001023715.xlsx",
     "pref": "https://www.soumu.go.jp/main_content/001023713.xlsx"
+  },"sfs": {
+    "_note": "決算カードから標準財政規模を取得。base_muni は東京都の市町村決算カードExcelの番号。毎年変わるので更新時に確認して書き換える。",
+    "base_muni": 1063971,
+    "pref_card": "https://www.soumu.go.jp/main_content/001064044.xlsx"
   }
 }
