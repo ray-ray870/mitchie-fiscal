@@ -137,7 +137,7 @@
     var scoreFontSize = compact ? "13px" : "15px";
     var imgSize = compact ? "34px" : "38px";
     var labelFontSize = compact ? "10px" : "11px";
-    var healthScores = entries.map(function(e){ return calcH(e.d.f,e.d.d,e.d.x,e.d.u,e.d.r,e.d.eo,e.d.__pref); });
+    var healthScores = entries.map(function(e){ return calcH(e.d.f,e.d.d,e.d.x,e.d.u,e.d.r,e.d.eo,e.d.__pref,e.d.sfs); });
     var bestHI=0, worstHI=0;
     for (var i=1;i<healthScores.length;i++){
       if (healthScores[i]>healthScores[bestHI]) bestHI=i;
@@ -602,7 +602,7 @@
     return out;
   }
 
-  function calcHPref(f,d,x,u,r,eo) {
+  function calcHPref(f,d,x,u,r,eo,sfs) {
     function band(v, zero, full) {
       if (v == null) return 0;
       var t = (zero - Math.min(Math.max(v, Math.min(zero, full)), Math.max(zero, full))) / (zero - full);
@@ -612,17 +612,17 @@
     var sd = band(d, 20, 6) * 20;
     var sx = band(x, 101, 86) * 20;
     var su = (!u || u <= 0) ? 20 : band(u, 340, 80) * 20;
-    var sr = (eo && eo > 0 && r != null) ? Math.min((r / eo * 100) / 5 * 15, 15) : 7.5;
+    var sr = (sfs && sfs > 0 && r != null) ? Math.min((r / sfs * 100) / 10 * 15, 15) : 7.5;
     return Math.round(Math.min(sf + sd + sx + su + sr, 100));
   }
 
-  function calcH(f,d,x,u,r,eo,isPref) {
-    if (isPref) return calcHPref(f,d,x,u,r,eo);
+  function calcH(f,d,x,u,r,eo,isPref,sfs) {
+    if (isPref) return calcHPref(f,d,x,u,r,eo,sfs);
     var sf = Math.min(f/1.2*25, 25);
     var sd = Math.max((25-Math.min(d,25))/25*20, 0);
     var sx = Math.min(Math.max((100-x)/15*20, 0), 20);
     var su = (!u || u <= 0) ? 20 : Math.max((200-Math.min(u,200))/200*20, 0);
-    var sr = (eo && eo > 0) ? Math.min((r/eo*100)/15*15, 15) : 7.5;
+    var sr = (sfs && sfs > 0 && r != null) ? Math.min((r/sfs*100)/20*15, 15) : 7.5;
     return Math.round(Math.min(sf+sd+sx+su+sr, 100));
   }
 
@@ -711,7 +711,7 @@
   }
 
   function advice(name, d) {
-    var h = calcH(d.f,d.d,d.x,d.u,d.r,d.eo,d.__pref);
+    var h = calcH(d.f,d.d,d.x,d.u,d.r,d.eo,d.__pref,d.sfs);
     var r = d.r!=null ? d.r.toFixed(1) : "－";
     var g = d.g!=null ? (d.g>=0?"+":"")+d.g.toFixed(1) : "－";
     if (d.d>25) return name+"は実質公債費比率が"+d.d+"%と非常に重く財政再建が急務です🚨 ただし財政調整基金が"+r+"億円あり、返済が進めば将来的な改善も期待できます";
@@ -801,7 +801,7 @@
         gtag('event', 'search_city', { city_name: nm });
       }
     }
-    var h = calcH(d.f,d.d,d.x,d.u,d.r,d.eo,d.__pref);
+    var h = calcH(d.f,d.d,d.x,d.u,d.r,d.eo,d.__pref,d.sfs);
     var pr = prof(h);
     var fc = colorF(d.f);
     var dc = d.d<10?"#6dcfad":d.d<18?"#7bb8e8":d.d<25?"#f0c46a":"#f0876a";
@@ -942,7 +942,7 @@
       });
       return;
     }
-    var val = key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref):key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?cur.u:key==="reserve"?cur.r:key==="budget"?(cur.eo||0):key==="education"?(cur.edu||0):key==="childInvest"?(cur.ch||0):cur.g;
+    var val = key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs):key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?cur.u:key==="reserve"?cur.r:key==="budget"?(cur.eo||0):key==="education"?(cur.edu||0):key==="childInvest"?(cur.ch||0):cur.g;
     var seed = (Math.abs(val*137) + key.charCodeAt(0)*31) % 100;
     var MAX_HIST = 7; // 過去最大7年分＋最新=8ポイントまで
     function countHist(prefix, startIdx) {
@@ -971,11 +971,11 @@
         if (key==="future") return cur["u"+suffix];
         if (key==="health") {
           var f=cur["f"+suffix], d=cur["d"+suffix], x=cur["x"+suffix];
-          return (f!=null&&d!=null&&x!=null)?calcH(f,d,x,cur.u,cur.r,cur.eo,cur.__pref):null;
+          return (f!=null&&d!=null&&x!=null)?calcH(f,d,x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs):null;
         }
         return null;
       };
-      var mainVal = key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?cur.u:key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref):null;
+      var mainVal = key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?cur.u:key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs):null;
       var lastFiscalHist = N>0 ? getVal(N) : null;
       var fiscalIsDup = (mainVal!=null && lastFiscalHist!=null && Math.abs(mainVal-lastFiscalHist) < 0.05);
       if (fiscalIsDup) { N = N - 1; }
@@ -1033,7 +1033,7 @@
     if (rankableKeys[key] && cur && DB) {
       var lowerBetter = (key==="debt"||key==="flex"||key==="future");
       var getRankVal = function(e){
-        if (key==="health") return (e.f!=null&&e.d!=null&&e.x!=null)?calcH(e.f,e.d,e.x,e.u,e.r,e.eo,e.__pref):null;
+        if (key==="health") return (e.f!=null&&e.d!=null&&e.x!=null)?calcH(e.f,e.d,e.x,e.u,e.r,e.eo,e.__pref,e.sfs):null;
         if (key==="fiscalPower") return e.f;
         if (key==="debt") return e.d;
         if (key==="flex") return e.x;
@@ -1074,7 +1074,7 @@
     var peersHtml = "";
     var curTypeLabel = "";
     if (key === "health" && cur && DB) {
-      var myScore = calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref);
+      var myScore = calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs);
       var peerType = function(e){
         var fLv = e.f>=1.0 ? "財政力高め" : e.f>=0.6 ? "財政力標準" : "財政力低め";
         var uLv = (e.u==null||e.u<=0) ? "借金なし" : e.u<100 ? "借金少なめ" : "借金重め";
@@ -1091,7 +1091,7 @@
           if (k3 === e.p) return; // 都道府県自身は除外
         }
         if (e.f==null||e.d==null||e.x==null) return;
-        var s = calcH(e.f,e.d,e.x,e.u,e.r,e.eo,e.__pref);
+        var s = calcH(e.f,e.d,e.x,e.u,e.r,e.eo,e.__pref,e.sfs);
         peerList.push({k:k3, s:s, diff:Math.abs(s-myScore), type:peerType(e)});
       });
       var typeNums = {};
@@ -1221,7 +1221,7 @@ if (key === "growth" && cur && cur.pop) {
     }
     // 各項目の判定メッセージ
     if (key === "health" && cur) {
-      var h2 = calcH(cur.f, cur.d, cur.x, cur.u, cur.r, cur.eo, cur.__pref);
+      var h2 = calcH(cur.f, cur.d, cur.x, cur.u, cur.r, cur.eo, cur.__pref, cur.sfs);
       var hj = h2>=85?"絶好調な状態":h2>=70?"おおむね安定した状態":h2>=50?"やや課題がある状態":h2>=30?"かなり厳しい状態":"非常に危機的な状態";
       var hc = h2>=85?"#6dcfad":h2>=70?"#7bb8e8":h2>=50?"#f0c46a":h2>=30?"#f0876a":"#d0505a";
       descHtml += "<div style='background:rgba(232,160,150,0.1);border:1.5px solid rgba(232,160,150,0.3);border-radius:10px;padding:10px 12px;margin-top:10px;'><strong style='color:"+hc+";'>"+curName+"の総合スコアは"+h2+"点で、"+hj+"です。</strong>" + (curTypeLabel ? " <span style='color:#8070c0;font-size:12px;'>（"+curTypeLabel+"）</span>" : "") + "</div>";
@@ -1229,7 +1229,8 @@ if (key === "growth" && cur && cur.pop) {
       var bd_sd = Math.max((25-Math.min(cur.d,25))/25*20, 0);
       var bd_sx = Math.min(Math.max((100-cur.x)/15*20, 0), 20);
       var bd_su = (!cur.u || cur.u <= 0) ? 20 : Math.max((200-Math.min(cur.u,200))/200*20, 0);
-      var bd_sr = (cur.eo && cur.eo > 0) ? Math.min((cur.r/cur.eo*100)/15*15, 15) : 7.5;
+      var bd_full = isPrefView ? 10 : 20;
+      var bd_sr = (cur.sfs && cur.sfs > 0 && cur.r != null) ? Math.min((cur.r/cur.sfs*100)/bd_full*15, 15) : 7.5;
       var bdColor = function(score, max){ return (score/max) >= 0.5 ? "#1a7a5a" : "#c02020"; };
       descHtml += "<div class='bd-toggle' onclick=\"var c=document.getElementById('bdContent');var a=document.getElementById('bdArrow');var isOpen=c.style.maxHeight&&c.style.maxHeight!=='0px';c.style.maxHeight=isOpen?'0px':'280px';a.classList.toggle('open');\" style='display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin-top:10px;background:rgba(160,139,232,0.08);border-radius:10px;padding:10px 12px;font-size:12px;color:#6a3de8;font-weight:700;'>" +
         "<span>📊 内訳を見る</span><span id='bdArrow' style='transition:transform 0.2s;'>▼</span></div>" +
