@@ -1,0 +1,28 @@
+if (key === "reserve" && cur && cur.sfs && cur.sfs > 0) {
+      var ratio = cur.r / cur.sfs * 100;
+      var rb = reserveBands(isPrefView);
+      var judge = ratio >= rb.hi ? "多いほう" : ratio >= rb.mid ? "標準的な水準" : ratio >= rb.lo ? "やや少なめ" : "少ないほう";
+      var judgeColor = colorR(ratio, isPrefView);
+      descHtml += "<br><br><strong style='color:"+judgeColor+";'>"+curName+"の財政調整基金は標準財政規模の"+ratio.toFixed(1)+"%で、"+judge+"です。</strong>";
+      var rHist = [cur.r_r2, cur.r_r3, cur.r_r4, cur.r_r5].filter(function(v){ return v!=null; });
+      if (rHist.length >= 2) {
+        var rAvg = rHist.reduce(function(a,b){return a+b;},0) / rHist.length;
+        var rRatio = rAvg > 0 ? cur.r / rAvg : 1;
+        if (rRatio >= 1.5) {
+          descHtml += "<br><span style='color:#2a8a6a;font-size:15px;'>\u{1F4C8} "+curName+"の財政調整基金は過去平均（"+rAvg.toFixed(1)+"億円）より大きく増えています。国からの臨時交付金や、大型事業の先送りによる積立増加の可能性があります。</span>";
+        } else if (rRatio <= 0.5) {
+          descHtml += "<br><span style='color:#c04030;font-size:15px;'>\u{1F4C9} "+curName+"の財政調整基金は過去平均（"+rAvg.toFixed(1)+"億円）より大きく減っています。災害対応や大型事業への取り崩しがあった可能性があります。</span>";
+        }
+      }
+      if (ratio < rb.lo && cur.x > 95) descHtml += "<br><span style='color:#c04030;font-size:16px;'>\u26A0\uFE0F 貯金が少なめ＋固定費も重い→緊急時に回せるお金が限られやすい状態です</span>";
+      else if (ratio < rb.lo && cur.u > 100) descHtml += "<br><span style='color:#c04030;font-size:16px;'>\u26A0\uFE0F 貯金が少なめ＋将来への借金も重い→今の備えと将来の返済の両方に課題があります</span>";
+      else if (ratio < rb.lo && cur.f < 0.5) descHtml += "<br><span style='color:#c04030;font-size:16px;'>\u26A0\uFE0F 貯金が少なめ＋自力収入も乏しい→大きな支出があったときの余力が限られます</span>";
+      else if (ratio < rb.lo) descHtml += "<br><span style='color:#c04030;font-size:16px;'>\u26A0\uFE0F 緊急時に備える積立が課題になりやすい水準です</span>";
+      else if (ratio < rb.mid && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>\u26A0\uFE0F 貯金はやや少なめ＋固定費も重い→固定費の削減と積立増加が同時に課題です</span>";
+      else if (ratio < rb.mid) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>\u26A0\uFE0F もう少し積み増せると緊急時の備えとして安心できる水準です</span>";
+      else if (ratio >= rb.hi && cur.u <= 0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>\u2728 貯金が多め＋将来への借金もない→備えも負債もバランスの良い状態です</span>";
+      else if (ratio >= rb.hi && cur.x < 88) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>\u2728 貯金が多め＋固定費も軽い→財政に余裕があり、危機対応力の高い状態です</span>";
+      else if (ratio >= rb.hi && cur.d > 25) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>\u26A0\uFE0F ※歳出が極端に削減された自治体（財政再生団体など）は、この比率が高く見える場合があります。<br>"+curName+"は実質公債費比率が"+cur.d+"%と非常に高く、この基金の多くは借金返済や不測の事態への積立です。財政状況は深刻です。</span>";
+      else if (ratio >= rb.hi) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>\u2728 いざというときの「自治体の貯金」として機能しやすい水準です</span>";
+    }
+    
