@@ -317,7 +317,7 @@
     var dc = d.d<10?"#6dcfad":d.d<18?"#7bb8e8":d.d<25?"#f0c46a":"#f0876a";
     var xc = colorX(d.x);
     var uc = colorU(d.u, d.p === curName);
-    var rc = d.r>30?"#6dcfad":d.r>10?"#7bb8e8":"#f0c46a";
+    var rc = colorR((d.sfs && d.sfs > 0) ? d.r / d.sfs * 100 : null, d.p === curName);
     var gc = d.g>=0?"#6dcfad":d.g>=-0.5?"#f0c46a":"#f0876a";
 
     var bars = [
@@ -509,6 +509,23 @@
      市区町村の78%が最も濃い色になり、判別の役に立っていなかった。
      財政力が低いこと自体は交付税で補われる前提の数字であり、
      危険信号ではないため、最も濃い色は下位2割程度に絞っている。 */
+  /* --- 財政調整基金の基準 ---
+     分母は標準財政規模。実務でもこの割合で語られる。
+     水準は総務省「基金の積立状況等に関する調査」（平成29年）で
+     各団体が回答した実務水準に合わせている（法令上の基準はない）。
+     都道府県と市区町村で水準がまったく違うため、基準を分ける。
+     （標準財政規模比の中央値は市区町村24.8%、都道府県6.4%） */
+  function reserveBands(isPref) {
+    return isPref ? {hi: 10, mid: 5, lo: 2.5} : {hi: 20, mid: 10, lo: 5};
+  }
+
+  function colorR(ratio, isPref) {
+    if (ratio == null) return "#7bb8e8";
+    var b = reserveBands(isPref);
+    return ratio >= b.hi ? "#6dcfad" : ratio >= b.mid ? "#7bb8e8"
+         : ratio >= b.lo ? "#f0c46a" : "#f0876a";
+  }
+
   function colorF(f) {
     if (f == null) return "#7bb8e8";
     return f >= 0.70 ? "#6dcfad" : f >= 0.45 ? "#7bb8e8" : f >= 0.25 ? "#f0c46a" : "#f0876a";
@@ -782,7 +799,7 @@
     var dc = d.d<10?"#6dcfad":d.d<18?"#7bb8e8":d.d<25?"#f0c46a":"#f0876a";
     var xc = colorX(d.x);
     var uc = colorU(d.u, d.p === curName);
-    var rc = d.r>30?"#6dcfad":d.r>10?"#7bb8e8":"#f0c46a";
+    var rc = colorR((d.sfs && d.sfs > 0) ? d.r / d.sfs * 100 : null, d.p === curName);
     var gc = d.g>=0?"#6dcfad":d.g>=-0.5?"#f0c46a":"#f0876a";
     var ul = d.u<=0?"負担なし":d.u>=999?"再建中":d.u.toFixed(1)+"%";
     var chc = d.ch>=120?"#6dcfad":d.ch>=90?"#7bb8e8":d.ch>=70?"#f0c46a":"#f0876a";
@@ -866,7 +883,7 @@
     fiscalPower:{icon:"💪",label:"財政力指数",desc:"基準財政収入額を基準財政需要額で割った値。1.0以上の団体には地方交付税が交付されません（不交付団体）。出典：総務省令和6年度\n\n目安\n🟢 0.70以上 → 税収基盤が強い\n🔵 0.45〜0.70 → 標準的（中央値は市区町村0.44／都道府県0.47）\n🟡 0.25〜0.45 → 交付税への依存が大きい\n🟠 0.25未満 → 税収基盤が特に弱い\n\nなお1.0以上は不交付団体（地方交付税が交付されない団体）です。\n\nこの数値が低いことは、それ自体では財政危機を意味しません。税収が少ない分は地方交付税で補われる仕組みになっているためです。人口が少ない地域や産業基盤の小さい地域では、低い値が出るのが通常です。\n\n📈 高くなる理由\n① 企業・工場が多く法人税・固定資産税が豊富\n② 人口が多く個人住民税が充実している\nなど。\n\n📉 低くなる理由\n① 産業が乏しく税収基盤が弱い\n② 人口減少・高齢化で税収が低下している\nなど。",unit:"",hib:true},
     flex:{icon:"📊",label:"経常収支比率",desc:"毎年度の経常的収入のうち人件費・扶助費・公債費など経常的経費に充当された割合。低いほど財政に弾力性があります。出典：総務省令和6年度\n\n目安\nかつて「75〜80%が望ましい」とされてきましたが、これは法令上の基準ではなく慣例的な目安です。社会保障費の増加により全国的に上昇し、2003年度以降は全国平均が90%を超え続けています。\n\n🟢 90%未満 → 全国の中では余裕があるほう\n🔵 90〜95% → 標準的な水準（市区町村の中央値91.5%／都道府県93.8%）\n🟡 95〜98% → 新しい取り組みに回せるお金が少ない\n🟠 98%以上 → 余力がほぼない（全体の約9%）\n\nこの数字だけで良し悪しは判断できません。実質公債費比率や財政力指数と合わせて見てください。\n\n📈 高くなる理由\n① 人件費・社会保障費など固定的な支出が大きい\n② 過去の借金返済（公債費）が重い\nなど。\n\n📉 低くなる理由\n① 税収が豊富で財政に余裕がある\n② 行財政改革で人件費・固定費を削減した\nなど。",unit:"%",hib:false},
     future:{icon:"🏦",label:"将来負担比率",desc:"一般会計等が将来負担すべき実質的な負債総額の標準財政規模に対する比率。350%以上で早期健全化基準。出典：総務省令和6年度\n\n目安（市区町村）\n🟢 負担なし・0%\n🔵 60%未満 → 軽い\n🟡 60〜100% → 一定の負担あり\n🟠 100%以上 → 要注意\n\n目安（都道府県）\n🟢 100%未満\n🔵 100〜160% → 標準的（47都道府県の中央値は159.7%）\n🟡 160〜250% → やや重い\n🟠 250%以上 → 重い\n\n都道府県は高校・国道・河川など大規模な資産を抱えるため、市区町村より水準が高くなります。そのため色の基準を分けています。\n\nなお350%以上は法令上の早期健全化基準です（市区町村は350%、都道府県は400%）。\n\n📈 高くなる理由\n① 過去の借入が多く残債が大きい\n② 公営企業・第三セクターの債務も含まれる\nなど。\n\n📉 低くなる理由\n① 借入を抑制し着実に返済してきた\n② 財政調整基金など充当可能財源が多い\nなど。",unit:"%",hib:false},
-    reserve:{icon:"🐧",label:"財政調整基金残高",desc:"年度間の財源不足に備えて積み立てている自治体の貯金です。残高が多いほど不測の事態への備えがあります。出典：総務省基金残高等一覧令和6年度（概算）\n\n目安（歳出総額比）\n10%以上 → 安定的\n5〜10% → やや余裕少なめ\n5%未満 → 余裕が少ない状態\n\n📈 多い理由\n① 税収が安定し積立を続けてきた\n② 原発立地など特別な収入がある\nなど。\n\n📉 少ない理由\n① 財政難で取り崩しが続いている\n② 大規模災害・事業で緊急支出があった\nなど。",unit:"億円",hib:true},
+    reserve:{icon:"🐧",label:"財政調整基金残高",desc:"年度間の財源不足に備えて積み立てている自治体の貯金です。残高が多いほど不測の事態への備えがあります。出典：総務省基金残高等一覧令和6年度（概算）\n\n目安（標準財政規模に対する割合）\n標準財政規模とは、自治体が使い道を決められるお金（一般財源）の標準的な総額です。財政調整基金の水準は、実務でもこの割合で語られます。\n\n市区町村（中央値24.8%）\n🟢 20%以上 → 一般に適正とされる上限に到達\n🔵 10〜20% → 一般に適正とされる範囲\n🟡 5〜10% → やや少なめ\n🟠 5%未満 → 少ないほう\n\n都道府県（中央値6.4%）\n🟢 10%以上 → 都道府県としては多いほう\n🔵 5〜10% → 総務省調査で最も多い水準\n🟡 2.5〜5% → やや少なめ\n🟠 2.5%未満 → 少ないほう\n\n適正水準に法令上の基準はありません。総務省が平成29年に行った調査では、積立の考え方を「標準財政規模の一定割合」と答えた団体の水準は、都道府県で5%前後、市町村で5〜20%が多いという結果でした。都道府県と市区町村では水準が大きく違うため、基準を分けています。\n\n多いほど良いとは限りません。積立の原資は住民が納めた税金であり、貯め込みすぎは「使うべきところに使えていない」という見方もできます。\n\n📈 多い理由\n① 税収が安定し積立を続けてきた\n② 原発立地など特別な収入がある\nなど。\n\n📉 少ない理由\n① 財政難で取り崩しが続いている\n② 大規模災害・事業で緊急支出があった\nなど。",unit:"億円",hib:true},
     growth:{icon:"👥",label:"人口増減率",desc:"住民基本台帳に基づく前年比人口増減率。人口減少は税収低下や社会保障費増加につながります。出典：総務省令和7年\n\n目安\n0%以上 → 人口増加\n-0.5%以上 → 緩やかな減少\n-1%以下 → 深刻な人口減少\n\n📈 増加の理由\n① 子育て支援・住環境が充実した新興住宅地\n② 企業誘致・雇用創出が成功している\nなど。\n\n📉 減少の理由\n① 若者が都市部へ流出している\n② 少子高齢化が急速に進んでいる\nなど。",unit:"%",hib:true},
     budget:{icon:"💹",label:"歳出／歳入",desc:"一般会計の歳出・歳入総額（億円）。自治体の予算規模を示します。歳出は人件費・扶助費・公債費・投資的経費などの総支出、歳入は地方税・地方交付税・国庫支出金・地方債などの総収入です。出典：総務省令和6年度地方財政状況調査\n\n目安\n歳入＞歳出 → 黒字基調\n歳入＝歳出 → 収支均衡\n歳入＜歳出 → 赤字基調（要注意）",unit:"億円",hib:true},
     education:{icon:"📚",label:"教育費一般財源比率",desc:"歳出総額に占める教育費の割合です（総務省令和6年度データ）。\n\n目安\n全国平均：約8〜10%\n10%超 → 教育重視\n6〜10% → 標準的\n6%未満 → 財政的制約が大きい可能性\n\n📈 比率が高くなる理由\n① 学校施設の老朽化対応（校舎・体育館の改修・建替え）\n② 少子化でも学校を統廃合できず固定費がかかる\n③ 教育・子育てを重点政策と位置づけ積極的に投資している\n④ 過疎地・離島で小規模校を存続させている\nなど。\n\n📉 比率が低くなる理由\n① 子ども人口が多く相対的に比率が下がる\n② 子育て・教育より、他の政策を優先する政策判断のため。（他の政策→インフラ・高齢者福祉などが考えられる）\nなど。",unit:"%",hib:false},
@@ -983,7 +1000,7 @@
       for (var i=0; i<5; i++) { v = v + Math.sin(i*2.1+seed*0.1)*Math.abs(val)*0.08; vals.push(parseFloat(v.toFixed(1))); }
       vals.push(val);
     }
-    var reserveRatio = (cur && cur.eo && cur.eo > 0) ? (cur.r / cur.eo * 100) : null;
+    var reserveRatio = (cur && cur.sfs && cur.sfs > 0) ? (cur.r / cur.sfs * 100) : null;
     var budgetColor = (cur && cur.eo!=null && cur.ei!=null) ? (cur.ei>=cur.eo?"#6dcfad":cur.ei>=cur.eo*0.99?"#7bb8e8":"#f0876a") : "#7bb8e8";
     // 各色分けは「詳細画面の一言」(descHtml)の判定ロジックと基準を統一しています
     var cmap = {
@@ -992,7 +1009,7 @@
       fiscalPower: val>=1.0?"#6dcfad":val>=0.7?"#7bb8e8":val>=0.5?"#f0c46a":"#f0876a",
       flex: val<88?"#6dcfad":val<95?"#7bb8e8":"#f0876a",
       future: val<=0?"#6dcfad":val<100?"#7bb8e8":val<350?"#f0876a":"#d0505a",
-      reserve: reserveRatio!=null ? (reserveRatio>=10?"#6dcfad":reserveRatio>=5?"#f0c46a":"#f0876a") : (val>30?"#6dcfad":val>10?"#7bb8e8":"#f0c46a"),
+      reserve: colorR(reserveRatio, isPrefView),
       growth: val>=0?"#6dcfad":val>=-0.5?"#f0c46a":"#f0876a",
       budget: budgetColor,
       education: val>=10?"#6dcfad":val>=6?"#7bb8e8":"#f0876a",
@@ -1150,33 +1167,35 @@
       var pmsText = isPrefView ? pms.pref : pms.muni;
       descHtml += "<br>"+pmrTagHtml()+" "+pmsText;
     }
-    if (key === "reserve" && cur && cur.eo && cur.eo > 0) {
-      var ratio = cur.r / cur.eo * 100;
-      var judge = ratio >= 10 ? "安定的" : ratio >= 5 ? "やや余裕少なめ" : "余裕が少ない状態";
-      var judgeColor = ratio >= 10 ? "#6dcfad" : ratio >= 5 ? "#f0c46a" : "#f0876a";
-      descHtml += "<br><br><strong style='color:"+judgeColor+";'>"+curName+"は歳出総額比"+ratio.toFixed(1)+"%で、"+judge+"です。</strong>";
+    if (key === "reserve" && cur && cur.sfs && cur.sfs > 0) {
+      var ratio = cur.r / cur.sfs * 100;
+      var rb = reserveBands(isPrefView);
+      var judge = ratio >= rb.hi ? "多いほう" : ratio >= rb.mid ? "標準的な水準" : ratio >= rb.lo ? "やや少なめ" : "少ないほう";
+      var judgeColor = colorR(ratio, isPrefView);
+      descHtml += "<br><br><strong style='color:"+judgeColor+";'>"+curName+"の財政調整基金は標準財政規模の"+ratio.toFixed(1)+"%で、"+judge+"です。</strong>";
       var rHist = [cur.r_r2, cur.r_r3, cur.r_r4, cur.r_r5].filter(function(v){ return v!=null; });
       if (rHist.length >= 2) {
         var rAvg = rHist.reduce(function(a,b){return a+b;},0) / rHist.length;
         var rRatio = rAvg > 0 ? cur.r / rAvg : 1;
         if (rRatio >= 1.5) {
-          descHtml += "<br><span style='color:#2a8a6a;font-size:15px;'>📈 "+curName+"の財政調整基金は過去平均（"+rAvg.toFixed(1)+"億円）より大きく増えています。国からの臨時交付金や、大型事業の先送りによる積立増加の可能性があります。</span>";
+          descHtml += "<br><span style='color:#2a8a6a;font-size:15px;'>\u{1F4C8} "+curName+"の財政調整基金は過去平均（"+rAvg.toFixed(1)+"億円）より大きく増えています。国からの臨時交付金や、大型事業の先送りによる積立増加の可能性があります。</span>";
         } else if (rRatio <= 0.5) {
-          descHtml += "<br><span style='color:#c04030;font-size:15px;'>📉 "+curName+"の財政調整基金は過去平均（"+rAvg.toFixed(1)+"億円）より大きく減っています。災害対応や大型事業への取り崩しがあった可能性があります。</span>";
+          descHtml += "<br><span style='color:#c04030;font-size:15px;'>\u{1F4C9} "+curName+"の財政調整基金は過去平均（"+rAvg.toFixed(1)+"億円）より大きく減っています。災害対応や大型事業への取り崩しがあった可能性があります。</span>";
         }
       }
-      if (ratio < 5 && cur.x > 95) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 貯金が少ない＋固定費も重い→日常の支出でギリギリで、災害や不況に備える余裕がない危うい状態です</span>";
-      else if (ratio < 5 && cur.u > 100) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 貯金が少ない＋将来への借金も重い→今の備えがなく将来の返済も重い、綱渡りの財政状態です</span>";
-      else if (ratio < 5 && cur.f < 0.5) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 貯金が少ない＋自力収入も乏しい→稼ぐ力が弱く備えもない、一度の大きな支出で財政が揺らぐリスクがあります</span>";
-      else if (ratio < 5) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 貯金が少ない→災害・不況などの緊急時に対応できる余裕が限られています。積立を増やすことが課題です</span>";
-      else if (ratio < 10 && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 貯金がやや少なめ＋固定費も重い→余裕は限られており、固定費の削減と積立増加が同時に必要です</span>";
-      else if (ratio < 10) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 貯金がやや少なめ→大きな問題はないが、もう少し積み増せると緊急時の備えとして安心できます</span>";
-      else if (ratio >= 10 && cur.u <= 0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 貯金が十分＋将来への借金もない→備えも万全で負債もゼロ、将来世代にやさしい理想的な財政です</span>";
-      else if (ratio >= 10 && cur.x < 88) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 貯金が十分＋固定費も軽い→財政に余裕があり支出も適正、危機対応力の高い状態です</span>";
-      else if (ratio >= 10 && cur.d > 25) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ ※歳出が極端に削減された自治体（財政再生団体など）は、財政調整基金が高く見える場合があります。<br>"+curName+"は実質公債費比率が"+cur.d+"%と非常に高く、この基金の多くは借金返済や不測の事態への積立です。財政状況は深刻です。</span>";
-      else descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 財政調整基金が十分に積まれている→いざというときの「自治体の貯金」として機能する、安心感のある状態です</span>";
+      if (ratio < rb.lo && cur.x > 95) descHtml += "<br><span style='color:#c04030;font-size:16px;'>\u26A0\uFE0F 貯金が少なめ＋固定費も重い→緊急時に回せるお金が限られやすい状態です</span>";
+      else if (ratio < rb.lo && cur.u > 100) descHtml += "<br><span style='color:#c04030;font-size:16px;'>\u26A0\uFE0F 貯金が少なめ＋将来への借金も重い→今の備えと将来の返済の両方に課題があります</span>";
+      else if (ratio < rb.lo && cur.f < 0.5) descHtml += "<br><span style='color:#c04030;font-size:16px;'>\u26A0\uFE0F 貯金が少なめ＋自力収入も乏しい→大きな支出があったときの余力が限られます</span>";
+      else if (ratio < rb.lo) descHtml += "<br><span style='color:#c04030;font-size:16px;'>\u26A0\uFE0F 緊急時に備える積立が課題になりやすい水準です</span>";
+      else if (ratio < rb.mid && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>\u26A0\uFE0F 貯金はやや少なめ＋固定費も重い→固定費の削減と積立増加が同時に課題です</span>";
+      else if (ratio < rb.mid) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>\u26A0\uFE0F もう少し積み増せると緊急時の備えとして安心できる水準です</span>";
+      else if (ratio >= rb.hi && cur.u <= 0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>\u2728 貯金が多め＋将来への借金もない→備えも負債もバランスの良い状態です</span>";
+      else if (ratio >= rb.hi && cur.x < 88) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>\u2728 貯金が多め＋固定費も軽い→財政に余裕があり、危機対応力の高い状態です</span>";
+      else if (ratio >= rb.hi && cur.d > 25) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>\u26A0\uFE0F ※歳出が極端に削減された自治体（財政再生団体など）は、この比率が高く見える場合があります。<br>"+curName+"は実質公債費比率が"+cur.d+"%と非常に高く、この基金の多くは借金返済や不測の事態への積立です。財政状況は深刻です。</span>";
+      else if (ratio >= rb.hi) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>\u2728 いざというときの「自治体の貯金」として機能しやすい水準です</span>";
     }
-    if (key === "growth" && cur && cur.pop) {
+    
+if (key === "growth" && cur && cur.pop) {
       var popStr = cur.pop.toLocaleString();
       var gSign = cur.g >= 0 ? "+" : "";
       var popColor = cur.g >= 0 ? "#6dcfad" : cur.g >= -0.5 ? "#f0c46a" : "#f0876a";
