@@ -519,6 +519,14 @@
     return isPref ? {hi: 10, mid: 5, lo: 2.5} : {hi: 20, mid: 10, lo: 5};
   }
 
+  /* --- 基金が十分かどうかの共通判定 ---
+     他の指標の総合コメントでも使う。基金カードの緑ラインと同じ基準なので、
+     カードの色と文章が食い違わない。 */
+  function reserveIsAmple(e, isPref) {
+    if (!e || !e.sfs || e.sfs <= 0 || e.r == null) return false;
+    return (e.r / e.sfs * 100) >= reserveBands(isPref).hi;
+  }
+
   function colorR(ratio, isPref) {
     if (ratio == null) return "#7bb8e8";
     var b = reserveBands(isPref);
@@ -1117,7 +1125,7 @@
       debt: {prefHigh:"道路・河川・港湾など広域インフラ整備の借入負担が中心", prefLow:null, muniHigh:"学校・ごみ処理施設・上下水道など、住民に身近な施設整備の借入が中心", muniLow:"施設更新を計画的に平準化している自治体は、数値が安定しやすい"},
       flex: {prefHigh:"公立小中学校教員給与の都道府県負担分が、人件費の割合を押し上げやすい", prefLow:null, muniHigh:"保育・介護・生活保護など、住民向けの扶助費の割合が大きい", muniLow:"高齢化率が低く扶助費の負担が軽い自治体は、数値が改善しやすい"},
       future: {prefHigh:"道路や病院など大きな工事を担当することが多く、負担が積み上がりやすい", prefLow:null, muniHigh:"学校・公民館など身近な施設の建替えが中心で、人口規模が小さいと影響が出やすい", muniLow:"施設の統廃合・更新の平準化が進む自治体は、比較的低く抑えられる"},
-      reserve: {prefHigh:"予算規模が大きい分、基金の絶対額も大きくなりやすい", prefLow:"大型事業に基金を計画的に充当してきた都道府県は、残高が少なめになりやすい", muniHigh:"人口規模が小さい自治体ほど、歳出比で見た基金の比率が高く出やすい", muniLow:null},
+      reserve: {prefHigh:"予算規模が大きい分、基金の絶対額も大きくなりやすい", prefLow:"大型事業に基金を計画的に充当してきた都道府県は、残高が少なめになりやすい", muniHigh:"人口規模が小さい自治体ほど、標準財政規模に対する基金の比率が高く出やすい", muniLow:null},
       growth: {prefHigh:"都市部への人口集中が起きやすい", prefLow:"多くの市区町村の減少傾向が積み重なり、県全体でも緩やかな減少になりやすい", muniHigh:null, muniLow:"人口が少ない自治体ほど、少数の転出だけでも減少率が大きく振れやすい"},
       education: {prefHigh:"公立高校・特別支援学校の運営費や教員人件費（都道府県負担分）が中心", prefLow:"高校再編や広域連携が進んだ都道府県は、比較的抑えられやすい", muniHigh:"小中学校では単年度の校舎建設で数値が大きく変動しやすい", muniLow:"学校施設の更新を先送りしている自治体は、数値が低く出やすい"},
       childInvest: {prefHigh:"高校・特別支援学校など、より広域的な教育インフラのコストが反映される", prefLow:"広域的な教育インフラの整備が一巡した都道府県は、数値が落ち着きやすい", muniHigh:"保育所・児童館など、より身近な子育て支援サービスのコストが中心", muniLow:null}
@@ -1250,7 +1258,7 @@ if (key === "growth" && cur && cur.pop) {
       else if (cur.d > 18) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 借金返済の負担が大きい→収入の多くが返済に消えており、住民サービスへの影響が出やすい状態です</span>";
       else if (cur.d < 10 && cur.f >= 0.7 && cur.x < 88) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 借金返済が軽い＋自力収入も豊か＋固定費も適正→返済の心配がなく政策投資もできる、理想的な状態です</span>";
       else if (cur.d < 10 && cur.f >= 0.7) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 借金返済が軽い＋自力収入も豊か→返済の心配がなく、新しい政策にも積極的に投資できる状態です</span>";
-      else if (cur.d < 10 && cur.eo && cur.r/cur.eo*100 >= 10) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 借金返済が軽い＋貯金も十分（歳出比10%以上）→いざというときの備えもあり、とても健全な財政です</span>";
+      else if (cur.d < 10 && reserveIsAmple(cur, isPrefView)) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 借金返済が軽い＋貯金も十分（標準財政規模比で多め）→いざというときの備えもあり、とても健全な財政です</span>";
       else if (cur.d < 10 && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 借金返済は軽いが固定費が重い→返済の心配はないものの、人件費・社会保障費が財政を圧迫しています</span>";
       else if (cur.d < 10) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 借金返済の負担が軽く、財政に余裕があります。この水準を維持できると理想的です</span>";
       else if (cur.d < 18 && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 返済負担は標準的だが固定費が重い→借金は普通でも固定費に圧迫されており、政策の自由度が低い状態です</span>";
@@ -1265,7 +1273,7 @@ if (key === "growth" && cur && cur.pop) {
       else if (cur.f < 0.5 && cur.u > 100) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 自力収入が乏しい＋将来への借金も重い→今も苦しく将来も重荷を背負っており、構造的な改革が必要です</span>";
       else if (cur.f < 0.5) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 自力で稼ぐ力が弱い→国からの交付税に大きく依存しており、国の財政事情に左右されやすい状態です</span>";
       else if (cur.f >= 1.0 && cur.x < 88) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 自力収入が豊か＋固定費も軽い→収入も支出もバランス良く、政策の自由度が高い理想的な財政です</span>";
-      else if (cur.f >= 1.0 && cur.eo && cur.r/cur.eo*100 >= 10) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 自力収入が豊か＋貯金も十分（歳出比10%以上）→財政力があり備えもある、とても安定した状態です</span>";
+      else if (cur.f >= 1.0 && reserveIsAmple(cur, isPrefView)) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 自力収入が豊か＋貯金も十分（標準財政規模比で多め）→財政力があり備えもある、とても安定した状態です</span>";
       else if (cur.f >= 1.0 && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 自力収入は豊かだが固定費が重い→稼ぐ力はあるのに固定費に消えており、政策投資の余地が限られています</span>";
       else if (cur.f >= 1.0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 国からの交付税に頼らず自立した財政→住民サービスを自分たちの収入でまかなえる、強い自治体です</span>";
       else if (cur.f >= 0.7 && cur.x < 95) descHtml += "<br><span style='color:#3070b8;font-size:16px;'>📋 財政力は安定＋固定費も許容範囲→大きな問題はなく、引き続きこの水準の維持が目標です</span>";
@@ -1297,10 +1305,10 @@ if (key === "growth" && cur && cur.pop) {
       else if (cur.u > 100 && cur.x > 95) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 将来への借金が重い＋毎年の固定費も重い→過去の借金に縛られながら今も出費が固定化、構造改革が急務です</span>";
       else if (cur.u > 100 && cur.f < 0.5) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 将来への借金が重い＋自力収入も乏しい→借金を返す力が弱く、長期的に財政が悪化するリスクがあります</span>";
       else if (cur.u > 100) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 将来世代への借金が重い→今の住民が使ったお金を将来世代が返す構図で、世代間の公平性が問われます</span>";
-      else if (cur.u <= 0 && cur.eo && cur.r/cur.eo*100 >= 10) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 将来への借金がない＋貯金も十分（歳出比10%以上）→将来世代に負担を残さず、備えもある。財政の優等生です</span>";
+      else if (cur.u <= 0 && reserveIsAmple(cur, isPrefView)) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 将来への借金がない＋貯金も十分（標準財政規模比で多め）→将来世代に負担を残さず、備えもある。財政の優等生です</span>";
       else if (cur.u <= 0 && cur.f >= 1.0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 将来への借金がない＋自力収入も豊か→借金ゼロで稼ぐ力もある、非常に健全な財政状態です</span>";
       else if (cur.u <= 0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 将来世代への負担がない→過去の借金を着実に返し終えており、次世代に重荷を残さない健全な状態です</span>";
-      else if (cur.u < 100 && cur.eo && cur.r/cur.eo*100 >= 10) descHtml += "<br><span style='color:#3070b8;font-size:16px;'>📋 将来への負担は一定あるが貯金（歳出比10%以上）で備えもある→心配しすぎる必要はないが、借入残高の推移は要注視です</span>";
+      else if (cur.u < 100 && reserveIsAmple(cur, isPrefView)) descHtml += "<br><span style='color:#3070b8;font-size:16px;'>📋 将来への負担は一定あるが貯金（標準財政規模比で多め）で備えもある→心配しすぎる必要はないが、借入残高の推移は要注視です</span>";
       else if (cur.u < 100 && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 将来への借金がやや重い＋固定費も重い→返済余力が乏しく、借入残高の削減が急務です</span>";
       else descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 将来への借金がやや重め→公共施設の維持費・更新費も増える中、新規借入の抑制が課題です</span>";
     }
