@@ -139,3 +139,16 @@ h1::after{content:'✦';font-size:15px;position:absolute;top:-6px;right:-18px;ba
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 /* キーボード操作時のフォーカス表示 */
 [role="button"]:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #6a3de8;outline-offset:2px;}
+
+/* タイトルをタップするとホームに戻れる。
+   押したことが分かるよう、グラデーションを濃くして少し縮める。
+   h1 は背景グラデーションを文字に切り抜いて色を出しているので、
+   色を変えるには background そのものを差し替える必要がある。 */
+#homeTitle{cursor:pointer;transition:transform 0.12s ease,filter 0.12s ease;}
+#homeTitle:active{
+  background:linear-gradient(135deg,#4a1fc0 0%,#8a30b8 50%,#c03080 100%);
+  -webkit-background-clip:text;background-clip:text;
+  transform:scale(0.96);
+  filter:drop-shadow(0 1px 3px rgba(140,60,200,0.35));
+}
+#homeTitle:focus-visible{outline:3px solid #6a3de8;outline-offset:4px;border-radius:6px;}

@@ -731,6 +731,30 @@
     return {l:"ひんし状態みっちー",c:"#d0505a",bg:"#ffe0e4",e:"🚨",m:"財政は非常に厳しい状態です。複数の指標が全国でも下位の水準にあります。",img:"critical"};
   }
 
+  /* --- タイトルからホームに戻る ---
+     自治体を開いているときだけ動く。履歴に積むので、
+     端末の戻るボタンで元の自治体に帰れる。 */
+  function goHome() {
+    var re = document.getElementById("resEl");
+    if (!re || re.classList.contains("hidden")) return;  // すでにホームなら何もしない
+
+    var ov = document.getElementById("ovEl");
+    if (ov && !ov.classList.contains("hidden")) ov.classList.add("hidden");
+    var cOv = document.getElementById("compareOv");
+    if (cOv && !cOv.classList.contains("hidden")) cOv.classList.add("hidden");
+    document.body.style.overflow = "";
+
+    history.pushState({mitchieView: "home"}, "", "#home");
+
+    re.classList.add("hidden");
+    var ma = document.getElementById("mitchieArea");
+    if (ma) ma.classList.remove("hidden");
+    var ci = document.getElementById("cityInput");
+    if (ci) ci.value = "";
+    hideSuggestions();
+    window.scrollTo(0, 0);
+  }
+
   function diagnose() {
     var q = document.getElementById("cityInput").value;
     if (!q.trim()) return;
@@ -1624,6 +1648,8 @@ if (key === "growth" && cur && cur.pop) {
       window.scrollTo(0, 0);
     }
   });
+  var homeTitleEl = document.getElementById("homeTitle");
+  if (homeTitleEl) homeTitleEl.addEventListener("click", goHome);
   document.querySelectorAll(".chip").forEach(function(el){ el.addEventListener("click", function(){ document.getElementById("cityInput").value=this.getAttribute("data-city"); hideSuggestions(); diagnose(); }); });
   renderHistoryChips();
   window.scrollTo(0, 0);
