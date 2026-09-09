@@ -862,9 +862,9 @@
           "<div class='hmsg'>"+pr.m+"</div>" +
         "</div>" +
       "</div>" +
-      "<h2 class='sr-only'>健康度スコア</h2>" + noteHtml(d, h, d.p === nm) + "<div class='meter' id='m0' role='button' tabindex='0' style='border:3px solid "+pr.c+";background:"+pr.c+"10;'><div class='mt'><span>総合財政健全度スコア（参考値）</span></div>" +
-        "<div class='mb'><div id='hbar' class='mf' style='width:0%;background:"+pr.c+";'></div></div>" +
-        "<div class='mv'><span style='color:"+pr.c+";font-weight:700;'>"+h+" / 100</span><span class='mt-tap'>タップでスコアの似た自治体と詳細を見る▶</span></div>" +
+      "<h2 class='sr-only'>健康度スコア</h2>" + noteHtml(d, h, d.p === nm) + "<div class='meter' id='m0' role='button' tabindex='0' style='border:3px solid "+pr.c+";background:"+pr.c+"10;'><div class='mt'><span>財政健全度スコア</span><span style='color:"+pr.c+";font-weight:700;'>"+h+"点</span></div>" +
+        mmScoreBoxRanks(nm, d) +
+        "<div class='mt-tap' style='text-align:center;margin-top:6px;'>タップでスコアの似た自治体と詳細を見る▶</div>" +
       "</div>" +
       "<div class='meter' id='m1' role='button' tabindex='0'><div class='mt'><span>実質公債費比率</span><span class='mt-tap'>タップで詳細 ▶</span></div>" +
         "<div class='mb'><div id='dbar' class='mf' style='width:0%;background:"+dc+";'></div></div>" +
@@ -890,7 +890,6 @@
     updateCompareBar();
     if (!keepScroll) { window.scrollTo(0, 0); }
     setTimeout(function(){
-      document.getElementById("hbar").style.width = h+"%";
       document.getElementById("dbar").style.width = Math.min(d.d/35*100,100)+"%";
     }, 100);
     document.getElementById("m0").addEventListener("click", function(){ openD("health"); });
@@ -1762,6 +1761,21 @@ if (key === "growth" && cur && cur.pop) {
       var changeBtn = document.getElementById("mmChangeBtn");
       if (changeBtn) changeBtn.addEventListener("click", mmShowRegisterForm);
     }
+  }
+
+  function mmScoreBoxRanks(nm, d){
+    var isPref = (d.p === nm);
+    var html = "";
+    if (!isPref) {
+      var nat = mmRankNationalCity(nm);
+      if (nat) html += "<p class='mm-rank-label'>全国 "+nat.rank.toLocaleString()+"位 / "+nat.total.toLocaleString()+"自治体</p>" + mmBarHtml(nat);
+      var prefRank = mmRankInPref(nm, d.p);
+      if (prefRank) html += "<p class='mm-rank-label'>"+d.p+"内 "+prefRank.rank.toLocaleString()+"位 / "+prefRank.total.toLocaleString()+"市町村</p>" + mmBarHtml(prefRank);
+    } else {
+      var pn = mmRankPrefNational(nm);
+      if (pn) html += "<p class='mm-rank-label'>全国 "+pn.rank+"位 / "+pn.total+"都道府県</p>" + mmBarHtml(pn);
+    }
+    return html;
   }
 
   var mmPending = {city:null, pref:null};
