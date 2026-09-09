@@ -1,0 +1,245 @@
+
+  /* ===== Myみっちー機能 ===== */
+  var MM_KEY = "mmReg";
+  function mmLoad(){ try{ var raw=localStorage.getItem(MM_KEY); return raw?JSON.parse(raw):null; }catch(e){ return null; } }
+  function mmSave(obj){ try{ localStorage.setItem(MM_KEY, JSON.stringify(obj)); }catch(e){} }
+  function mmReducedMotion(){ try{ return window.matchMedia("(prefers-reduced-motion: reduce)").matches; }catch(e){ return false; } }
+  function mmIsPrefKey(k){ return !!(DB && DB[k] && DB[k].p === k); }
+  function mmScoreOf(k){ var e=DB&&DB[k]; if(!e) return null; var s=calcH(e.f,e.d,e.x,e.u,e.r,e.eo,e.__pref,e.sfs); return isNaN(s)?null:s; }
+
+  function mmRankIn(keys, targetKey){
+    var list=[];
+    keys.forEach(function(k){ var s=mmScoreOf(k); if(s==null) return; list.push({k:k,v:s}); });
+    list.sort(function(a,b){ return b.v-a.v; });
+    for (var i=0;i<list.length;i++){ if (list[i].k===targetKey) return {rank:i+1,total:list.length}; }
+    return null;
+  }
+  function mmRankNationalCity(cityKey){
+    if (!DB) return null;
+    return mmRankIn(Object.keys(DB).filter(function(k){ return !mmIsPrefKey(k); }), cityKey);
+  }
+  function mmRankInPref(cityKey, prefName){
+    if (!DB) return null;
+    return mmRankIn(Object.keys(DB).filter(function(k){ return !mmIsPrefKey(k) && DB[k].p===prefName; }), cityKey);
+  }
+  function mmRankPrefNational(prefKey){
+    if (!DB) return null;
+    return mmRankIn(Object.keys(DB).filter(function(k){ return mmIsPrefKey(k); }), prefKey);
+  }
+
+  function mmBarHtml(rankInfo){
+    if (!rankInfo) return "";
+    var rank=rankInfo.rank, total=rankInfo.total;
+    var t = total>1 ? (total-rank)/(total-1) : 1;
+    var pct = Math.min(97, Math.max(3, 3+t*94));
+    var iconSrc = (typeof IMGS!=="undefined" && IMGS.top) ? ("data:image/png;base64,"+IMGS.top) : "";
+    return "<div class='mm-bar'><img class='mm-bar-icon' src='"+iconSrc+"' alt='' style='left:"+pct+"%;'></div>"+
+      "<div class='mm-bar-labels'><span>"+total.toLocaleString()+"位</span><span>1位</span></div>";
+  }
+
+  function mmScoreLine(name, score){
+    var hs = healthState(score);
+    var lbl = HEALTH_LABELS[hs];
+    return "<div class='mm-score-line'><span class='mm-name'>"+name+"</span><span class='mm-score'>"+score+"点</span><span class='mm-status' style='color:"+lbl[1]+";'>"+lbl[0]+"</span></div>";
+  }
+
+  function mmRegisterCTA(){
+    return "<div class='mm-empty'>"+
+      "<p>住んでいる町を登録すると、<br>いつでもすぐ見られるよ</p>"+
+      "<button class='btn' id='mmRegisterBtn'>My&#12415;&#12387;&#12385;&#12540;を登録する</button>"+
+      "<p class='mm-empty-note'>押すと入力できるよ</p>"+
+      "</div>";
+  }
+
+  function mmCardHtml(reg){
+    var cityKey = reg.city, prefKey = reg.pref;
+    var hasCity = !!(cityKey && DB && DB[cityKey] && !mmIsPrefKey(cityKey));
+    var hasPref = !!(prefKey && DB && DB[prefKey] && mmIsPrefKey(prefKey));
+    if (!hasCity && !hasPref) {
+      return "<p class='mm-note'>登録した自治体のデータが見つかりませんでした。もう一度登録してください。</p>" + mmRegisterCTA();
+    }
+    var html = "";
+    if (hasCity) {
+      html += mmScoreLine(cityKey, mmScoreOf(cityKey));
+      var natRank = mmRankNationalCity(cityKey);
+      if (natRank) {
+        html += "<p class='mm-rank-label'>全国では "+natRank.rank.toLocaleString()+"位 / "+natRank.total.toLocaleString()+"自治体</p>";
+        html += mmBarHtml(natRank);
+      }
+      var cityPref = DB[cityKey].p;
+      var prefRank = mmRankInPref(cityKey, cityPref);
+      if (prefRank) {
+        html += "<p class='mm-rank-label'>"+cityPref+"内では "+prefRank.rank.toLocaleString()+"位 / "+prefRank.total.toLocaleString()+"市町村</p>";
+        html += mmBarHtml(prefRank);
+      }
+    }
+    if (hasCity && hasPref) html += "<div class='mm-divider'></div>";
+    if (hasPref) {
+      html += mmScoreLine(prefKey, mmScoreOf(prefKey));
+      var pRank = mmRankPrefNational(prefKey);
+      if (pRank) {
+        html += "<p class='mm-rank-label'>全国では "+pRank.rank+"位 / "+pRank.total+"都道府県</p>";
+        html += mmBarHtml(pRank);
+      }
+    }
+    html += "<div class='mm-actions'>";
+    if (hasCity) html += "<button class='btn mm-diag-btn' data-target='"+cityKey+"'>"+cityKey+"を見る</button>";
+    if (hasPref) html += "<button class='btn mm-diag-btn' data-target='"+prefKey+"'>"+prefKey+"を見る</button>";
+    html += "<button class='mm-change-btn' id='mmChangeBtn'>変更</button>";
+    html += "</div>";
+    return html;
+  }
+
+  function mmRenderCard(){
+    var body = document.getElementById("mmBody");
+    if (!body) return;
+    if (!DB) { body.innerHTML = ""; return; }
+    var reg = mmLoad();
+    if (!reg || (!reg.city && !reg.pref)) {
+      body.innerHTML = mmRegisterCTA();
+      var rb = document.getElementById("mmRegisterBtn");
+      if (rb) rb.addEventListener("click", mmShowRegisterForm);
+    } else {
+      body.innerHTML = mmCardHtml(reg);
+      document.querySelectorAll(".mm-diag-btn").forEach(function(btn){
+        btn.addEventListener("click", function(){ var t=this.getAttribute("data-target"); mmCloseBox(); jumpToCity(t); });
+      });
+      var changeBtn = document.getElementById("mmChangeBtn");
+      if (changeBtn) changeBtn.addEventListener("click", mmShowRegisterForm);
+    }
+  }
+
+  var mmPending = {city:null, pref:null};
+
+  function mmConfirmField(isCity, val){
+    if (isCity) {
+      mmPending.city = val;
+      var pref = DB[val] && DB[val].p;
+      if (pref) {
+        mmPending.pref = pref;
+        var pi = document.getElementById("mmPrefInput");
+        if (pi) pi.value = pref;
+      }
+      var ci = document.getElementById("mmCityInput");
+      if (ci) ci.value = val;
+    } else {
+      mmPending.pref = val;
+      var pi2 = document.getElementById("mmPrefInput");
+      if (pi2) pi2.value = val;
+    }
+  }
+
+  function mmFinishRegister(){
+    if (!mmPending.city && !mmPending.pref) return;
+    mmSave({city: mmPending.city, pref: mmPending.pref});
+    mmRenderCard();
+  }
+
+  function mmMakeSuggest(inputId, boxId, isCity){
+    var input = document.getElementById(inputId);
+    var box = document.getElementById(boxId);
+    function update(){
+      var q = input.value.trim();
+      if (!DB || !q) { box.classList.add("hidden"); box.innerHTML=""; return; }
+      var keys = Object.keys(DB).filter(function(k){ return isCity ? !mmIsPrefKey(k) : mmIsPrefKey(k); });
+      var starts=[], contains=[];
+      keys.forEach(function(k){
+        if (k.indexOf(q)===0) starts.push(k);
+        else if (k.indexOf(q)>=0) contains.push(k);
+      });
+      var list = starts.concat(contains).slice(0,8);
+      if (!list.length) {
+        box.innerHTML = "<div class='suggest-empty'>😢 一致する"+(isCity?"市区町村":"都道府県")+"が見つかりません</div>";
+        box.classList.remove("hidden");
+        return;
+      }
+      box.innerHTML = list.map(function(k){
+        var pref = (isCity && DB[k] && DB[k].p) ? DB[k].p : "";
+        return "<div class='suggest-item' data-val='"+k+"'><span>"+k+"</span>"+(pref?"<span class='pref'>"+pref+"</span>":"")+"</div>";
+      }).join("");
+      box.classList.remove("hidden");
+    }
+    input.addEventListener("input", function(){
+      update();
+      if (this.value.length>0) {
+        var wrap = document.getElementById("mmRegForm");
+        if (wrap) wrap.classList.remove("mm-glow");
+      }
+    });
+    input.addEventListener("focus", update);
+    box.addEventListener("click", function(e){
+      var item = e.target.closest(".suggest-item");
+      if (!item || !item.getAttribute("data-val")) return;
+      mmConfirmField(isCity, item.getAttribute("data-val"));
+      box.classList.add("hidden");
+    });
+    input.addEventListener("keydown", function(e){
+      if (e.key!=="Enter") return;
+      e.preventDefault();
+      var q = input.value.trim();
+      if (DB[q] && (isCity ? !mmIsPrefKey(q) : mmIsPrefKey(q))) {
+        mmConfirmField(isCity, q);
+        box.classList.add("hidden");
+        setTimeout(mmFinishRegister, 0);
+      }
+    });
+  }
+
+  function mmShowRegisterForm(){
+    mmPending = {city:null, pref:null};
+    var body = document.getElementById("mmBody");
+    if (!body) return;
+    var glow = mmReducedMotion() ? "" : " mm-glow";
+    body.innerHTML =
+      "<div class='mm-reg"+glow+"' id='mmRegForm'>"+
+        "<div class='search-wrap mm-reg-row'>"+
+          "<input class='inp mm-reg-input' id='mmCityInput' type='text' placeholder='市区町村名を入力' autocomplete='off'>"+
+          "<div id='mmCitySuggest' class='suggest hidden'></div>"+
+        "</div>"+
+        "<div class='search-wrap mm-reg-row'>"+
+          "<input class='inp mm-reg-input' id='mmPrefInput' type='text' placeholder='都道府県名を入力' autocomplete='off'>"+
+          "<div id='mmPrefSuggest' class='suggest hidden'></div>"+
+        "</div>"+
+        "<button class='btn mm-reg-confirm' id='mmRegConfirmBtn'>登録</button>"+
+      "</div>";
+    mmMakeSuggest("mmCityInput","mmCitySuggest", true);
+    mmMakeSuggest("mmPrefInput","mmPrefSuggest", false);
+    document.getElementById("mmRegConfirmBtn").addEventListener("click", function(){
+      var cv = document.getElementById("mmCityInput").value.trim();
+      var pv = document.getElementById("mmPrefInput").value.trim();
+      if (DB[cv] && !mmIsPrefKey(cv)) { mmConfirmField(true, cv); }
+      if (DB[pv] && mmIsPrefKey(pv)) { mmConfirmField(false, pv); }
+      mmFinishRegister();
+    });
+  }
+
+  function mmOpenBox(){
+    var toggle = document.getElementById("mmToggleBtn");
+    var box = document.getElementById("mmBox");
+    if (!toggle||!box) return;
+    toggle.classList.add("hidden");
+    box.classList.remove("hidden");
+    mmRenderCard();
+  }
+  function mmCloseBox(){
+    var toggle = document.getElementById("mmToggleBtn");
+    var box = document.getElementById("mmBox");
+    if (!toggle||!box) return;
+    box.classList.add("hidden");
+    toggle.classList.remove("hidden");
+  }
+
+  (function mmInit(){
+    var toggle = document.getElementById("mmToggleBtn");
+    var closeBtn = document.getElementById("mmCloseBtn");
+    if (toggle) toggle.addEventListener("click", mmOpenBox);
+    if (closeBtn) closeBtn.addEventListener("click", mmCloseBox);
+    var icon = document.getElementById("mmIcon");
+    if (icon && typeof IMGS!=="undefined" && IMGS.top) icon.src = "data:image/png;base64,"+IMGS.top;
+    document.addEventListener("click", function(e){
+      if (!e.target.closest || !e.target.closest(".mm-reg-row")) {
+        var cs=document.getElementById("mmCitySuggest"); if (cs) cs.classList.add("hidden");
+        var ps=document.getElementById("mmPrefSuggest"); if (ps) ps.classList.add("hidden");
+      }
+    });
+  })();
