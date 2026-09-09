@@ -1737,11 +1737,11 @@ if (key === "growth" && cur && cur.pop) {
         html += mmBarHtml(pRank);
       }
     }
-    var diagTarget = hasCity ? cityKey : prefKey;
-    html += "<div class='mm-actions'>"+
-      "<button class='btn mm-diag-btn' id='mmDiagBtn' data-target='"+diagTarget+"'>"+diagTarget+"を診断する</button>"+
-      "<button class='mm-change-btn' id='mmChangeBtn'>変更</button>"+
-      "</div>";
+    html += "<div class='mm-actions'>";
+    if (hasCity) html += "<button class='btn mm-diag-btn' data-target='"+cityKey+"'>"+cityKey+"を見る</button>";
+    if (hasPref) html += "<button class='btn mm-diag-btn' data-target='"+prefKey+"'>"+prefKey+"を見る</button>";
+    html += "<button class='mm-change-btn' id='mmChangeBtn'>変更</button>";
+    html += "</div>";
     return html;
   }
 
@@ -1756,8 +1756,9 @@ if (key === "growth" && cur && cur.pop) {
       if (rb) rb.addEventListener("click", mmShowRegisterForm);
     } else {
       body.innerHTML = mmCardHtml(reg);
-      var diagBtn = document.getElementById("mmDiagBtn");
-      if (diagBtn) diagBtn.addEventListener("click", function(){ var t=this.getAttribute("data-target"); mmCloseBox(); jumpToCity(t); });
+      document.querySelectorAll(".mm-diag-btn").forEach(function(btn){
+        btn.addEventListener("click", function(){ var t=this.getAttribute("data-target"); mmCloseBox(); jumpToCity(t); });
+      });
       var changeBtn = document.getElementById("mmChangeBtn");
       if (changeBtn) changeBtn.addEventListener("click", mmShowRegisterForm);
     }
@@ -1847,29 +1848,23 @@ if (key === "growth" && cur && cur.pop) {
     body.innerHTML =
       "<div class='mm-reg"+glow+"' id='mmRegForm'>"+
         "<div class='search-wrap mm-reg-row'>"+
-          "<div class='row'>"+
-            "<input class='inp' id='mmCityInput' type='text' placeholder='市区町村名を入力' autocomplete='off'>"+
-            "<button class='btn' id='mmCityConfirmBtn'>登録</button>"+
-          "</div>"+
+          "<input class='inp mm-reg-input' id='mmCityInput' type='text' placeholder='市区町村名を入力' autocomplete='off'>"+
           "<div id='mmCitySuggest' class='suggest hidden'></div>"+
         "</div>"+
         "<div class='search-wrap mm-reg-row'>"+
-          "<div class='row'>"+
-            "<input class='inp' id='mmPrefInput' type='text' placeholder='都道府県名を入力' autocomplete='off'>"+
-            "<button class='btn' id='mmPrefConfirmBtn'>登録</button>"+
-          "</div>"+
+          "<input class='inp mm-reg-input' id='mmPrefInput' type='text' placeholder='都道府県名を入力' autocomplete='off'>"+
           "<div id='mmPrefSuggest' class='suggest hidden'></div>"+
         "</div>"+
+        "<button class='btn mm-reg-confirm' id='mmRegConfirmBtn'>登録</button>"+
       "</div>";
     mmMakeSuggest("mmCityInput","mmCitySuggest", true);
     mmMakeSuggest("mmPrefInput","mmPrefSuggest", false);
-    document.getElementById("mmCityConfirmBtn").addEventListener("click", function(){
-      var v = document.getElementById("mmCityInput").value.trim();
-      if (DB[v] && !mmIsPrefKey(v)) { mmConfirmField(true, v); mmFinishRegister(); }
-    });
-    document.getElementById("mmPrefConfirmBtn").addEventListener("click", function(){
-      var v = document.getElementById("mmPrefInput").value.trim();
-      if (DB[v] && mmIsPrefKey(v)) { mmConfirmField(false, v); mmFinishRegister(); }
+    document.getElementById("mmRegConfirmBtn").addEventListener("click", function(){
+      var cv = document.getElementById("mmCityInput").value.trim();
+      var pv = document.getElementById("mmPrefInput").value.trim();
+      if (DB[cv] && !mmIsPrefKey(cv)) { mmConfirmField(true, cv); }
+      if (DB[pv] && mmIsPrefKey(pv)) { mmConfirmField(false, pv); }
+      mmFinishRegister();
     });
   }
 
