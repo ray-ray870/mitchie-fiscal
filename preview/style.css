@@ -152,6 +152,10 @@ h1::after{content:'✦';font-size:15px;position:absolute;top:-6px;right:-18px;ba
   filter:drop-shadow(0 1px 3px rgba(140,60,200,0.35));
 }
 #homeTitle:focus-visible{outline:3px solid #6a3de8;outline-offset:4px;border-radius:6px;}
+.share-card .sc-rank-box{margin-top:auto;background:rgba(160,139,232,0.12);border-radius:16px;padding:14px 18px;width:100%;box-sizing:border-box;}
+.share-card .sc-rank-line{font-size:22px;font-weight:700;color:#6a3de8;}
+.share-card .sc-rank-sub{font-size:19px;color:#6b5b95;margin-bottom:8px;}
+.share-card .sc-rank-sub:last-child{margin-bottom:0;}
 
 /* ===== Myみっちー機能 ===== */
 .mm-row{display:flex;gap:12px;margin:30px 0 14px;flex-wrap:wrap;}
@@ -209,9 +213,3 @@ h1::after{content:'✦';font-size:15px;position:absolute;top:-6px;right:-18px;ba
 .nk-pref-name{flex:1;font-size:13px;color:#3a2a6e;}
 .nk-pref-score{font-size:13px;font-weight:700;color:#6a3de8;}
 .nk-more-btn{width:100%;text-align:center;padding:10px;font-size:13px;color:#6a3de8;background:none;border:none;cursor:pointer;}
-
-/* ===== 共有カードの順位表示 ===== */
-.share-card .sc-rank-box{margin-top:auto;background:rgba(160,139,232,0.12);border-radius:16px;padding:14px 18px;width:100%;box-sizing:border-box;}
-.share-card .sc-rank-line{font-size:22px;font-weight:700;color:#6a3de8;}
-.share-card .sc-rank-sub{font-size:19px;color:#6b5b95;margin-bottom:8px;}
-.share-card .sc-rank-sub:last-child{margin-bottom:0;}
