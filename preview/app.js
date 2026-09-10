@@ -47,7 +47,7 @@
   }
 
   var COMPARE_KEY = "mitchieCompareList";
-  var COMPARE_MAX = 5;
+  var COMPARE_MAX = 6;
   var HEALTH_LABELS = {happy:["絶好調","#6dcfad"],normal:["元気","#7bb8e8"],tired:["ちょっとしんどい","#f0c46a"],sick:["ぐったり","#f0876a"],critical:["ひんし","#d0505a"]};
 
   function healthState(score) {
@@ -847,14 +847,14 @@
     var el = document.getElementById("resEl");
     el.innerHTML =
       "<div class='card'>" +
-      "<div class='compare-corner-wrap' id='compareBtnWrap'></div>" +
+      "<div class='corner-row'><div id='mmCompareBtnWrap'></div><div class='compare-corner-wrap' id='compareBtnWrap'></div></div>" +
       "<h2 class='sr-only'>診断結果</h2><div class='hero'>" +
         "<div class='ava'>" +
           "<img src='data:image/png;base64," + IMGS[pr.img] + "' alt='" + pr.l + "'>" +
           "<div class='badge' style='color:"+pr.c+";border-color:"+pr.c+";'>"+pr.e+"</div>" +
         "</div>" +
         "<div>" +
-          "<div class='cname'>"+nm+"</div>" +
+          "<div class='cname'>"+(mmIsMine(nm)?"\ud83d\udc27 ":"")+nm+"</div>" +
           "<div class='cpref'>"+d.p+"</div>" +
           "<div class='hlbl' style='background:"+pr.bg+";color:"+pr.c+";'>"+pr.l+"</div>" +
           "<div class='stars'>"+stars(h)+"</div>" +
@@ -887,6 +887,7 @@
       "</div>";
     el.classList.remove("hidden");
     renderCompareButton(nm);
+    mmRenderCompareBtn(nm);
     updateCompareBar();
     if (!keepScroll) { window.scrollTo(0, 0); }
     setTimeout(function(){
@@ -1780,6 +1781,116 @@ if (key === "growth" && cur && cur.pop) {
 
   var mmPending = {city:null, pref:null};
 
+  function mmIsMine(name){
+    var reg = mmLoad();
+    return !!(reg && (reg.city === name || reg.pref === name));
+  }
+
+  /* --- Myみっちー比較機能 --- */
+  function mmCompareOptions(){
+    var reg = mmLoad();
+    if (!reg) return [];
+    var opts = [];
+    if (reg.city && DB && DB[reg.city] && !mmIsPrefKey(reg.city)) opts.push(reg.city);
+    if (reg.pref && DB && DB[reg.pref] && mmIsPrefKey(reg.pref)) opts.push(reg.pref);
+    return opts;
+  }
+
+  function mmShowCompareLimit(){
+    var el = document.createElement("div");
+    el.className = "mm-compare-limit";
+    el.innerHTML = "<p>比較は"+COMPARE_MAX+"個までです。比較リストからあと1個消してください。</p><button class='btn' id='mmLimitGoBtn'>比較リストへ</button>";
+    document.body.appendChild(el);
+    document.getElementById("mmLimitGoBtn").addEventListener("click", function(){
+      el.remove();
+      openCompareModal();
+    });
+    setTimeout(function(){
+      document.addEventListener("click", function onDoc(e){
+        if (!el.contains(e.target)) { el.remove(); document.removeEventListener("click", onDoc); }
+      });
+    }, 0);
+  }
+
+  function mmShowAlreadyInList(onOk){
+    var el = document.createElement("div");
+    el.className = "mm-compare-limit";
+    el.innerHTML = "<p>既に比較リストに入っています。</p><button class='btn' id='mmAlreadyOkBtn'>OK</button>";
+    document.body.appendChild(el);
+    document.getElementById("mmAlreadyOkBtn").addEventListener("click", function(){
+      el.remove();
+      if (onOk) onOk();
+    });
+  }
+
+  function mmAddToCompareFront(name, currentNm){
+    var list = getCompareList();
+    var idx = list.indexOf(name);
+    if (idx >= 0) {
+      mmShowAlreadyInList(function(){
+        if (idx > 0) {
+          list.splice(idx, 1);
+          list.unshift(name);
+          saveCompareList(list);
+          updateCompareBar();
+          renderCompareButton(currentNm);
+          mmRenderCompareBtn(currentNm);
+        }
+        openCompareModal();
+      });
+      return;
+    }
+    if (list.length >= COMPARE_MAX) { mmShowCompareLimit(); return; }
+    list.unshift(name);
+    saveCompareList(list);
+    updateCompareBar();
+    renderCompareButton(currentNm);
+    mmRenderCompareBtn(currentNm);
+    openCompareModal();
+  }
+
+  function mmShowComparePicker(opts, nm){
+    var host = document.getElementById("mmCompareBtnWrap");
+    if (!host) return;
+    var old = host.querySelector(".mm-compare-popover");
+    if (old) { old.remove(); return; }
+    var pop = document.createElement("div");
+    pop.className = "mm-compare-popover";
+    pop.innerHTML = opts.map(function(o){
+      return "<div class='mm-compare-opt' data-val='"+o+"'><span class='mm-compare-check'></span><span>"+o+"</span></div>";
+    }).join("");
+    host.style.position = "relative";
+    host.appendChild(pop);
+    pop.querySelectorAll(".mm-compare-opt").forEach(function(el){
+      el.addEventListener("click", function(e){
+        e.stopPropagation();
+        pop.remove();
+        mmAddToCompareFront(el.getAttribute("data-val"), nm);
+      });
+    });
+    setTimeout(function(){
+      document.addEventListener("click", function onDoc(e){
+        if (!pop.isConnected) { document.removeEventListener("click", onDoc); return; }
+        if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener("click", onDoc); }
+      });
+    }, 0);
+  }
+
+  function mmRenderCompareBtn(nm){
+    var wrap = document.getElementById("mmCompareBtnWrap");
+    if (!wrap) return;
+    var opts = mmCompareOptions();
+    if (!opts.length) { wrap.innerHTML = ""; return; }
+    var list = getCompareList();
+    var isFront = list.length>0 && opts.indexOf(list[0]) >= 0;
+    wrap.innerHTML = "<div class='mm-compare-corner"+(isFront?" added":"")+"' id='mmCompareBtn' role='button' tabindex='0'>"+(isFront?"\u2713 \u6bd4\u8f03\u4e2d":"My\u307f\u3063\u3061\u30fc\u3068\u6bd4\u8f03")+"</div>";
+    document.getElementById("mmCompareBtn").addEventListener("click", function(e){
+      e.stopPropagation();
+      if (opts.length === 1) { mmAddToCompareFront(opts[0], nm); return; }
+      mmShowComparePicker(opts, nm);
+    });
+  }
+
   function mmConfirmField(isCity, val){
     if (isCity) {
       mmPending.city = val;
@@ -1886,6 +1997,7 @@ if (key === "growth" && cur && cur.pop) {
     var toggle = document.getElementById("mmToggleBtn");
     var box = document.getElementById("mmBox");
     if (!toggle||!box) return;
+    if (typeof nkCloseBox === "function") nkCloseBox();
     toggle.classList.add("hidden");
     box.classList.remove("hidden");
     mmRenderCard();
@@ -1898,11 +2010,129 @@ if (key === "growth" && cur && cur.pop) {
     toggle.classList.remove("hidden");
   }
 
+  /* ===== 全国のみっちー ===== */
+  function nkDistHtml(){
+    var order = ["happy","normal","tired","sick","critical"];
+    var counts = {happy:0,normal:0,tired:0,sick:0,critical:0};
+    var total = 0;
+    var reg = mmLoad();
+    var mineStates = {};
+    if (!DB) return "";
+    Object.keys(DB).forEach(function(k){
+      var s = mmScoreOf(k);
+      if (s == null) return;
+      var st = healthState(s);
+      counts[st]++;
+      total++;
+      if (reg && ((reg.city && reg.city === k) || (reg.pref && reg.pref === k))) mineStates[k] = st;
+    });
+    var html = "<p class='nk-section-title'>全国の分布</p>";
+    order.forEach(function(st){
+      var lbl = HEALTH_LABELS[st];
+      var c = counts[st];
+      var pct = total ? Math.round(c/total*1000)/10 : 0;
+      html += "<div class='nk-dist-row'>"+
+        "<span class='nk-dist-label'>"+lbl[0]+"</span>"+
+        "<div class='nk-dist-bar-bg'><div class='nk-dist-bar-fill' style='width:"+pct+"%;background:"+lbl[1]+";'></div></div>"+
+        "<span class='nk-dist-count'>"+c.toLocaleString()+"件("+pct+"%)</span>"+
+        "</div>";
+    });
+    var mineKeys = Object.keys(mineStates);
+    if (mineKeys.length) {
+      var parts = mineKeys.map(function(k){ return k+"は「"+HEALTH_LABELS[mineStates[k]][0]+"」"; });
+      html += "<p class='nk-mine-note'>&#128039; Myみっちーは"+parts.join("、")+"ゾーンだよ</p>";
+    }
+    return html;
+  }
+
+  function nkPrefRow(list, idx, mineSet){
+    var o = list[idx];
+    var mine = !!mineSet[o.k];
+    return "<div class='nk-pref-row"+(mine?" mine":"")+"'>"+
+      "<span class='nk-pref-rank'>"+(idx+1)+"位</span>"+
+      "<span class='nk-pref-name'>"+(mine?"&#128039; ":"")+o.k+(mine?"（Myみっちーは）":"")+"</span>"+
+      "<span class='nk-pref-score'>"+o.v+"点</span>"+
+      "</div>";
+  }
+
+  function nkPrefList(){
+    if (!DB) return [];
+    var prefs = Object.keys(DB).filter(function(k){ return mmIsPrefKey(k); });
+    var list = prefs.map(function(k){ return {k:k, v:mmScoreOf(k)}; }).filter(function(o){ return o.v != null; });
+    list.sort(function(a,b){ return b.v - a.v; });
+    return list;
+  }
+
+  function nkPrefRankHtml(){
+    var list = nkPrefList();
+    if (!list.length) return "";
+    var reg = mmLoad();
+    var mineSet = {};
+    if (reg && reg.pref) mineSet[reg.pref] = true;
+    var html = "<p class='nk-section-title'>47都道府県ランキング</p>";
+    html += nkPrefRow(list, 0, mineSet);
+    if (list.length > 1) html += nkPrefRow(list, 1, mineSet);
+    if (list.length > 2) html += nkPrefRow(list, list.length - 1, mineSet);
+    html += "<button class='nk-more-btn' id='nkMoreBtn'>47都道府県ぜんぶ見る &#9654;</button>";
+    html += "<div class='hidden' id='nkFullList'></div>";
+    return html;
+  }
+
+  function nkRenderCard(){
+    var body = document.getElementById("nkBody");
+    if (!body) return;
+    if (!DB) { body.innerHTML = ""; return; }
+    body.innerHTML = nkDistHtml() + "<div class='nk-divider'></div>" + nkPrefRankHtml();
+    var moreBtn = document.getElementById("nkMoreBtn");
+    if (moreBtn) {
+      moreBtn.addEventListener("click", function(){
+        var full = document.getElementById("nkFullList");
+        if (!full) return;
+        if (full.classList.contains("hidden")) {
+          var list = nkPrefList();
+          var reg = mmLoad();
+          var mineSet = {};
+          if (reg && reg.pref) mineSet[reg.pref] = true;
+          var html = "";
+          for (var i=0;i<list.length;i++){ html += nkPrefRow(list, i, mineSet); }
+          full.innerHTML = html;
+          full.classList.remove("hidden");
+          moreBtn.textContent = "たたむ";
+        } else {
+          full.classList.add("hidden");
+          full.innerHTML = "";
+          moreBtn.textContent = "47都道府県ぜんぶ見る ▶";
+        }
+      });
+    }
+  }
+
+  function nkOpenBox(){
+    var toggle = document.getElementById("nkToggleBtn");
+    var box = document.getElementById("nkBox");
+    if (!toggle||!box) return;
+    mmCloseBox();
+    toggle.classList.add("hidden");
+    box.classList.remove("hidden");
+    nkRenderCard();
+  }
+  function nkCloseBox(){
+    var toggle = document.getElementById("nkToggleBtn");
+    var box = document.getElementById("nkBox");
+    if (!toggle||!box) return;
+    box.classList.add("hidden");
+    toggle.classList.remove("hidden");
+  }
+
   (function mmInit(){
     var toggle = document.getElementById("mmToggleBtn");
     var closeBtn = document.getElementById("mmCloseBtn");
     if (toggle) toggle.addEventListener("click", mmOpenBox);
     if (closeBtn) closeBtn.addEventListener("click", mmCloseBox);
+    var nkToggle = document.getElementById("nkToggleBtn");
+    var nkClose = document.getElementById("nkCloseBtn");
+    if (nkToggle) nkToggle.addEventListener("click", nkOpenBox);
+    if (nkClose) nkClose.addEventListener("click", nkCloseBox);
     var icon = document.getElementById("mmIcon");
     if (icon && typeof IMGS!=="undefined" && IMGS.top) icon.src = "data:image/png;base64,"+IMGS.top;
     document.addEventListener("click", function(e){
