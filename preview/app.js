@@ -347,6 +347,7 @@
           "<div class='sc-score-sub'>総合財政健全度スコア</div>" +
           "<div class='sc-score' style='color:"+pr.c+";'>"+h+"<span style='font-size:30px;'>/100</span></div>" +
           "<div class='sc-state-label' style='color:"+pr.c+";'>"+stateLabel+"</div>" +
+          shareRankBoxHtml(cityName, d) +
         "</div>" +
         "<div class='sc-top-right'>"+barsHtml+"</div>" +
       "</div>" +
@@ -847,7 +848,7 @@
     var el = document.getElementById("resEl");
     el.innerHTML =
       "<div class='card'>" +
-      "<div class='corner-row'><div id='mmCompareBtnWrap'></div><div class='compare-corner-wrap' id='compareBtnWrap'></div></div>" +
+      "<div class='corner-row'><div class='compare-corner-wrap' id='compareBtnWrap'></div><div id='mmCompareBtnWrap'></div></div>" +
       "<h2 class='sr-only'>診断結果</h2><div class='hero'>" +
         "<div class='ava'>" +
           "<img src='data:image/png;base64," + IMGS[pr.img] + "' alt='" + pr.l + "'>" +
@@ -864,7 +865,7 @@
       "</div>" +
       "<h2 class='sr-only'>健康度スコア</h2>" + noteHtml(d, h, d.p === nm) + "<div class='meter' id='m0' role='button' tabindex='0' style='border:3px solid "+pr.c+";background:"+pr.c+"10;'><div class='mt'><span>財政健全度スコア</span><span style='color:"+pr.c+";font-weight:700;'>"+h+"点</span></div>" +
         mmScoreBoxRanks(nm, d) +
-        "<div class='mt-tap' style='text-align:center;margin-top:6px;'>タップでスコアの似た自治体と詳細を見る▶</div>" +
+        "<div class='mt-tap' style='text-align:center;margin-top:6px;'>タップで<span style='color:"+pr.c+";font-weight:700;'>"+nm+"</span>と似た自治体と詳細を見る▶</div>" +
       "</div>" +
       "<div class='meter' id='m1' role='button' tabindex='0'><div class='mt'><span>実質公債費比率</span><span class='mt-tap'>タップで詳細 ▶</span></div>" +
         "<div class='mb'><div id='dbar' class='mf' style='width:0%;background:"+dc+";'></div></div>" +
@@ -1786,6 +1787,22 @@ if (key === "growth" && cur && cur.pop) {
     return !!(reg && (reg.city === name || reg.pref === name));
   }
 
+  function shareRankBoxHtml(cityName, d){
+    var isPref = (d.p === cityName);
+    var html = "<div class='sc-rank-box'>";
+    if (!isPref) {
+      var nat = mmRankNationalCity(cityName);
+      if (nat) html += "<div class='sc-rank-line'>全国 "+nat.rank.toLocaleString()+"位</div><div class='sc-rank-sub'>/ "+nat.total.toLocaleString()+"自治体</div>";
+      var prefRank = mmRankInPref(cityName, d.p);
+      if (prefRank) html += "<div class='sc-rank-line'>"+d.p+"内 "+prefRank.rank.toLocaleString()+"位</div><div class='sc-rank-sub'>/ "+prefRank.total.toLocaleString()+"市町村</div>";
+    } else {
+      var pn = mmRankPrefNational(cityName);
+      if (pn) html += "<div class='sc-rank-line'>全国 "+pn.rank+"位</div><div class='sc-rank-sub'>/ "+pn.total+"都道府県</div>";
+    }
+    html += "</div>";
+    return html;
+  }
+
   /* --- Myみっちー比較機能 --- */
   function mmCompareOptions(){
     var reg = mmLoad();
@@ -1843,17 +1860,32 @@ if (key === "growth" && cur && cur.pop) {
     openCompareModal();
   }
 
+  function mmToggleCompareOff(names, currentNm){
+    var list = getCompareList();
+    names.forEach(function(n){
+      var idx = list.indexOf(n);
+      if (idx >= 0) list.splice(idx, 1);
+    });
+    saveCompareList(list);
+    updateCompareBar();
+    renderCompareButton(currentNm);
+    mmRenderCompareBtn(currentNm);
+  }
+
   function mmRenderCompareBtn(nm){
     var wrap = document.getElementById("mmCompareBtnWrap");
     if (!wrap) return;
     var opts = mmCompareOptions();
     if (!opts.length) { wrap.innerHTML = ""; return; }
+    var names = opts.slice();
+    if (names.indexOf(nm) === -1) names.push(nm);
     var list = getCompareList();
-    var isAdded = opts.every(function(o){ return list.indexOf(o) >= 0; });
+    var isAdded = names.every(function(o){ return list.indexOf(o) >= 0; });
     wrap.innerHTML = "<div class='mm-compare-corner"+(isAdded?" added":"")+"' id='mmCompareBtn' role='button' tabindex='0'>"+(isAdded?"\u2713 \u6bd4\u8f03\u4e2d":"My\u307f\u3063\u3061\u30fc\u3068\u6bd4\u8f03")+"</div>";
     document.getElementById("mmCompareBtn").addEventListener("click", function(e){
       e.stopPropagation();
-      mmAddToCompareFront(opts, nm);
+      if (isAdded) { mmToggleCompareOff(names, nm); return; }
+      mmAddToCompareFront(names, nm);
     });
   }
 
