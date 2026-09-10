@@ -1796,10 +1796,11 @@ if (key === "growth" && cur && cur.pop) {
     return opts;
   }
 
-  function mmShowCompareLimit(){
+  function mmShowCompareLimit(need){
+    need = need || 1;
     var el = document.createElement("div");
     el.className = "mm-compare-limit";
-    el.innerHTML = "<p>比較は"+COMPARE_MAX+"個までです。比較リストからあと1個消してください。</p><button class='btn' id='mmLimitGoBtn'>比較リストへ</button>";
+    el.innerHTML = "<p>比較は"+COMPARE_MAX+"個までです。比較リストからあと"+need+"個消してください。</p><button class='btn' id='mmLimitGoBtn'>比較リストへ</button>";
     document.body.appendChild(el);
     document.getElementById("mmLimitGoBtn").addEventListener("click", function(){
       el.remove();
@@ -1823,57 +1824,23 @@ if (key === "growth" && cur && cur.pop) {
     });
   }
 
-  function mmAddToCompareFront(name, currentNm){
+  function mmAddToCompareFront(names, currentNm){
     var list = getCompareList();
-    var idx = list.indexOf(name);
-    if (idx >= 0) {
-      mmShowAlreadyInList(function(){
-        if (idx > 0) {
-          list.splice(idx, 1);
-          list.unshift(name);
-          saveCompareList(list);
-          updateCompareBar();
-          renderCompareButton(currentNm);
-          mmRenderCompareBtn(currentNm);
-        }
-        openCompareModal();
-      });
+    var newNames = names.filter(function(n){ return list.indexOf(n) === -1; });
+    if (!newNames.length) {
+      mmShowAlreadyInList(function(){ openCompareModal(); });
       return;
     }
-    if (list.length >= COMPARE_MAX) { mmShowCompareLimit(); return; }
-    list.unshift(name);
+    if (list.length + newNames.length > COMPARE_MAX) {
+      mmShowCompareLimit(list.length + newNames.length - COMPARE_MAX);
+      return;
+    }
+    for (var i = newNames.length - 1; i >= 0; i--) { list.unshift(newNames[i]); }
     saveCompareList(list);
     updateCompareBar();
     renderCompareButton(currentNm);
     mmRenderCompareBtn(currentNm);
     openCompareModal();
-  }
-
-  function mmShowComparePicker(opts, nm){
-    var host = document.getElementById("mmCompareBtnWrap");
-    if (!host) return;
-    var old = host.querySelector(".mm-compare-popover");
-    if (old) { old.remove(); return; }
-    var pop = document.createElement("div");
-    pop.className = "mm-compare-popover";
-    pop.innerHTML = opts.map(function(o){
-      return "<div class='mm-compare-opt' data-val='"+o+"'><span class='mm-compare-check'></span><span>"+o+"</span></div>";
-    }).join("");
-    host.style.position = "relative";
-    host.appendChild(pop);
-    pop.querySelectorAll(".mm-compare-opt").forEach(function(el){
-      el.addEventListener("click", function(e){
-        e.stopPropagation();
-        pop.remove();
-        mmAddToCompareFront(el.getAttribute("data-val"), nm);
-      });
-    });
-    setTimeout(function(){
-      document.addEventListener("click", function onDoc(e){
-        if (!pop.isConnected) { document.removeEventListener("click", onDoc); return; }
-        if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener("click", onDoc); }
-      });
-    }, 0);
   }
 
   function mmRenderCompareBtn(nm){
@@ -1882,12 +1849,11 @@ if (key === "growth" && cur && cur.pop) {
     var opts = mmCompareOptions();
     if (!opts.length) { wrap.innerHTML = ""; return; }
     var list = getCompareList();
-    var isFront = list.length>0 && opts.indexOf(list[0]) >= 0;
-    wrap.innerHTML = "<div class='mm-compare-corner"+(isFront?" added":"")+"' id='mmCompareBtn' role='button' tabindex='0'>"+(isFront?"\u2713 \u6bd4\u8f03\u4e2d":"My\u307f\u3063\u3061\u30fc\u3068\u6bd4\u8f03")+"</div>";
+    var isAdded = opts.every(function(o){ return list.indexOf(o) >= 0; });
+    wrap.innerHTML = "<div class='mm-compare-corner"+(isAdded?" added":"")+"' id='mmCompareBtn' role='button' tabindex='0'>"+(isAdded?"\u2713 \u6bd4\u8f03\u4e2d":"My\u307f\u3063\u3061\u30fc\u3068\u6bd4\u8f03")+"</div>";
     document.getElementById("mmCompareBtn").addEventListener("click", function(e){
       e.stopPropagation();
-      if (opts.length === 1) { mmAddToCompareFront(opts[0], nm); return; }
-      mmShowComparePicker(opts, nm);
+      mmAddToCompareFront(opts, nm);
     });
   }
 
@@ -2043,8 +2009,8 @@ if (key === "growth" && cur && cur.pop) {
     });
     var mineKeys = Object.keys(mineStates);
     if (mineKeys.length) {
-      var parts = mineKeys.map(function(k){ return k+"は「"+HEALTH_LABELS[mineStates[k]][0]+"」"; });
-      html += "<p class='nk-mine-note'>&#128039; Myみっちーの"+parts.join("、")+"ゾーンだよ</p>";
+      var lines = mineKeys.map(function(k){ return k+" &#8594; 「"+HEALTH_LABELS[mineStates[k]][0]+"」"; });
+      html += "<div class='nk-mine-note'>&#128039; Myみっちー<br>"+lines.map(function(l){ return "&nbsp;&nbsp;"+l; }).join("<br>")+"</div>";
     }
     return html;
   }
@@ -2054,7 +2020,7 @@ if (key === "growth" && cur && cur.pop) {
     var mine = !!mineSet[o.k];
     return "<div class='nk-pref-row"+(mine?" mine":"")+"'>"+
       "<span class='nk-pref-rank'>"+(idx+1)+"位</span>"+
-      "<span class='nk-pref-name'>"+(mine?"&#128039; ":"")+o.k+(mine?"（Myみっちーの）":"")+"</span>"+
+      "<span class='nk-pref-name'>"+(mine?"&#128039; ":"")+o.k+(mine?"（Myみっちー）":"")+"</span>"+
       "<span class='nk-pref-score'>"+o.v+"点</span>"+
       "</div>";
   }
