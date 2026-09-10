@@ -1999,6 +1999,8 @@ if (key === "growth" && cur && cur.pop) {
     if (!toggle||!box) return;
     if (typeof nkCloseBox === "function") nkCloseBox();
     toggle.classList.add("hidden");
+    var nkToggle = document.getElementById("nkToggleBtn");
+    if (nkToggle) nkToggle.classList.add("hidden");
     box.classList.remove("hidden");
     mmRenderCard();
   }
@@ -2008,6 +2010,8 @@ if (key === "growth" && cur && cur.pop) {
     if (!toggle||!box) return;
     box.classList.add("hidden");
     toggle.classList.remove("hidden");
+    var nkToggle = document.getElementById("nkToggleBtn");
+    if (nkToggle) nkToggle.classList.remove("hidden");
   }
 
   /* ===== 全国のみっちー ===== */
@@ -2040,7 +2044,7 @@ if (key === "growth" && cur && cur.pop) {
     var mineKeys = Object.keys(mineStates);
     if (mineKeys.length) {
       var parts = mineKeys.map(function(k){ return k+"は「"+HEALTH_LABELS[mineStates[k]][0]+"」"; });
-      html += "<p class='nk-mine-note'>&#128039; Myみっちーは"+parts.join("、")+"ゾーンだよ</p>";
+      html += "<p class='nk-mine-note'>&#128039; Myみっちーの"+parts.join("、")+"ゾーンだよ</p>";
     }
     return html;
   }
@@ -2050,7 +2054,7 @@ if (key === "growth" && cur && cur.pop) {
     var mine = !!mineSet[o.k];
     return "<div class='nk-pref-row"+(mine?" mine":"")+"'>"+
       "<span class='nk-pref-rank'>"+(idx+1)+"位</span>"+
-      "<span class='nk-pref-name'>"+(mine?"&#128039; ":"")+o.k+(mine?"（Myみっちーは）":"")+"</span>"+
+      "<span class='nk-pref-name'>"+(mine?"&#128039; ":"")+o.k+(mine?"（Myみっちーの）":"")+"</span>"+
       "<span class='nk-pref-score'>"+o.v+"点</span>"+
       "</div>";
   }
@@ -2113,6 +2117,8 @@ if (key === "growth" && cur && cur.pop) {
     if (!toggle||!box) return;
     mmCloseBox();
     toggle.classList.add("hidden");
+    var mmToggle = document.getElementById("mmToggleBtn");
+    if (mmToggle) mmToggle.classList.add("hidden");
     box.classList.remove("hidden");
     nkRenderCard();
   }
@@ -2122,6 +2128,8 @@ if (key === "growth" && cur && cur.pop) {
     if (!toggle||!box) return;
     box.classList.add("hidden");
     toggle.classList.remove("hidden");
+    var mmToggle = document.getElementById("mmToggleBtn");
+    if (mmToggle) mmToggle.classList.remove("hidden");
   }
 
   (function mmInit(){
