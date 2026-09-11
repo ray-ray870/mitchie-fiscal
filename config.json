@@ -1,0 +1,38 @@
+{
+  "_readme": "年に1回、新年度のデータが公開されたら、このファイルのURLだけを書き換えてください。書き換え方は scripts/README.md を参照。",
+  "fiscal_year_label": "令和6年度",
+  "population_year_label": "令和7年",
+
+  "fiscal_indicators": {
+    "muni": "https://www.soumu.go.jp/main_content/001044529.xlsx",
+    "pref": "https://www.soumu.go.jp/main_content/001044528.xlsx"
+  },
+  "reserve_fund": {
+    "muni": "https://www.soumu.go.jp/main_content/001066238.xlsx",
+    "pref": "https://www.soumu.go.jp/main_content/001066237.xlsx"
+  },
+  "population": {
+    "muni": "https://www.soumu.go.jp/main_content/001023714.xlsx",
+    "_note": "この1ファイルに市町村・都道府県データが両方含まれます"
+  },
+  "budget": {
+    "city": "https://www.soumu.go.jp/main_content/001061669.xlsx",
+    "town": "https://www.soumu.go.jp/main_content/001061674.xlsx",
+    "pref": "https://www.soumu.go.jp/main_content/001056118.xlsx"
+  },
+  "purpose_expenditure": {
+    "city": "https://www.soumu.go.jp/main_content/001061671.xlsx",
+    "town": "https://www.soumu.go.jp/main_content/001061676.xlsx",
+    "pref": "https://www.soumu.go.jp/main_content/001056128.xlsx"
+  },
+  "age_population": {
+    "muni": "https://www.soumu.go.jp/main_content/001023715.xlsx",
+    "pref": "https://www.soumu.go.jp/main_content/001023713.xlsx"
+  },"sfs": {
+    "_note": "決算カードから標準財政規模を取得。base_muni は東京都の市町村決算カードExcelの番号。毎年変わるので更新時に確認して書き換える。過去分を追加するときは base_muni_r1, pref_card_r1 のように年数を付けて追加する。",
+    "base_muni": 1063971,
+    "pref_card": "https://www.soumu.go.jp/main_content/001064044.xlsx",
+    "base_muni_r1": 998946,
+    "pref_card_r1": "https://www.soumu.go.jp/main_content/000999084.xlsx"
+  }
+}
