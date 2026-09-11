@@ -1861,6 +1861,105 @@ if (key === "growth" && cur && cur.pop) {
       "</div>";
   }
 
+  var KK_AXIS_COLORS = ["#f0876a", "#7bb8e8", "#6dcfad", "#f0c46a"];
+
+  function kkRadarSvg(nm, entry, isPref){
+    var n = KK_RADAR_AXES.length;
+    var cx = 50, cy = 50, R = 26;
+    var angleStep = (Math.PI * 2) / n;
+    var startAngle = -Math.PI / 2;
+
+    function pt(i, r){
+      var a = startAngle + i * angleStep;
+      return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+    }
+
+    var mineVals = [], medVals = [];
+    KK_RADAR_AXES.forEach(function(axis){
+      var raw = entry[axis.code];
+      var med = kkRadarMedian(axis.code, entry, isPref);
+      mineVals.push(raw != null ? kkRadarNorm(axis, raw, med) : null);
+      if (axis.isSigned) {
+        medVals.push(50);
+      } else {
+        medVals.push(med != null ? kkRadarNorm(axis, med, med) : null);
+      }
+    });
+
+    function pathFor(vals){
+      var d = "";
+      for (var i = 0; i < n; i++){
+        if (vals[i] == null) continue;
+        var r = (vals[i] / 100) * R;
+        var p = pt(i, r);
+        d += (d ? "L" : "M") + p[0].toFixed(2) + "," + p[1].toFixed(2) + " ";
+      }
+      return d.trim() + " Z";
+    }
+
+    var grid = "";
+    [0.25, 0.5, 0.75, 1].forEach(function(frac){
+      var d = "";
+      for (var i = 0; i <= n; i++){
+        var p = pt(i % n, R * frac);
+        d += (i === 0 ? "M" : "L") + p[0].toFixed(2) + "," + p[1].toFixed(2) + " ";
+      }
+      grid += "<path d='" + d + "' fill='none' stroke='#b8b5ae' stroke-width='0.4'/>";
+    });
+    for (var gi = 0; gi < n; gi++){
+      var gp = pt(gi, R);
+      grid += "<line x1='" + cx + "' y1='" + cy + "' x2='" + gp[0].toFixed(2) + "' y2='" + gp[1].toFixed(2) + "' stroke='#b8b5ae' stroke-width='0.4'/>";
+    }
+
+    var medPath = pathFor(medVals);
+    var minePath = pathFor(mineVals);
+
+    var dots = "", medDots = "";
+    for (var di = 0; di < n; di++){
+      if (mineVals[di] != null){
+        var dr = (mineVals[di] / 100) * R;
+        var dp = pt(di, dr);
+        dots += "<circle cx='" + dp[0].toFixed(2) + "' cy='" + dp[1].toFixed(2) + "' r='1.6' fill='#2a78d6'/>";
+      }
+      if (medVals[di] != null){
+        var mr = (medVals[di] / 100) * R;
+        var mp = pt(di, mr);
+        medDots += "<circle cx='" + mp[0].toFixed(2) + "' cy='" + mp[1].toFixed(2) + "' r='1.2' fill='#6b6862'/>";
+      }
+    }
+
+    var legX = cx + 20, legY = cy + R + 10;
+    var medLegend = "<line x1='" + (legX - 8) + "' y1='" + legY + "' x2='" + legX + "' y2='" + legY + "' stroke='#6b6862' stroke-width='0.8' stroke-dasharray='1.6,1.6'/>";
+
+    var svg = "<svg viewBox='0 0 100 100' style='position:absolute;top:0;left:0;width:100%;height:100%;'>" +
+      grid +
+      "<path d='" + medPath + "' fill='none' stroke='#6b6862' stroke-width='0.8' stroke-dasharray='1.6,1.6'/>" + medDots +
+      "<path d='" + minePath + "' fill='#2a78d61f' stroke='#2a78d6' stroke-width='1.1'/>" + dots +
+      medLegend +
+      "</svg>";
+
+    var overlays = "";
+    for (var li = 0; li < n; li++){
+      var axis = KK_RADAR_AXES[li];
+      var lp = pt(li, R + 18);
+      var align = Math.abs(lp[0] - cx) < 3 ? "center" : (lp[0] > cx ? "left" : "right");
+      var transX = align === "center" ? "-50%" : (align === "left" ? "0%" : "-100%");
+      overlays += "<div style='position:absolute;left:" + lp[0].toFixed(1) + "%;top:" + lp[1].toFixed(1) + "%;transform:translate(" + transX + ",-50%);text-align:" + align + ";width:120px;'>" +
+        "<span class='hlbl' style='background:" + KK_AXIS_COLORS[li] + "22;color:" + KK_AXIS_COLORS[li] + ";'>" + axis.friendly + "</span>" +
+        "<div class='hmsg' style='margin-top:2px;'>" + KK_META[axis.code].label + "</div>" +
+        "</div>";
+    }
+    overlays += "<div style='position:absolute;left:" + (cx + 22).toFixed(1) + "%;top:" + (cy + R + 10).toFixed(1) + "%;transform:translate(0,-50%);font-size:12px;color:#6b6862;'>全国中央値</div>";
+
+    var box = "<div style='position:relative;width:100%;max-width:340px;aspect-ratio:1/1;margin:0 auto;'>" + svg + overlays + "</div>";
+
+    var legend = "<div style='text-align:center;margin-bottom:6px;'>" +
+      "<span style='font-family:\"Kaisei Tokumin\",serif;font-size:24px;color:#3a2a6e;'>" + nm + "</span>" +
+      "</div>";
+
+    return legend + box;
+  }
+
   var KK_RADAR_AXES = [
     {code:"ka3", friendly:"老朽化への強さ", invert:true},
     {code:"ka4", friendly:"資産の自立度", invert:false},
@@ -1889,98 +1988,6 @@ if (key === "growth" && cur && cur.pop) {
     }
     var v = axis.invert ? (100 - val) : val;
     return Math.max(0, Math.min(100, v));
-  }
-
-  function kkRadarSvg(nm, entry, isPref){
-    var n = KK_RADAR_AXES.length;
-    var cx = 150, cy = 150, R = 175;
-    var angleStep = (Math.PI * 2) / n;
-    var startAngle = -Math.PI / 2;
-
-    function pt(i, r){
-      var a = startAngle + i * angleStep;
-      return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-    }
-
-    var mineVals = [], medVals = [];
-    KK_RADAR_AXES.forEach(function(axis){
-      var raw = entry[axis.code];
-      var med = kkRadarMedian(axis.code, entry, isPref);
-      mineVals.push(raw != null ? kkRadarNorm(axis, raw, med) : null);
-      if (axis.isSigned) {
-        medVals.push(50);
-      } else {
-        medVals.push(med != null ? kkRadarNorm(axis, med, med) : null);
-      }
-    });
-
-    function pathFor(vals){
-      var d = "";
-      for (var i = 0; i < n; i++){
-        if (vals[i] == null) continue;
-        var r = (vals[i] / 100) * R;
-        var p = pt(i, r);
-        d += (d ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1) + " ";
-      }
-      return d.trim() + " Z";
-    }
-
-    var grid = "";
-    [0.25, 0.5, 0.75, 1].forEach(function(frac){
-      var d = "";
-      for (var i = 0; i <= n; i++){
-        var p = pt(i % n, R * frac);
-        d += (i === 0 ? "M" : "L") + p[0].toFixed(1) + "," + p[1].toFixed(1) + " ";
-      }
-      grid += "<path d='" + d + "' fill='none' stroke='#e1e0d9' stroke-width='1'/>";
-    });
-    for (var gi = 0; gi < n; gi++){
-      var gp = pt(gi, R);
-      grid += "<line x1='" + cx + "' y1='" + cy + "' x2='" + gp[0].toFixed(1) + "' y2='" + gp[1].toFixed(1) + "' stroke='#e1e0d9' stroke-width='1'/>";
-    }
-
-    var labels = "";
-    for (var li = 0; li < n; li++){
-      var axis = KK_RADAR_AXES[li];
-      var lp = pt(li, R + 68);
-      var anchor = Math.abs(lp[0] - cx) < 5 ? "middle" : (lp[0] > cx ? "start" : "end");
-      labels += "<text x='" + lp[0].toFixed(1) + "' y='" + (lp[1] - 10).toFixed(1) + "' font-size='36' font-weight='700' fill='#3a2a6e' text-anchor='" + anchor + "'>" + axis.friendly + "</text>";
-      labels += "<text x='" + lp[0].toFixed(1) + "' y='" + (lp[1] + 24).toFixed(1) + "' font-size='24' fill='#8878a8' text-anchor='" + anchor + "'>" + KK_META[axis.code].label + "</text>";
-    }
-
-    var medPath = pathFor(medVals);
-    var minePath = pathFor(mineVals);
-
-    var dots = "", medDots = "";
-    for (var di = 0; di < n; di++){
-      if (mineVals[di] != null){
-        var dr = (mineVals[di] / 100) * R;
-        var dp = pt(di, dr);
-        dots += "<circle cx='" + dp[0].toFixed(1) + "' cy='" + dp[1].toFixed(1) + "' r='6' fill='#2a78d6'/>";
-      }
-      if (medVals[di] != null){
-        var mr = (medVals[di] / 100) * R;
-        var mp = pt(di, mr);
-        medDots += "<circle cx='" + mp[0].toFixed(1) + "' cy='" + mp[1].toFixed(1) + "' r='4' fill='#a8a6a0'/>";
-      }
-    }
-
-    var legX = cx + 60, legY = cy + R + 55;
-    var medLegend = "<line x1='" + (legX - 26) + "' y1='" + legY + "' x2='" + legX + "' y2='" + legY + "' stroke='#a8a6a0' stroke-width='2.5' stroke-dasharray='5,5'/>" +
-      "<text x='" + (legX + 8) + "' y='" + (legY + 5) + "' font-size='15' fill='#a09ca0'>\u5168\u56fd\u4e2d\u592e\u5024</text>";
-
-    var svg = "<svg viewBox='-380 -150 1080 640' style='width:100%;max-width:520px;display:block;margin:0 auto;'>" +
-      grid +
-      "<path d='" + medPath + "' fill='none' stroke='#a8a6a0' stroke-width='2.5' stroke-dasharray='5,5'/>" + medDots +
-      "<path d='" + minePath + "' fill='#2a78d61f' stroke='#2a78d6' stroke-width='3.5'/>" + dots +
-      labels + medLegend +
-      "</svg>";
-
-    var legend = "<div style='text-align:center;margin-bottom:4px;'>" +
-      "<span style='font-family:\"Kaisei Tokumin\",serif;font-size:24px;color:#3a2a6e;'>" + nm + "</span>" +
-      "</div>";
-
-    return legend + svg;
   }
 
   function kkRender(nm, d){
