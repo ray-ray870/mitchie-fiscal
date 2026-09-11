@@ -885,9 +885,8 @@
     var eigs = d.eig!=null ? (d.eig>=0?"+":"")+d.eig.toFixed(1)+"%" : "";
     var el = document.getElementById("resEl");
     el.innerHTML =
-      "<div class='card'>" +
       "<div class='fk-tabs'><button id='finTabBtn' class='fk-tab' role='button' tabindex='0'>財政</button><button id='kkTabBtn' class='fk-tab' role='button' tabindex='0'>公会計</button></div>" +
-      "<div id='finContent'>" +
+      "<div class='card' id='finContent'>" +
       "<div class='compare-corner-wrap' id='compareBtnWrap'></div>" +
       "<h2 class='sr-only'>診断結果</h2><div class='hero'>" +
         "<div class='ava'>" +
@@ -926,8 +925,7 @@
       "<div style='text-align:center;margin:16px 0 4px;'><button id='shareImgBtn' style='background:linear-gradient(135deg,#a08be8,#e060a8);color:white;border:none;border-radius:50px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(140,80,220,0.3);display:inline-flex;align-items:center;gap:8px;'>結果を共有する<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='18' cy='5' r='3'></circle><circle cx='6' cy='12' r='3'></circle><circle cx='18' cy='19' r='3'></circle><line x1='8.59' y1='13.51' x2='15.42' y2='17.49'></line><line x1='15.41' y1='6.51' x2='8.59' y2='10.49'></line></svg></button></div>" +
       "<div class='src'>📋 総務省「地方財政状況調査関係資料」令和6年度 | <a href='https://www.soumu.go.jp/iken/jokyo_chousa_shiryo.html' target='_blank'>総務省公式</a></div>" +
       "</div>" +
-      "<div class='hidden' id='kkContent'></div>" +
-      "</div>";
+      "<div class='card hidden' id='kkContent'></div>";
     el.classList.remove("hidden");
     fkInitTabs(nm, d);
     renderCompareButton(nm);
@@ -1680,7 +1678,8 @@ if (key === "growth" && cur && cur.pop) {
     }
     if (st && st.mitchieView === "detail") {
       // 詳細モーダルの状態に戻った場合は、同じ詳細パネルを再度開く
-      if (st.key) { openD(st.key, true); }
+      if (st.kk) { kkOpenDetail(st.key, true); }
+      else if (st.key) { openD(st.key, true); }
       return;
     }
     // ホーム（検索）画面まで戻る
@@ -1738,24 +1737,24 @@ document.addEventListener("keydown", function (e) {
     ka9: {muni: 3.9, pref: 4.1}
   };
   var KK_META = {
-    ka1: {icon:"\ud83d\udcb0", label:"\u4f4f\u6c11\u4e00\u4eba\u5f53\u305f\u308a\u8cc7\u7523\u984d", unit:"\u4e07\u5186", group:true,
-      desc:"\u8ca1\u52d9\u66f8\u985e\uff08\u8cb8\u501f\u5bfe\u7167\u8868\uff09\u3067\u308f\u304b\u308b\u3001\u4f4f\u6c11\uff11\u4eba\u3042\u305f\u308a\u306e\u8cc7\u7523\u984d\u3002\u5c06\u6765\u4e16\u4ee3\u306b\u5f15\u304d\u7d99\u3050\u8a2d\u5099\u7b49\uff08\u6709\u5f62\u30fb\u7121\u5f62\u56fa\u5b9a\u8cc7\u7523\uff09\u3084\u3001\u3044\u3056\u3068\u3044\u3046\u6642\u306b\u4f7f\u3048\u308b\u8cc7\u91d1\uff08\u6295\u8cc7\u30fb\u6d41\u52d5\u8cc7\u7523\uff09\u304c\u542b\u307e\u308c\u307e\u3059\u3002\n\n\ud83d\udcc8\u591a\u3044\u7406\u7531\uff1a\u5927\u898f\u6a21\u306a\u516c\u5171\u65bd\u8a2d\u30fb\u30a4\u30f3\u30d5\u30e9\u3092\u591a\u304f\u4fdd\u6709\u3057\u3066\u3044\u308b\u3001\u4eba\u53e3\u304c\u5c11\u306a\u304f\u4e00\u4eba\u5f53\u305f\u308a\u306b\u63db\u7b97\u3059\u308b\u3068\u5927\u304d\u304f\u306a\u308b\n\ud83d\udcc9\u5c11\u306a\u3044\u7406\u7531\uff1a\u8cc7\u7523\u306e\u8001\u6733\u5316\u30fb\u9664\u5374\u304c\u9032\u307f\u8a55\u4fa1\u984d\u304c\u4e0b\u304c\u3063\u3066\u3044\u308b\u3001\u8a08\u753b\u7684\u306b\u8cc7\u7523\u3092\u30b9\u30ea\u30e0\u5316\u3057\u305f"},
-    ka2: {icon:"\ud83d\udce6", label:"\u6b73\u5165\u984d\u5bfe\u8cc7\u7523\u6bd4\u7387", unit:"\u5e74", group:false,
-      desc:"\u4fdd\u6709\u3059\u308b\u8cc7\u7523\u304c\u30011\u5e74\u9593\u306e\u6b73\u5165\u306e\u4f55\u5e74\u5206\u306b\u76f8\u5f53\u3059\u308b\u304b\u3092\u8868\u3059\u6307\u6a19\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u30a4\u30f3\u30d5\u30e9\u7b49\u306e\u8cc7\u7523\u3092\u591a\u304f\u62b1\u3048\u3066\u3044\u308b\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u8cc7\u7523\u898f\u6a21\u306b\u5bfe\u3057\u3066\u6b73\u5165\u304c\u5927\u304d\u3044\u3001\u307e\u305f\u306f\u8cc7\u7523\u304c\u5c11\u306a\u3044"},
-    ka3: {icon:"\ud83c\udfda\ufe0f", label:"\u6709\u5f62\u56fa\u5b9a\u8cc7\u7523\u6e1b\u4fa1\u511f\u5374\u7387", unit:"%", group:false,
-      desc:"\u9053\u8def\u30fb\u5efa\u7269\u306a\u3069\u306e\u56fa\u5b9a\u8cc7\u7523\u304c\u3001\u8010\u7528\u5e74\u6570\u306b\u5bfe\u3057\u3066\u3069\u308c\u3060\u3051\u53e4\u304f\u306a\u3063\u3066\u3044\u308b\u304b\u3092\u8868\u3059\u5272\u5408\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u65bd\u8a2d\u306e\u66f4\u65b0\u30fb\u6539\u4fee\u304c\u8ffd\u3044\u3064\u3044\u3066\u3044\u306a\u3044\u3001\u662d\u548c\u671f\u6574\u5099\u306e\u65bd\u8a2d\u304c\u591a\u3044\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u8fd1\u5e74\u5efa\u3066\u66ff\u3048\u30fb\u65b0\u8a2d\u304c\u9032\u3093\u3067\u3044\u308b"},
-    ka4: {icon:"\ud83e\uddfe", label:"\u7d14\u8cc7\u7523\u6bd4\u7387", unit:"%", group:false,
-      desc:"\u8cc7\u7523\u306e\u3046\u3061\u3001\u501f\u91d1\u306b\u983c\u3089\u305a\u81ea\u5206\u305f\u3061\u306e\u6301\u3061\u5206\u3067\u307e\u304b\u306a\u3063\u3066\u3044\u308b\u5272\u5408\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u501f\u5165\u306b\u983c\u3089\u305a\u8cc7\u7523\u5f62\u6210\u3057\u3066\u304d\u305f\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u5730\u65b9\u50b5\u306a\u3069\u306e\u501f\u5165\u306b\u4f9d\u5b58\u3057\u3066\u8cc7\u7523\u3092\u5f62\u6210\u3057\u3066\u3044\u308b"},
-    ka5: {icon:"\ud83c\udfe6", label:"\u5c06\u6765\u4e16\u4ee3\u8ca0\u62c5\u6bd4\u7387", unit:"%", group:false,
-      desc:"\u4eca\u3042\u308b\u8cc7\u7523\u306e\u3046\u3061\u3001\u5c06\u6765\u4e16\u4ee3\u306e\u8ca0\u62c5\uff08\u501f\u91d1\u8fd4\u6e08\uff09\u3067\u307e\u304b\u306a\u3063\u3066\u3044\u308b\u5272\u5408\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u5927\u578b\u4e8b\u696d\u3092\u501f\u91d1\u3067\u307e\u304b\u306a\u3063\u3066\u304d\u305f\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u501f\u91d1\u306b\u983c\u3089\u305a\u6574\u5099\u3057\u3066\u304d\u305f\u3001\u307e\u305f\u306f\u8cc7\u7523\u898f\u6a21\u81ea\u4f53\u304c\u5c0f\u3055\u3044"},
-    ka6: {icon:"\ud83e\uddd1\u200d\ud83d\udcbc", label:"\u4f4f\u6c11\u4e00\u4eba\u5f53\u305f\u308a\u884c\u653f\u30b3\u30b9\u30c8", unit:"\u4e07\u5186", group:true,
-      desc:"\u767a\u751f\u4e3b\u7fa9\u3067\u306e\u30d5\u30eb\u30b3\u30b9\u30c8\uff08\u9000\u8077\u624b\u5f53\u5f15\u5f53\u91d1\u30fb\u6e1b\u4fa1\u511f\u5374\u8cbb\u306a\u3069\u3082\u542b\u3080\uff09\u3092\u4f4f\u6c11\uff11\u4eba\u5f53\u305f\u308a\u306b\u76f4\u3057\u305f\u91d1\u984d\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u9ad8\u9f62\u5316\u3067\u6247\u52a9\u8cbb\u304c\u591a\u3044\u3001\u65bd\u8a2d\u4fdd\u6709\u304c\u591a\u304f\u6e1b\u4fa1\u511f\u5374\u8cbb\u304c\u304b\u3055\u3080\u3001\u4eba\u53e3\u304c\u5c11\u306a\u304f\u4e00\u4eba\u5f53\u305f\u308a\u306b\u63db\u7b97\u3059\u308b\u3068\u5927\u304d\u304f\u306a\u308b\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u4eba\u53e3\u304c\u591a\u304f\u4e00\u4eba\u5f53\u305f\u308a\u306b\u8584\u307e\u308b\u3001\u884c\u8ca1\u653f\u6539\u9769\u3067\u30b3\u30b9\u30c8\u524a\u6e1b\u3057\u3066\u3044\u308b"},
-    ka7: {icon:"\ud83d\udcb3", label:"\u4f4f\u6c11\u4e00\u4eba\u5f53\u305f\u308a\u8ca0\u50b5\u984d", unit:"\u4e07\u5186", group:true,
-      desc:"\u5730\u65b9\u50b5\u6b8b\u9ad8\u3060\u3051\u3067\u306a\u304f\u9000\u8077\u624b\u5f53\u5f15\u5f53\u91d1\u30fb\u672a\u6255\u91d1\u306a\u3069\u3082\u542b\u3081\u305f\u3001\u4f4f\u6c11\uff11\u4eba\u5f53\u305f\u308a\u306e\u8ca0\u50b5\u7dcf\u984d\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u501f\u5165\u3084\u5f15\u5f53\u91d1\u304c\u591a\u3044\u3001\u4eba\u53e3\u304c\u5c11\u306a\u304f\u4e00\u4eba\u5f53\u305f\u308a\u306b\u63db\u7b97\u3059\u308b\u3068\u5927\u304d\u304f\u306a\u308b\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u501f\u5165\u3092\u62b1\u5236\u3057\u3066\u304d\u305f\u3001\u4eba\u53e3\u304c\u591a\u304f\u4e00\u4eba\u5f53\u305f\u308a\u306b\u8584\u307e\u308b"},
-    ka8: {icon:"\u2696\ufe0f", label:"\u696d\u52d9\u30fb\u6295\u8cc7\u6d3b\u52d5\u53ce\u652f", unit:"\u767e\u4e07\u5186", group:true,
-      desc:"\u65e5\u3005\u306e\u6d3b\u52d5\u3068\u6295\u8cc7\u6d3b\u52d5\u3092\u5408\u308f\u305b\u305f\u53ce\u652f\u3002\u30d7\u30e9\u30b9\u306a\u3089\u3001\u305d\u306e\u6642\u306e\u653f\u7b56\u7684\u7d4c\u8cbb\u3092\u305d\u306e\u6642\u306e\u7a0e\u53ce\u7b49\u3067\u307e\u304b\u306a\u3048\u3066\u3044\u308b\u3053\u3068\u3092\u793a\u3057\u307e\u3059\u3002\n\n\ud83d\udcc8\u30d7\u30e9\u30b9\u304c\u5927\u304d\u3044\u7406\u7531\uff1a\u7a0e\u53ce\u7b49\u306b\u5bfe\u3057\u3066\u652f\u51fa\u3092\u62b1\u3048\u3066\u3044\u308b\n\ud83d\udcc9\u30de\u30a4\u30ca\u30b9\u306e\u7406\u7531\uff1a\u5927\u578b\u6295\u8cc7\u3092\u884c\u3063\u305f\u5e74\u5ea6\u3001\u307e\u305f\u306f\u53ce\u5165\u304c\u652f\u51fa\u306b\u8ffd\u3044\u3064\u3044\u3066\u3044\u306a\u3044"},
-    ka9: {icon:"\ud83d\ude4b", label:"\u53d7\u76ca\u8005\u8ca0\u62c5\u6bd4\u7387", unit:"%", group:false,
-      desc:"\u884c\u653f\u30b5\u30fc\u30d3\u30b9\u306e\u7d4c\u5e38\u8cbb\u7528\u306e\u3046\u3061\u3001\u4f7f\u7528\u6599\u30fb\u624b\u6570\u6599\u306a\u3069\u5229\u7528\u8005\u304c\u76f4\u63a5\u8ca0\u62c5\u3057\u3066\u3044\u308b\u5272\u5408\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u53d7\u76ca\u8005\u8ca0\u62c5\u306e\u539f\u5247\u3092\u91cd\u8996\u3057\u305f\u6599\u91d1\u8a2d\u5b9a\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u30b5\u30fc\u30d3\u30b9\u306e\u591a\u304f\u3092\u7a0e\u91d1\u3067\u307e\u304b\u306a\u3063\u3066\u3044\u308b"}
+    ka1: {icon:"💰", label:"住民一人当たり資産額", unit:"万円", group:true,
+      desc:"【何を指すか】\n・自治体が持っている財産（建物や道路、貯金など）を、住民の数で割った金額。町の財産を住民みんなで分けたら一人いくら、というイメージです\n\n【含まれるもの】\n🏢庁舎・学校（建物などの事業用資産）\n🛣️道路・橋梁（インフラ資産）\n🚰水道設備（インフラ資産）\n🏦基金・預金（投資・流動資産）など…\n\n📈多い理由\n・大規模な公共施設・インフラを多く保有している\n・人口が少なく、一人当たりに換算すると大きくなる\n\n📉少ない理由\n・資産の老朽化・除却が進み評価額が下がっている\n・計画的に資産をスリム化した"},
+    ka2: {icon:"📦", label:"歳入額対資産比率", unit:"年", group:false,
+      desc:"【何を指すか】\n・今持っている財産が、1年分の収入の何年分にあたるか。数字が大きいほど、財産をたくさん蓄えていることになります\n\n📈高い理由\n・インフラ等の資産を多く抱えている\n\n📉低い理由\n・資産規模に対して歳入が大きい\n・資産そのものが少ない"},
+    ka3: {icon:"🏚️", label:"有形固定資産減価償却率", unit:"%", group:false,
+      desc:"【何を指すか】\n・道路や建物がどれくらい古くなっているかを表す割合。数字が大きいほど、そろそろ建て替えや修理が必要な時期に近づいています\n\n📈高い理由\n・施設の更新・改修が追いついていない\n・昭和期に整備した施設が多い\n\n📉低い理由\n・近年、建て替え・新設が進んでいる"},
+    ka4: {icon:"🧾", label:"純資産比率", unit:"%", group:false,
+      desc:"【何を指すか】\n・町の財産のうち、借金ではなく自分たちのお金でまかなっている部分の割合。数字が大きいほど、借金に頼らず財産を築いてきたことになります\n\n📈高い理由\n・借入に頼らず資産形成してきた\n\n📉低い理由\n・地方債などの借入に依存して資産を形成している"},
+    ka5: {icon:"🏦", label:"将来世代負担比率", unit:"%", group:false,
+      desc:"【何を指すか】\n・今ある財産のうち、まだ返し終わっていない借金でまかなわれている部分の割合。数字が大きいほど、これからの世代が返済を負担することになります\n\n📈高い理由\n・大型事業を借金でまかなってきた\n\n📉低い理由\n・借金に頼らず整備してきた\n・資産の規模自体が小さい"},
+    ka6: {icon:"🧑‍💼", label:"住民一人当たり行政コスト", unit:"万円", group:true,
+      desc:"【何を指すか】\n・町が住民サービスのために1年間に使った費用を、住民の数で割った金額。将来払う退職金の積立分なども含めた、本当の意味でのコストです\n\n【含まれるもの】\n👔人件費（職員給与など）\n🏢物件費（維持管理費・光熱費など）\n👨‍👩‍👧扶助費（生活保護・児童手当などの給付）\n📉減価償却費（建物や道路が古くなった分の目減り）\n💼退職手当引当金繰入額など（将来払う退職金の積立分）\n\n📈高い理由\n・高齢化で扶助費が多い\n・施設保有が多く減価償却費がかさむ\n・人口が少なく一人当たりに換算すると大きくなる\n\n📉低い理由\n・人口が多く一人当たりに薄まる\n・行財政改革でコスト削減している"},
+    ka7: {icon:"💳", label:"住民一人当たり負債額", unit:"万円", group:true,
+      desc:"【何を指すか】\n・町の借金の合計を、住民の数で割った金額。町の借金を住民みんなで分けたら一人いくら、というイメージです\n\n【含まれるもの】\n📜地方債（借金の残高）\n💼退職手当引当金（将来払う退職金の積立不足分）\n🧾未払金など\n\n📈高い理由\n・借入や引当金が多い\n・人口が少なく一人当たりに換算すると大きくなる\n\n📉低い理由\n・借入を抑制してきた\n・人口が多く一人当たりに薄まる"},
+    ka8: {icon:"⚖️", label:"業務・投資活動収支", unit:"百万円", group:true,
+      desc:"【何を指すか】\n・1年間の活動でお金がどれだけ余った（または足りなかった）かを表す数字。プラスなら、その年に必要なお金をきちんと賄えていたことになります\n\n📈プラスが大きい理由\n・税収等に対して支出を抑えている\n\n📉マイナスの理由\n・大型投資を行った年度だった\n・収入が支出に追いついていない"},
+    ka9: {icon:"🙋", label:"受益者負担比率", unit:"%", group:false,
+      desc:"【何を指すか】\n・行政サービスにかかった費用のうち、利用者が使用料や手数料として直接払っている割合。数字が大きいほど、利用者自身が費用を負担していることになります\n\n📈高い理由\n・受益者負担の原則を重視した料金設定\n\n📉低い理由\n・サービスの多くを税金でまかなっている"}
   };
   var KK_ORDER = ["ka1","ka2","ka3","ka4","ka5","ka6","ka7","ka8","ka9"];
 
@@ -1804,13 +1803,29 @@ document.addEventListener("keydown", function (e) {
     return line;
   }
 
-  function kkOpenDetail(code, nm, entry, isPref){
+  function kkOpenDetail(code, skipPush){
+    if (!cur || !KK) return;
+    var nm = curName;
+    var entry = KK[nm];
+    if (!entry) return;
+    var isPref = (cur.p === nm);
     var meta = KK_META[code];
     if (!meta) return;
+    if (!skipPush && document.getElementById("ovEl").classList.contains("hidden")) {
+      if (history.state && history.state.mitchieView === "result") {
+        history.replaceState(Object.assign({}, history.state, {scrollY: window.scrollY, activeTab: "kk"}), "", "#result");
+      }
+      history.pushState({mitchieView:"detail", key:code, kk:true}, "", "#detail");
+    }
     document.getElementById("shTitle").textContent = meta.icon + " " + meta.label;
     var cmpLine = kkCompareLine(code, nm, entry, isPref);
-    var html = (cmpLine ? "<p style='font-weight:700;color:#3a2a6e;margin:0 0 12px;'>" + cmpLine + "</p>" : "")
-      + meta.desc.replace(/\n/g, "<br>");
+    var descHtml = meta.desc
+      .replace(/【([^】]+)】/g, "<strong style='color:#6a3de8;'>$1</strong>")
+      .replace(/。/g, "。\n")
+      .replace(/\n{2,}/g, "\n\n")
+      .replace(/\n/g, "<br>");
+    var html = (cmpLine ? "<div style='background:#a08be814;border:1px solid #a08be840;border-radius:12px;padding:12px 14px;font-weight:700;color:#3a2a6e;margin:0 0 14px;'>" + cmpLine + "</div>" : "")
+      + descHtml;
     document.getElementById("shDesc").innerHTML = html;
     document.getElementById("spSvg").innerHTML = "";
     document.getElementById("spSvg").style.height = "0px";
@@ -1818,13 +1833,32 @@ document.addEventListener("keydown", function (e) {
     document.getElementById("ovEl").classList.remove("hidden");
   }
 
-  function kkBoxHtml(code, entry){
+  function kkColor(code, val, entry, isPref){
+    var NEUTRAL = "#a08be8";
+    if (val == null) return NEUTRAL;
+    if (code === "ka3") {
+      return val < 50 ? "#6dcfad" : val < 65 ? "#7bb8e8" : val < 75 ? "#f0c46a" : "#f0876a";
+    }
+    if (code === "ka4") {
+      return val >= 80 ? "#6dcfad" : val >= 60 ? "#7bb8e8" : val >= 40 ? "#f0c46a" : "#f0876a";
+    }
+    if (code === "ka5") {
+      return val < 10 ? "#6dcfad" : val < 30 ? "#7bb8e8" : val < 60 ? "#f0c46a" : "#f0876a";
+    }
+    if (code === "ka8") {
+      return val >= 0 ? "#6dcfad" : "#f0876a";
+    }
+    return NEUTRAL;
+  }
+
+  function kkBoxHtml(code, entry, isPref){
     var meta = KK_META[code];
     var v = entry[code];
-    return "<div class='stat kk-stat' data-kkcode='" + code + "' role='button' tabindex='0'>" +
+    var color = kkColor(code, v, entry, isPref);
+    return "<div class='stat kk-stat' data-kkcode='" + code + "' role='button' tabindex='0' style='background:" + color + "18;border-color:" + color + "44;'>" +
       "<div class='si'>" + meta.icon + "</div>" +
       "<div class='sl'>" + meta.label + "</div>" +
-      "<div class='sv' style='color:#c07a1f;'>" + kkFmt(v, meta.unit) + "</div>" +
+      "<div class='sv' style='color:" + color + ";'>" + kkFmt(v, meta.unit) + "</div>" +
       "<div class='su'>\u8a73\u7d30\u3092\u898b\u308b \u25b6</div>" +
       "</div>";
   }
@@ -1839,11 +1873,11 @@ document.addEventListener("keydown", function (e) {
       return;
     }
     var html = "<div class='tap-hint'>\ud83d\udcca \u5404\u9805\u76ee\u3092\u30bf\u30c3\u30d7\u3059\u308b\u3068\u8aac\u660e\u304c\u8868\u793a\u3055\u308c\u307e\u3059</div><div class='grid'>";
-    KK_ORDER.forEach(function(code){ html += kkBoxHtml(code, entry); });
+    KK_ORDER.forEach(function(code){ html += kkBoxHtml(code, entry, isPref); });
     html += "</div><div class='src'>\ud83d\udccb \u7dcf\u52d9\u7701\u300c\u7d71\u4e00\u7684\u306a\u57fa\u6e96\u306b\u3088\u308b\u8ca1\u52d9\u66f8\u985e\u306b\u95a2\u3059\u308b\u8abf\u300d\u4ee4\u548c5\u5e74\u5ea6</div>";
     body.innerHTML = html;
     body.querySelectorAll(".kk-stat").forEach(function(el){
-      el.addEventListener("click", function(){ kkOpenDetail(this.getAttribute("data-kkcode"), nm, entry, isPref); });
+      el.addEventListener("click", function(){ kkOpenDetail(this.getAttribute("data-kkcode")); });
     });
   }
 
@@ -1857,6 +1891,9 @@ document.addEventListener("keydown", function (e) {
     kkTab.classList.remove("active", "fk-tab-kk-active");
     finBody.classList.remove("hidden");
     kkBody.classList.add("hidden");
+    if (history.state && history.state.mitchieView === "result" && history.state.activeTab !== "fin") {
+      history.replaceState(Object.assign({}, history.state, {activeTab: "fin"}), "", "#result");
+    }
   }
 
   function fkShowKokaikei(nm, d){
@@ -1869,6 +1906,9 @@ document.addEventListener("keydown", function (e) {
     finTab.classList.remove("active", "fk-tab-fin-active");
     finBody.classList.add("hidden");
     kkBody.classList.remove("hidden");
+    if (history.state && history.state.mitchieView === "result" && history.state.activeTab !== "kk") {
+      history.replaceState(Object.assign({}, history.state, {activeTab: "kk"}), "", "#result");
+    }
     loadKokaikei(function(){ kkRender(nm, d); });
   }
 
@@ -1876,7 +1916,8 @@ document.addEventListener("keydown", function (e) {
     var finTab = document.getElementById("finTabBtn");
     var kkTab = document.getElementById("kkTabBtn");
     if (!finTab || !kkTab) return;
-    fkShowFin();
+    var wantKk = !!(history.state && history.state.activeTab === "kk");
+    if (wantKk) { fkShowKokaikei(nm, d); } else { fkShowFin(); }
     finTab.onclick = fkShowFin;
     kkTab.onclick = function(){ fkShowKokaikei(nm, d); };
   }
