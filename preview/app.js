@@ -1742,6 +1742,11 @@ if (key === "growth" && cur && cur.pop) {
     return v + unit;
   }
 
+  var KK_GOOD_DIR = { ka3: -1, ka4: 1, ka5: -1 };
+  var KK_BLUE = "#4a90d9";
+  var KK_RED = "#e85050";
+  var KK_NEUTRAL_VAL = "#a08be8";
+
   function kkCompareLine(code, nm, entry, isPref){
     var meta = KK_META[code];
     var val = entry[code];
@@ -1756,22 +1761,42 @@ if (key === "growth" && cur && cur.pop) {
       med = gm[code];
       n = gm._n;
       if (n <= 1) {
-        return nm + "は" + meta.label + "が" + kkFmt(val, unit) + "です。財政規模が大きく、比較できる同じ規模の" + (isPref ? "都道府県" : "都市") + "がありません。";
+        var valOnly = "<span style='color:" + KK_NEUTRAL_VAL + ";'>" + kkFmt(val, unit) + "</span>";
+        return "<span style='color:#6a3de8;'>" + nm + "</span>は" + meta.label + "が" + valOnly + "です。財政規模が大きく、比較できる同じ規模の" + (isPref ? "都道府県" : "都市") + "がありません。";
       }
       scaleWord = (isPref ? "同じ規模の都道府県" : "同じ規模の都市") + n + "件";
     } else {
       var mm = KK_MEDIANS[code];
       if (!mm) return "";
       med = isPref ? mm.pref : mm.muni;
-      scaleWord = "\u5168\u56fd" + (isPref ? "\u90fd\u9053\u5e9c\u770c" : "\u5e02\u533a\u753a\u6751");
+      scaleWord = "全国" + (isPref ? "都道府県" : "市区町村");
     }
     var diff = val - med;
-    var cmp = Math.abs(diff) <= Math.abs(med) * 0.05
-      ? "\u3068\u307b\u307c\u540c\u6c34\u6e96\u3067\u3059"
-      : (diff > 0 ? "\u3088\u308a\u9ad8\u3081\u3067\u3059" : "\u3088\u308a\u4f4e\u3081\u3067\u3059");
-    var line = nm + "\u306f" + meta.label + "\u304c" + kkFmt(val, unit) + "\u3067\u3001" + scaleWord + "\u306e\u4e2d\u592e\u5024\uff08" + kkFmt(med, unit) + "\uff09" + cmp + "\u3002";
+    var isSame = Math.abs(diff) <= Math.abs(med) * 0.05;
+    var cmpWord = isSame ? "ほぼ同水準" : (diff > 0 ? "高め" : "低め");
+
+    var dir = KK_GOOD_DIR[code];
+    var valColor = null, cmpColor = null;
     if (code === "ka8") {
-      line += val >= 0 ? "\uff08\u9ec4\u5b57\u57fa\u8abf\uff09" : "\uff08\u8d64\u5b57\u57fa\u8abf\uff09";
+      // 業務・投資活動収支は符号そのもので判定（黒字=良い/赤字=悪い）
+      valColor = val >= 0 ? KK_BLUE : KK_RED;
+      cmpColor = valColor;
+    } else if (dir) {
+      if (!isSame) {
+        var good = dir > 0 ? diff > 0 : diff < 0;
+        valColor = good ? KK_BLUE : KK_RED;
+        cmpColor = valColor;
+      }
+    } else {
+      valColor = KK_NEUTRAL_VAL; // 良し悪しを判定できない指標は数値だけ中立色
+    }
+
+    var valHtml = valColor ? "<span style='color:" + valColor + ";'>" + kkFmt(val, unit) + "</span>" : kkFmt(val, unit);
+    var cmpHtml = cmpColor ? "<span style='color:" + cmpColor + ";'>" + cmpWord + "です</span>" : cmpWord + "です";
+
+    var line = "<span style='color:#6a3de8;'>" + nm + "</span>は" + meta.label + "が" + valHtml + "で、" + scaleWord + "の中央値（" + kkFmt(med, unit) + "）と" + (isSame ? "" : "より") + cmpHtml + "。";
+    if (code === "ka8") {
+      line += val >= 0 ? "（黒字基調）" : "（赤字基調）";
     }
     return line;
   }
