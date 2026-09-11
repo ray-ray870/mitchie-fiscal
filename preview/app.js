@@ -1865,7 +1865,7 @@ if (key === "growth" && cur && cur.pop) {
 
   function kkRadarSvg(nm, entry, isPref){
     var n = KK_RADAR_AXES.length;
-    var cx = 50, cy = 50, R = 26;
+    var cx = 50, cy = 50, R = 42;
     var angleStep = (Math.PI * 2) / n;
     var startAngle = -Math.PI / 2;
 
@@ -1919,45 +1919,41 @@ if (key === "growth" && cur && cur.pop) {
       if (mineVals[di] != null){
         var dr = (mineVals[di] / 100) * R;
         var dp = pt(di, dr);
-        dots += "<circle cx='" + dp[0].toFixed(2) + "' cy='" + dp[1].toFixed(2) + "' r='1.6' fill='#2a78d6'/>";
+        dots += "<circle cx='" + dp[0].toFixed(2) + "' cy='" + dp[1].toFixed(2) + "' r='2' fill='#2a78d6'/>";
       }
       if (medVals[di] != null){
         var mr = (medVals[di] / 100) * R;
         var mp = pt(di, mr);
-        medDots += "<circle cx='" + mp[0].toFixed(2) + "' cy='" + mp[1].toFixed(2) + "' r='1.2' fill='#6b6862'/>";
+        medDots += "<circle cx='" + mp[0].toFixed(2) + "' cy='" + mp[1].toFixed(2) + "' r='1.5' fill='#6b6862'/>";
       }
     }
 
-    var legX = cx + 20, legY = cy + R + 10;
-    var medLegend = "<line x1='" + (legX - 8) + "' y1='" + legY + "' x2='" + legX + "' y2='" + legY + "' stroke='#6b6862' stroke-width='0.8' stroke-dasharray='1.6,1.6'/>";
-
-    var svg = "<svg viewBox='0 0 100 100' style='position:absolute;top:0;left:0;width:100%;height:100%;'>" +
+    var svg = "<svg viewBox='0 0 100 100' style='display:block;width:100%;height:100%;'>" +
       grid +
       "<path d='" + medPath + "' fill='none' stroke='#6b6862' stroke-width='0.8' stroke-dasharray='1.6,1.6'/>" + medDots +
       "<path d='" + minePath + "' fill='#2a78d61f' stroke='#2a78d6' stroke-width='1.1'/>" + dots +
-      medLegend +
       "</svg>";
 
-    var overlays = "";
-    for (var li = 0; li < n; li++){
-      var axis = KK_RADAR_AXES[li];
-      var lp = pt(li, R + 18);
-      var align = Math.abs(lp[0] - cx) < 3 ? "center" : (lp[0] > cx ? "left" : "right");
-      var transX = align === "center" ? "-50%" : (align === "left" ? "0%" : "-100%");
-      overlays += "<div style='position:absolute;left:" + lp[0].toFixed(1) + "%;top:" + lp[1].toFixed(1) + "%;transform:translate(" + transX + ",-50%);text-align:" + align + ";width:120px;'>" +
-        "<span class='hlbl' style='background:" + KK_AXIS_COLORS[li] + "22;color:" + KK_AXIS_COLORS[li] + ";'>" + axis.friendly + "</span>" +
-        "<div class='hmsg' style='margin-top:2px;'>" + KK_META[axis.code].label + "</div>" +
-        "</div>";
-    }
-    overlays += "<div style='position:absolute;left:" + (cx + 22).toFixed(1) + "%;top:" + (cy + R + 10).toFixed(1) + "%;transform:translate(0,-50%);font-size:12px;color:#6b6862;'>全国中央値</div>";
+    var chartBox = "<div style='width:100%;max-width:260px;aspect-ratio:1/1;margin:0 auto;'>" + svg + "</div>";
 
-    var box = "<div style='position:relative;width:100%;max-width:340px;aspect-ratio:1/1;margin:0 auto;'>" + svg + overlays + "</div>";
-
-    var legend = "<div style='text-align:center;margin-bottom:6px;'>" +
+    var head = "<div style='text-align:center;margin-bottom:4px;'>" +
       "<span style='font-family:\"Kaisei Tokumin\",serif;font-size:24px;color:#3a2a6e;'>" + nm + "</span>" +
+      "</div>" +
+      "<div style='display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:#6b6862;margin-bottom:14px;'>" +
+      "<span style='display:inline-block;width:14px;height:0;border-top:2px dashed #6b6862;'></span>全国中央値" +
       "</div>";
 
-    return legend + box;
+    var legendGrid = "<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;'>";
+    for (var li = 0; li < n; li++){
+      var axis = KK_RADAR_AXES[li];
+      legendGrid += "<div style='text-align:center;'>" +
+        "<span class='hlbl' style='background:" + KK_AXIS_COLORS[li] + "22;color:" + KK_AXIS_COLORS[li] + ";white-space:nowrap;'>" + axis.friendly + "</span>" +
+        "<div class='hmsg' style='margin-top:4px;'>" + KK_META[axis.code].label + "</div>" +
+        "</div>";
+    }
+    legendGrid += "</div>";
+
+    return head + chartBox + legendGrid;
   }
 
   var KK_RADAR_AXES = [
@@ -2000,7 +1996,7 @@ if (key === "growth" && cur && cur.pop) {
       return;
     }
     var html = kkRadarSvg(nm, entry, isPref);
-    html += "<div class='tap-hint'>\ud83d\udcca \u5404\u9805\u76ee\u3092\u30bf\u30c3\u30d7\u3059\u308b\u3068\u8aac\u660e\u304c\u8868\u793a\u3055\u308c\u307e\u3059</div><div class='grid'>";
+    html += "<div class='tap-hint' style='margin-top:20px;'>\ud83d\udcca \u5404\u9805\u76ee\u3092\u30bf\u30c3\u30d7\u3059\u308b\u3068\u8aac\u660e\u304c\u8868\u793a\u3055\u308c\u307e\u3059</div><div class='grid'>";
     KK_ORDER.forEach(function(code){ html += kkBoxHtml(code, entry, isPref); });
     html += "</div><div class='src'>\ud83d\udccb \u7dcf\u52d9\u7701\u300c\u7d71\u4e00\u7684\u306a\u57fa\u6e96\u306b\u3088\u308b\u8ca1\u52d9\u66f8\u985e\u306b\u95a2\u3059\u308b\u8abf\u300d\u4ee4\u548c5\u5e74\u5ea6</div>";
     body.innerHTML = html;
