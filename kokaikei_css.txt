@@ -1,0 +1,7 @@
+
+/* ===== 財政／公会計タブ ===== */
+.fk-tabs{display:flex;gap:10px;margin-bottom:16px;}
+.fk-tab{flex:1;text-align:center;padding:12px 0;border-radius:16px;background:#f5f2fa;border:3px solid transparent;color:#8878a8;font-family:'Zen Maru Gothic',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:border-color 0.15s,background 0.15s,color 0.15s;}
+.fk-tab-fin-active{background:white;border-color:#6dcfad;color:#3a2a6e;}
+.fk-tab-kk-active{background:white;border-color:#f0c46a;color:#3a2a6e;}
+.kk-stat .sv{font-size:16px;}

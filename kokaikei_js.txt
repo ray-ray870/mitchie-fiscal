@@ -1,0 +1,153 @@
+
+  /* ===== 公会計機能 ===== */
+  var KK = null;
+  var KK_MEDIANS = {
+    ka2: {muni: 3.3, pref: 2.2},
+    ka3: {muni: 65.1, pref: 63},
+    ka4: {muni: 73.1, pref: 20.7},
+    ka5: {muni: 18.3, pref: 58.4},
+    ka9: {muni: 3.9, pref: 4.1}
+  };
+  var KK_META = {
+    ka1: {icon:"\ud83d\udcb0", label:"\u4f4f\u6c11\u4e00\u4eba\u5f53\u305f\u308a\u8cc7\u7523\u984d", unit:"\u4e07\u5186", group:true,
+      desc:"\u8ca1\u52d9\u66f8\u985e\uff08\u8cb8\u501f\u5bfe\u7167\u8868\uff09\u3067\u308f\u304b\u308b\u3001\u4f4f\u6c11\uff11\u4eba\u3042\u305f\u308a\u306e\u8cc7\u7523\u984d\u3002\u5c06\u6765\u4e16\u4ee3\u306b\u5f15\u304d\u7d99\u3050\u8a2d\u5099\u7b49\uff08\u6709\u5f62\u30fb\u7121\u5f62\u56fa\u5b9a\u8cc7\u7523\uff09\u3084\u3001\u3044\u3056\u3068\u3044\u3046\u6642\u306b\u4f7f\u3048\u308b\u8cc7\u91d1\uff08\u6295\u8cc7\u30fb\u6d41\u52d5\u8cc7\u7523\uff09\u304c\u542b\u307e\u308c\u307e\u3059\u3002\n\n\ud83d\udcc8\u591a\u3044\u7406\u7531\uff1a\u5927\u898f\u6a21\u306a\u516c\u5171\u65bd\u8a2d\u30fb\u30a4\u30f3\u30d5\u30e9\u3092\u591a\u304f\u4fdd\u6709\u3057\u3066\u3044\u308b\u3001\u4eba\u53e3\u304c\u5c11\u306a\u304f\u4e00\u4eba\u5f53\u305f\u308a\u306b\u63db\u7b97\u3059\u308b\u3068\u5927\u304d\u304f\u306a\u308b\n\ud83d\udcc9\u5c11\u306a\u3044\u7406\u7531\uff1a\u8cc7\u7523\u306e\u8001\u6733\u5316\u30fb\u9664\u5374\u304c\u9032\u307f\u8a55\u4fa1\u984d\u304c\u4e0b\u304c\u3063\u3066\u3044\u308b\u3001\u8a08\u753b\u7684\u306b\u8cc7\u7523\u3092\u30b9\u30ea\u30e0\u5316\u3057\u305f"},
+    ka2: {icon:"\ud83d\udce6", label:"\u6b73\u5165\u984d\u5bfe\u8cc7\u7523\u6bd4\u7387", unit:"\u5e74", group:false,
+      desc:"\u4fdd\u6709\u3059\u308b\u8cc7\u7523\u304c\u30011\u5e74\u9593\u306e\u6b73\u5165\u306e\u4f55\u5e74\u5206\u306b\u76f8\u5f53\u3059\u308b\u304b\u3092\u8868\u3059\u6307\u6a19\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u30a4\u30f3\u30d5\u30e9\u7b49\u306e\u8cc7\u7523\u3092\u591a\u304f\u62b1\u3048\u3066\u3044\u308b\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u8cc7\u7523\u898f\u6a21\u306b\u5bfe\u3057\u3066\u6b73\u5165\u304c\u5927\u304d\u3044\u3001\u307e\u305f\u306f\u8cc7\u7523\u304c\u5c11\u306a\u3044"},
+    ka3: {icon:"\ud83c\udfda\ufe0f", label:"\u6709\u5f62\u56fa\u5b9a\u8cc7\u7523\u6e1b\u4fa1\u511f\u5374\u7387", unit:"%", group:false,
+      desc:"\u9053\u8def\u30fb\u5efa\u7269\u306a\u3069\u306e\u56fa\u5b9a\u8cc7\u7523\u304c\u3001\u8010\u7528\u5e74\u6570\u306b\u5bfe\u3057\u3066\u3069\u308c\u3060\u3051\u53e4\u304f\u306a\u3063\u3066\u3044\u308b\u304b\u3092\u8868\u3059\u5272\u5408\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u65bd\u8a2d\u306e\u66f4\u65b0\u30fb\u6539\u4fee\u304c\u8ffd\u3044\u3064\u3044\u3066\u3044\u306a\u3044\u3001\u662d\u548c\u671f\u6574\u5099\u306e\u65bd\u8a2d\u304c\u591a\u3044\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u8fd1\u5e74\u5efa\u3066\u66ff\u3048\u30fb\u65b0\u8a2d\u304c\u9032\u3093\u3067\u3044\u308b"},
+    ka4: {icon:"\ud83e\uddfe", label:"\u7d14\u8cc7\u7523\u6bd4\u7387", unit:"%", group:false,
+      desc:"\u8cc7\u7523\u306e\u3046\u3061\u3001\u501f\u91d1\u306b\u983c\u3089\u305a\u81ea\u5206\u305f\u3061\u306e\u6301\u3061\u5206\u3067\u307e\u304b\u306a\u3063\u3066\u3044\u308b\u5272\u5408\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u501f\u5165\u306b\u983c\u3089\u305a\u8cc7\u7523\u5f62\u6210\u3057\u3066\u304d\u305f\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u5730\u65b9\u50b5\u306a\u3069\u306e\u501f\u5165\u306b\u4f9d\u5b58\u3057\u3066\u8cc7\u7523\u3092\u5f62\u6210\u3057\u3066\u3044\u308b"},
+    ka5: {icon:"\ud83c\udfe6", label:"\u5c06\u6765\u4e16\u4ee3\u8ca0\u62c5\u6bd4\u7387", unit:"%", group:false,
+      desc:"\u4eca\u3042\u308b\u8cc7\u7523\u306e\u3046\u3061\u3001\u5c06\u6765\u4e16\u4ee3\u306e\u8ca0\u62c5\uff08\u501f\u91d1\u8fd4\u6e08\uff09\u3067\u307e\u304b\u306a\u3063\u3066\u3044\u308b\u5272\u5408\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u5927\u578b\u4e8b\u696d\u3092\u501f\u91d1\u3067\u307e\u304b\u306a\u3063\u3066\u304d\u305f\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u501f\u91d1\u306b\u983c\u3089\u305a\u6574\u5099\u3057\u3066\u304d\u305f\u3001\u307e\u305f\u306f\u8cc7\u7523\u898f\u6a21\u81ea\u4f53\u304c\u5c0f\u3055\u3044"},
+    ka6: {icon:"\ud83e\uddd1\u200d\ud83d\udcbc", label:"\u4f4f\u6c11\u4e00\u4eba\u5f53\u305f\u308a\u884c\u653f\u30b3\u30b9\u30c8", unit:"\u4e07\u5186", group:true,
+      desc:"\u767a\u751f\u4e3b\u7fa9\u3067\u306e\u30d5\u30eb\u30b3\u30b9\u30c8\uff08\u9000\u8077\u624b\u5f53\u5f15\u5f53\u91d1\u30fb\u6e1b\u4fa1\u511f\u5374\u8cbb\u306a\u3069\u3082\u542b\u3080\uff09\u3092\u4f4f\u6c11\uff11\u4eba\u5f53\u305f\u308a\u306b\u76f4\u3057\u305f\u91d1\u984d\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u9ad8\u9f62\u5316\u3067\u6247\u52a9\u8cbb\u304c\u591a\u3044\u3001\u65bd\u8a2d\u4fdd\u6709\u304c\u591a\u304f\u6e1b\u4fa1\u511f\u5374\u8cbb\u304c\u304b\u3055\u3080\u3001\u4eba\u53e3\u304c\u5c11\u306a\u304f\u4e00\u4eba\u5f53\u305f\u308a\u306b\u63db\u7b97\u3059\u308b\u3068\u5927\u304d\u304f\u306a\u308b\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u4eba\u53e3\u304c\u591a\u304f\u4e00\u4eba\u5f53\u305f\u308a\u306b\u8584\u307e\u308b\u3001\u884c\u8ca1\u653f\u6539\u9769\u3067\u30b3\u30b9\u30c8\u524a\u6e1b\u3057\u3066\u3044\u308b"},
+    ka7: {icon:"\ud83d\udcb3", label:"\u4f4f\u6c11\u4e00\u4eba\u5f53\u305f\u308a\u8ca0\u50b5\u984d", unit:"\u4e07\u5186", group:true,
+      desc:"\u5730\u65b9\u50b5\u6b8b\u9ad8\u3060\u3051\u3067\u306a\u304f\u9000\u8077\u624b\u5f53\u5f15\u5f53\u91d1\u30fb\u672a\u6255\u91d1\u306a\u3069\u3082\u542b\u3081\u305f\u3001\u4f4f\u6c11\uff11\u4eba\u5f53\u305f\u308a\u306e\u8ca0\u50b5\u7dcf\u984d\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u501f\u5165\u3084\u5f15\u5f53\u91d1\u304c\u591a\u3044\u3001\u4eba\u53e3\u304c\u5c11\u306a\u304f\u4e00\u4eba\u5f53\u305f\u308a\u306b\u63db\u7b97\u3059\u308b\u3068\u5927\u304d\u304f\u306a\u308b\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u501f\u5165\u3092\u62b1\u5236\u3057\u3066\u304d\u305f\u3001\u4eba\u53e3\u304c\u591a\u304f\u4e00\u4eba\u5f53\u305f\u308a\u306b\u8584\u307e\u308b"},
+    ka8: {icon:"\u2696\ufe0f", label:"\u696d\u52d9\u30fb\u6295\u8cc7\u6d3b\u52d5\u53ce\u652f", unit:"\u767e\u4e07\u5186", group:true,
+      desc:"\u65e5\u3005\u306e\u6d3b\u52d5\u3068\u6295\u8cc7\u6d3b\u52d5\u3092\u5408\u308f\u305b\u305f\u53ce\u652f\u3002\u30d7\u30e9\u30b9\u306a\u3089\u3001\u305d\u306e\u6642\u306e\u653f\u7b56\u7684\u7d4c\u8cbb\u3092\u305d\u306e\u6642\u306e\u7a0e\u53ce\u7b49\u3067\u307e\u304b\u306a\u3048\u3066\u3044\u308b\u3053\u3068\u3092\u793a\u3057\u307e\u3059\u3002\n\n\ud83d\udcc8\u30d7\u30e9\u30b9\u304c\u5927\u304d\u3044\u7406\u7531\uff1a\u7a0e\u53ce\u7b49\u306b\u5bfe\u3057\u3066\u652f\u51fa\u3092\u62b1\u3048\u3066\u3044\u308b\n\ud83d\udcc9\u30de\u30a4\u30ca\u30b9\u306e\u7406\u7531\uff1a\u5927\u578b\u6295\u8cc7\u3092\u884c\u3063\u305f\u5e74\u5ea6\u3001\u307e\u305f\u306f\u53ce\u5165\u304c\u652f\u51fa\u306b\u8ffd\u3044\u3064\u3044\u3066\u3044\u306a\u3044"},
+    ka9: {icon:"\ud83d\ude4b", label:"\u53d7\u76ca\u8005\u8ca0\u62c5\u6bd4\u7387", unit:"%", group:false,
+      desc:"\u884c\u653f\u30b5\u30fc\u30d3\u30b9\u306e\u7d4c\u5e38\u8cbb\u7528\u306e\u3046\u3061\u3001\u4f7f\u7528\u6599\u30fb\u624b\u6570\u6599\u306a\u3069\u5229\u7528\u8005\u304c\u76f4\u63a5\u8ca0\u62c5\u3057\u3066\u3044\u308b\u5272\u5408\u3002\n\n\ud83d\udcc8\u9ad8\u3044\u7406\u7531\uff1a\u53d7\u76ca\u8005\u8ca0\u62c5\u306e\u539f\u5247\u3092\u91cd\u8996\u3057\u305f\u6599\u91d1\u8a2d\u5b9a\n\ud83d\udcc9\u4f4e\u3044\u7406\u7531\uff1a\u30b5\u30fc\u30d3\u30b9\u306e\u591a\u304f\u3092\u7a0e\u91d1\u3067\u307e\u304b\u306a\u3063\u3066\u3044\u308b"}
+  };
+  var KK_ORDER = ["ka1","ka2","ka3","ka4","ka5","ka6","ka7","ka8","ka9"];
+
+  function loadKokaikei(cb){
+    if (KK) { cb(); return; }
+    fetch("kokaikei.json").then(function(r){ return r.json(); }).then(function(data){
+      KK = data;
+      cb();
+    }).catch(function(){ KK = {}; cb(); });
+  }
+
+  function kkFmt(v, unit){
+    if (v == null) return "―";
+    if (unit === "\u767e\u4e07\u5186") return (v>=0?"+":"") + v.toLocaleString() + unit;
+    return v + unit;
+  }
+
+  function kkCompareLine(code, nm, entry, isPref){
+    var meta = KK_META[code];
+    var val = entry[code];
+    if (val == null || !meta) return "";
+    var unit = meta.unit;
+    var med, scaleWord, n;
+    if (meta.group) {
+      var grp = entry.grp;
+      var bucket = isPref ? "pref" : "muni";
+      var gm = KK && KK._groupMedians && KK._groupMedians[bucket] && grp ? KK._groupMedians[bucket][grp] : null;
+      if (!gm || gm[code] == null) return "";
+      med = gm[code];
+      n = gm._n;
+      scaleWord = (isPref ? "\u540c\u3058\u898f\u6a21\u306e\u90fd\u9053\u5e9c\u770c" : "\u540c\u3058\u898f\u6a21\u306e\u90fd\u5e02") + n + "\u4ef6";
+    } else {
+      var mm = KK_MEDIANS[code];
+      if (!mm) return "";
+      med = isPref ? mm.pref : mm.muni;
+      scaleWord = "\u5168\u56fd" + (isPref ? "\u90fd\u9053\u5e9c\u770c" : "\u5e02\u533a\u753a\u6751");
+    }
+    var diff = val - med;
+    var cmp = Math.abs(diff) <= Math.abs(med) * 0.05
+      ? "\u3068\u307b\u307c\u540c\u6c34\u6e96\u3067\u3059"
+      : (diff > 0 ? "\u3088\u308a\u9ad8\u3081\u3067\u3059" : "\u3088\u308a\u4f4e\u3081\u3067\u3059");
+    var line = nm + "\u306f" + meta.label + "\u304c" + kkFmt(val, unit) + "\u3067\u3001" + scaleWord + "\u306e\u4e2d\u592e\u5024\uff08" + kkFmt(med, unit) + "\uff09" + cmp + "\u3002";
+    if (code === "ka8") {
+      line += val >= 0 ? "\uff08\u9ec4\u5b57\u57fa\u8abf\uff09" : "\uff08\u8d64\u5b57\u57fa\u8abf\uff09";
+    }
+    return line;
+  }
+
+  function kkOpenDetail(code, nm, entry, isPref){
+    var meta = KK_META[code];
+    if (!meta) return;
+    document.getElementById("shTitle").textContent = meta.icon + " " + meta.label;
+    var cmpLine = kkCompareLine(code, nm, entry, isPref);
+    var html = (cmpLine ? "<p style='font-weight:700;color:#3a2a6e;margin:0 0 12px;'>" + cmpLine + "</p>" : "")
+      + meta.desc.replace(/\n/g, "<br>");
+    document.getElementById("shDesc").innerHTML = html;
+    document.getElementById("spSvg").innerHTML = "";
+    document.getElementById("spSvg").style.height = "0px";
+    document.getElementById("spLabels").innerHTML = "";
+    document.getElementById("ovEl").classList.remove("hidden");
+  }
+
+  function kkBoxHtml(code, entry){
+    var meta = KK_META[code];
+    var v = entry[code];
+    return "<div class='stat kk-stat' data-kkcode='" + code + "' role='button' tabindex='0'>" +
+      "<div class='si'>" + meta.icon + "</div>" +
+      "<div class='sl'>" + meta.label + "</div>" +
+      "<div class='sv' style='color:#c07a1f;'>" + kkFmt(v, meta.unit) + "</div>" +
+      "<div class='su'>\u8a73\u7d30\u3092\u898b\u308b \u25b6</div>" +
+      "</div>";
+  }
+
+  function kkRender(nm, d){
+    var body = document.getElementById("kkContent");
+    if (!body) return;
+    var isPref = (d.p === nm);
+    var entry = KK ? KK[nm] : null;
+    if (!entry) {
+      body.innerHTML = "<p style='text-align:center;color:#a090c8;padding:24px 0;'>\u3053\u306e\u81ea\u6cbb\u4f53\u306e\u516c\u4f1a\u8a08\u30c7\u30fc\u30bf\u306f\u672a\u516c\u8868\u3067\u3059\u3002</p>";
+      return;
+    }
+    var html = "<div class='tap-hint'>\ud83d\udcca \u5404\u9805\u76ee\u3092\u30bf\u30c3\u30d7\u3059\u308b\u3068\u8aac\u660e\u304c\u8868\u793a\u3055\u308c\u307e\u3059</div><div class='grid'>";
+    KK_ORDER.forEach(function(code){ html += kkBoxHtml(code, entry); });
+    html += "</div><div class='src'>\ud83d\udccb \u7dcf\u52d9\u7701\u300c\u7d71\u4e00\u7684\u306a\u57fa\u6e96\u306b\u3088\u308b\u8ca1\u52d9\u66f8\u985e\u306b\u95a2\u3059\u308b\u8abf\u300d\u4ee4\u548c5\u5e74\u5ea6</div>";
+    body.innerHTML = html;
+    body.querySelectorAll(".kk-stat").forEach(function(el){
+      el.addEventListener("click", function(){ kkOpenDetail(this.getAttribute("data-kkcode"), nm, entry, isPref); });
+    });
+  }
+
+  function fkShowFin(){
+    var finTab = document.getElementById("finTabBtn");
+    var kkTab = document.getElementById("kkTabBtn");
+    var finBody = document.getElementById("finContent");
+    var kkBody = document.getElementById("kkContent");
+    if (!finTab || !kkTab || !finBody || !kkBody) return;
+    finTab.classList.add("active", "fk-tab-fin-active");
+    kkTab.classList.remove("active", "fk-tab-kk-active");
+    finBody.classList.remove("hidden");
+    kkBody.classList.add("hidden");
+  }
+
+  function fkShowKokaikei(nm, d){
+    var finTab = document.getElementById("finTabBtn");
+    var kkTab = document.getElementById("kkTabBtn");
+    var finBody = document.getElementById("finContent");
+    var kkBody = document.getElementById("kkContent");
+    if (!finTab || !kkTab || !finBody || !kkBody) return;
+    kkTab.classList.add("active", "fk-tab-kk-active");
+    finTab.classList.remove("active", "fk-tab-fin-active");
+    finBody.classList.add("hidden");
+    kkBody.classList.remove("hidden");
+    loadKokaikei(function(){ kkRender(nm, d); });
+  }
+
+  function fkInitTabs(nm, d){
+    var finTab = document.getElementById("finTabBtn");
+    var kkTab = document.getElementById("kkTabBtn");
+    if (!finTab || !kkTab) return;
+    fkShowFin();
+    finTab.onclick = fkShowFin;
+    kkTab.onclick = function(){ fkShowKokaikei(nm, d); };
+  }
