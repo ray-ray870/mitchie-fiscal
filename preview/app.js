@@ -1697,36 +1697,6 @@ if (key === "growth" && cur && cur.pop) {
   renderHistoryChips();
   window.scrollTo(0, 0);
 
-})();
-
-function shareX() {
-  var cnt = window.mitchieMunicipalityCount || 1786;
-  var text = "みっちー財政カルテ🐧\n全国" + cnt.toLocaleString() + "自治体の財政をチェックできます！\n#みっちー財政カルテ";
-  var url = "https://ray-ray870.github.io/mitchie-fiscal/?v=2";
-  if (typeof gtag === "function") {
-    gtag('event', 'share_click', { share_method: 'X' });
-  }
-  window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(url), "_blank");
-}
-
-function shareLine() {
-  var cnt = window.mitchieMunicipalityCount || 1786;
-  var text = "みっちー財政カルテ🐧\n全国" + cnt.toLocaleString() + "自治体の財政をチェックできます！\n#みっちー財政カルテ";
-  if (typeof gtag === "function") {
-    gtag('event', 'share_click', { share_method: 'LINE' });
-  }
-  window.open("https://social-plugins.line.me/lineit/share?url=" + encodeURIComponent("https://ray-ray870.github.io/mitchie-fiscal/") + "&text=" + encodeURIComponent(text), "_blank");
-}
-
-/* --- アクセシビリティ: role="button" をキーボードでも押せるようにする --- */
-document.addEventListener("keydown", function (e) {
-  if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
-  var el = e.target;
-  if (!el || !el.getAttribute || el.getAttribute("role") !== "button") return;
-  e.preventDefault();
-  el.click();
-});
-
 /* ===== 公会計機能 ===== */
   var KK = null;
   var KK_MEDIANS = {
@@ -1891,9 +1861,6 @@ document.addEventListener("keydown", function (e) {
     kkTab.classList.remove("active", "fk-tab-kk-active");
     finBody.classList.remove("hidden");
     kkBody.classList.add("hidden");
-    if (history.state && history.state.mitchieView === "result" && history.state.activeTab !== "fin") {
-      history.replaceState(Object.assign({}, history.state, {activeTab: "fin"}), "", "#result");
-    }
   }
 
   function fkShowKokaikei(nm, d){
@@ -1906,9 +1873,6 @@ document.addEventListener("keydown", function (e) {
     finTab.classList.remove("active", "fk-tab-fin-active");
     finBody.classList.add("hidden");
     kkBody.classList.remove("hidden");
-    if (history.state && history.state.mitchieView === "result" && history.state.activeTab !== "kk") {
-      history.replaceState(Object.assign({}, history.state, {activeTab: "kk"}), "", "#result");
-    }
     loadKokaikei(function(){ kkRender(nm, d); });
   }
 
@@ -1918,6 +1882,46 @@ document.addEventListener("keydown", function (e) {
     if (!finTab || !kkTab) return;
     var wantKk = !!(history.state && history.state.activeTab === "kk");
     if (wantKk) { fkShowKokaikei(nm, d); } else { fkShowFin(); }
-    finTab.onclick = fkShowFin;
-    kkTab.onclick = function(){ fkShowKokaikei(nm, d); };
+    finTab.onclick = function(){
+      fkShowFin();
+      if (history.state && history.state.mitchieView === "result" && history.state.activeTab !== "fin") {
+        history.pushState(Object.assign({}, history.state, {activeTab: "fin"}), "", "#result");
+      }
+    };
+    kkTab.onclick = function(){
+      fkShowKokaikei(nm, d);
+      if (history.state && history.state.mitchieView === "result" && history.state.activeTab !== "kk") {
+        history.pushState(Object.assign({}, history.state, {activeTab: "kk"}), "", "#result");
+      }
+    };
   }
+
+})();
+
+function shareX() {
+  var cnt = window.mitchieMunicipalityCount || 1786;
+  var text = "みっちー財政カルテ🐧\n全国" + cnt.toLocaleString() + "自治体の財政をチェックできます！\n#みっちー財政カルテ";
+  var url = "https://ray-ray870.github.io/mitchie-fiscal/?v=2";
+  if (typeof gtag === "function") {
+    gtag('event', 'share_click', { share_method: 'X' });
+  }
+  window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(url), "_blank");
+}
+
+function shareLine() {
+  var cnt = window.mitchieMunicipalityCount || 1786;
+  var text = "みっちー財政カルテ🐧\n全国" + cnt.toLocaleString() + "自治体の財政をチェックできます！\n#みっちー財政カルテ";
+  if (typeof gtag === "function") {
+    gtag('event', 'share_click', { share_method: 'LINE' });
+  }
+  window.open("https://social-plugins.line.me/lineit/share?url=" + encodeURIComponent("https://ray-ray870.github.io/mitchie-fiscal/") + "&text=" + encodeURIComponent(text), "_blank");
+}
+
+/* --- アクセシビリティ: role="button" をキーボードでも押せるようにする --- */
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+  var el = e.target;
+  if (!el || !el.getAttribute || el.getAttribute("role") !== "button") return;
+  e.preventDefault();
+  el.click();
+});
