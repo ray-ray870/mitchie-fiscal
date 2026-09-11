@@ -1861,6 +1861,125 @@ if (key === "growth" && cur && cur.pop) {
       "</div>";
   }
 
+  var KK_RADAR_AXES = [
+    {code:"ka3", friendly:"老朽化への強さ", invert:true},
+    {code:"ka4", friendly:"資産の自立度", invert:false},
+    {code:"ka5", friendly:"将来世代への配慮", invert:true},
+    {code:"ka8", friendly:"収支の健全性", invert:false, isSigned:true}
+  ];
+
+  function kkRadarMedian(code, entry, isPref){
+    var meta = KK_META[code];
+    if (meta.group) {
+      var grp = entry.grp;
+      var bucket = isPref ? "pref" : "muni";
+      var gm = KK && KK._groupMedians && KK._groupMedians[bucket] && grp ? KK._groupMedians[bucket][grp] : null;
+      return gm ? gm[code] : null;
+    }
+    var mm = KK_MEDIANS[code];
+    return mm ? (isPref ? mm.pref : mm.muni) : null;
+  }
+
+  function kkRadarNorm(axis, val, med){
+    if (val == null) return null;
+    if (axis.isSigned) {
+      var scale = Math.max(Math.abs(med || 0) * 2, 100);
+      var t = Math.max(-1, Math.min(1, val / scale));
+      return 50 + t * 50;
+    }
+    var v = axis.invert ? (100 - val) : val;
+    return Math.max(0, Math.min(100, v));
+  }
+
+  function kkRadarSvg(nm, entry, isPref){
+    var n = KK_RADAR_AXES.length;
+    var cx = 150, cy = 150, R = 100;
+    var angleStep = (Math.PI * 2) / n;
+    var startAngle = -Math.PI / 2;
+
+    function pt(i, r){
+      var a = startAngle + i * angleStep;
+      return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+    }
+
+    var mineVals = [], medVals = [];
+    KK_RADAR_AXES.forEach(function(axis){
+      var raw = entry[axis.code];
+      var med = kkRadarMedian(axis.code, entry, isPref);
+      mineVals.push(raw != null ? kkRadarNorm(axis, raw, med) : null);
+      if (axis.isSigned) {
+        medVals.push(50);
+      } else {
+        medVals.push(med != null ? kkRadarNorm(axis, med, med) : null);
+      }
+    });
+
+    function pathFor(vals){
+      var d = "";
+      for (var i = 0; i < n; i++){
+        if (vals[i] == null) continue;
+        var r = (vals[i] / 100) * R;
+        var p = pt(i, r);
+        d += (d ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1) + " ";
+      }
+      return d.trim() + " Z";
+    }
+
+    var grid = "";
+    [0.25, 0.5, 0.75, 1].forEach(function(frac){
+      var d = "";
+      for (var i = 0; i <= n; i++){
+        var p = pt(i % n, R * frac);
+        d += (i === 0 ? "M" : "L") + p[0].toFixed(1) + "," + p[1].toFixed(1) + " ";
+      }
+      grid += "<path d='" + d + "' fill='none' stroke='#e1e0d9' stroke-width='1'/>";
+    });
+    for (var gi = 0; gi < n; gi++){
+      var gp = pt(gi, R);
+      grid += "<line x1='" + cx + "' y1='" + cy + "' x2='" + gp[0].toFixed(1) + "' y2='" + gp[1].toFixed(1) + "' stroke='#e1e0d9' stroke-width='1'/>";
+    }
+
+    var labels = "";
+    for (var li = 0; li < n; li++){
+      var axis = KK_RADAR_AXES[li];
+      var lp = pt(li, R + 42);
+      var anchor = Math.abs(lp[0] - cx) < 5 ? "middle" : (lp[0] > cx ? "start" : "end");
+      labels += "<text x='" + lp[0].toFixed(1) + "' y='" + (lp[1] - 6).toFixed(1) + "' font-size='18' font-weight='700' fill='#3a2a6e' text-anchor='" + anchor + "'>" + axis.friendly + "</text>";
+      labels += "<text x='" + lp[0].toFixed(1) + "' y='" + (lp[1] + 15).toFixed(1) + "' font-size='16' fill='#a090c8' text-anchor='" + anchor + "'>" + KK_META[axis.code].label + "</text>";
+    }
+
+    var medPath = pathFor(medVals);
+    var minePath = pathFor(mineVals);
+
+    var dots = "", medDots = "";
+    for (var di = 0; di < n; di++){
+      if (mineVals[di] != null){
+        var dr = (mineVals[di] / 100) * R;
+        var dp = pt(di, dr);
+        dots += "<circle cx='" + dp[0].toFixed(1) + "' cy='" + dp[1].toFixed(1) + "' r='4' fill='#2a78d6'/>";
+      }
+      if (medVals[di] != null){
+        var mr = (medVals[di] / 100) * R;
+        var mp = pt(di, mr);
+        medDots += "<circle cx='" + mp[0].toFixed(1) + "' cy='" + mp[1].toFixed(1) + "' r='3' fill='#a8a6a0'/>";
+      }
+    }
+
+    var svg = "<svg viewBox='-180 -35 600 400' style='width:100%;max-width:380px;display:block;margin:0 auto;'>" +
+      grid +
+      "<path d='" + medPath + "' fill='none' stroke='#a8a6a0' stroke-width='2' stroke-dasharray='4,4'/>" + medDots +
+      "<path d='" + minePath + "' fill='#2a78d618' stroke='#2a78d6' stroke-width='2.5'/>" + dots +
+      labels +
+      "</svg>";
+
+    var legend = "<div style='display:flex;justify-content:center;gap:16px;font-size:12px;color:#5a5a7a;margin-bottom:4px;'>" +
+      "<span style='display:flex;align-items:center;gap:4px;'><span style='width:10px;height:10px;border-radius:2px;background:#2a78d6;'></span>" + nm + "</span>" +
+      "<span style='display:flex;align-items:center;gap:4px;'><span style='width:10px;height:10px;border-radius:2px;background:#a8a6a0;'></span>" + (isPref ? "全国都道府県の中央値" : "全国市区町村の中央値") + "</span>" +
+      "</div>";
+
+    return legend + svg;
+  }
+
   function kkRender(nm, d){
     var body = document.getElementById("kkContent");
     if (!body) return;
@@ -1870,7 +1989,8 @@ if (key === "growth" && cur && cur.pop) {
       body.innerHTML = "<p style='text-align:center;color:#a090c8;padding:24px 0;'>\u3053\u306e\u81ea\u6cbb\u4f53\u306e\u516c\u4f1a\u8a08\u30c7\u30fc\u30bf\u306f\u672a\u516c\u8868\u3067\u3059\u3002</p>";
       return;
     }
-    var html = "<div class='tap-hint'>\ud83d\udcca \u5404\u9805\u76ee\u3092\u30bf\u30c3\u30d7\u3059\u308b\u3068\u8aac\u660e\u304c\u8868\u793a\u3055\u308c\u307e\u3059</div><div class='grid'>";
+    var html = kkRadarSvg(nm, entry, isPref);
+    html += "<div class='tap-hint'>\ud83d\udcca \u5404\u9805\u76ee\u3092\u30bf\u30c3\u30d7\u3059\u308b\u3068\u8aac\u660e\u304c\u8868\u793a\u3055\u308c\u307e\u3059</div><div class='grid'>";
     KK_ORDER.forEach(function(code){ html += kkBoxHtml(code, entry, isPref); });
     html += "</div><div class='src'>\ud83d\udccb \u7dcf\u52d9\u7701\u300c\u7d71\u4e00\u7684\u306a\u57fa\u6e96\u306b\u3088\u308b\u8ca1\u52d9\u66f8\u985e\u306b\u95a2\u3059\u308b\u8abf\u300d\u4ee4\u548c5\u5e74\u5ea6</div>";
     body.innerHTML = html;
