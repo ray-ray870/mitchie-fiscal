@@ -1755,7 +1755,10 @@ if (key === "growth" && cur && cur.pop) {
       if (!gm || gm[code] == null) return "";
       med = gm[code];
       n = gm._n;
-      scaleWord = (isPref ? "\u540c\u3058\u898f\u6a21\u306e\u90fd\u9053\u5e9c\u770c" : "\u540c\u3058\u898f\u6a21\u306e\u90fd\u5e02") + n + "\u4ef6";
+      if (n <= 1) {
+        return nm + "は" + meta.label + "が" + kkFmt(val, unit) + "です。財政規模が大きく、比較できる同じ規模の" + (isPref ? "都道府県" : "都市") + "がありません。";
+      }
+      scaleWord = (isPref ? "同じ規模の都道府県" : "同じ規模の都市") + n + "件";
     } else {
       var mm = KK_MEDIANS[code];
       if (!mm) return "";
