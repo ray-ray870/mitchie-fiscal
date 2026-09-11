@@ -1893,7 +1893,7 @@ if (key === "growth" && cur && cur.pop) {
 
   function kkRadarSvg(nm, entry, isPref){
     var n = KK_RADAR_AXES.length;
-    var cx = 150, cy = 150, R = 100;
+    var cx = 150, cy = 150, R = 140;
     var angleStep = (Math.PI * 2) / n;
     var startAngle = -Math.PI / 2;
 
@@ -1942,10 +1942,10 @@ if (key === "growth" && cur && cur.pop) {
     var labels = "";
     for (var li = 0; li < n; li++){
       var axis = KK_RADAR_AXES[li];
-      var lp = pt(li, R + 42);
+      var lp = pt(li, R + 55);
       var anchor = Math.abs(lp[0] - cx) < 5 ? "middle" : (lp[0] > cx ? "start" : "end");
-      labels += "<text x='" + lp[0].toFixed(1) + "' y='" + (lp[1] - 6).toFixed(1) + "' font-size='18' font-weight='700' fill='#3a2a6e' text-anchor='" + anchor + "'>" + axis.friendly + "</text>";
-      labels += "<text x='" + lp[0].toFixed(1) + "' y='" + (lp[1] + 15).toFixed(1) + "' font-size='16' fill='#a090c8' text-anchor='" + anchor + "'>" + KK_META[axis.code].label + "</text>";
+      labels += "<text x='" + lp[0].toFixed(1) + "' y='" + (lp[1] - 8).toFixed(1) + "' font-size='30' font-weight='700' fill='#3a2a6e' text-anchor='" + anchor + "'>" + axis.friendly + "</text>";
+      labels += "<text x='" + lp[0].toFixed(1) + "' y='" + (lp[1] + 18).toFixed(1) + "' font-size='16' fill='#c0b8d8' text-anchor='" + anchor + "'>" + KK_META[axis.code].label + "</text>";
     }
 
     var medPath = pathFor(medVals);
@@ -1965,16 +1965,16 @@ if (key === "growth" && cur && cur.pop) {
       }
     }
 
-    var svg = "<svg viewBox='-180 -35 600 400' style='width:100%;max-width:380px;display:block;margin:0 auto;'>" +
+    var svg = "<svg viewBox='-260 -90 820 480' style='width:100%;max-width:440px;display:block;margin:0 auto;'>" +
       grid +
       "<path d='" + medPath + "' fill='none' stroke='#a8a6a0' stroke-width='2' stroke-dasharray='4,4'/>" + medDots +
       "<path d='" + minePath + "' fill='#2a78d618' stroke='#2a78d6' stroke-width='2.5'/>" + dots +
       labels +
       "</svg>";
 
-    var legend = "<div style='display:flex;justify-content:center;gap:16px;font-size:12px;color:#5a5a7a;margin-bottom:4px;'>" +
-      "<span style='display:flex;align-items:center;gap:4px;'><span style='width:10px;height:10px;border-radius:2px;background:#2a78d6;'></span>" + nm + "</span>" +
-      "<span style='display:flex;align-items:center;gap:4px;'><span style='width:10px;height:10px;border-radius:2px;background:#a8a6a0;'></span>" + (isPref ? "全国都道府県の中央値" : "全国市区町村の中央値") + "</span>" +
+    var legend = "<div style='display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:6px;'>" +
+      "<span style='font-family:\"Kaisei Tokumin\",serif;font-size:22px;color:#3a2a6e;'>" + nm + "</span>" +
+      "<span style='display:flex;align-items:center;gap:5px;font-size:11px;color:#a09ca0;'><span style='width:9px;height:9px;border-radius:2px;background:#a8a6a0;'></span>" + (isPref ? "全国都道府県の中央値" : "全国市区町村の中央値") + "</span>" +
       "</div>";
 
     return legend + svg;
