@@ -1893,7 +1893,7 @@ if (key === "growth" && cur && cur.pop) {
 
   function kkRadarSvg(nm, entry, isPref){
     var n = KK_RADAR_AXES.length;
-    var cx = 150, cy = 150, R = 140;
+    var cx = 150, cy = 150, R = 175;
     var angleStep = (Math.PI * 2) / n;
     var startAngle = -Math.PI / 2;
 
@@ -1942,10 +1942,10 @@ if (key === "growth" && cur && cur.pop) {
     var labels = "";
     for (var li = 0; li < n; li++){
       var axis = KK_RADAR_AXES[li];
-      var lp = pt(li, R + 55);
+      var lp = pt(li, R + 68);
       var anchor = Math.abs(lp[0] - cx) < 5 ? "middle" : (lp[0] > cx ? "start" : "end");
-      labels += "<text x='" + lp[0].toFixed(1) + "' y='" + (lp[1] - 8).toFixed(1) + "' font-size='30' font-weight='700' fill='#3a2a6e' text-anchor='" + anchor + "'>" + axis.friendly + "</text>";
-      labels += "<text x='" + lp[0].toFixed(1) + "' y='" + (lp[1] + 18).toFixed(1) + "' font-size='16' fill='#c0b8d8' text-anchor='" + anchor + "'>" + KK_META[axis.code].label + "</text>";
+      labels += "<text x='" + lp[0].toFixed(1) + "' y='" + (lp[1] - 10).toFixed(1) + "' font-size='36' font-weight='700' fill='#3a2a6e' text-anchor='" + anchor + "'>" + axis.friendly + "</text>";
+      labels += "<text x='" + lp[0].toFixed(1) + "' y='" + (lp[1] + 24).toFixed(1) + "' font-size='24' fill='#8878a8' text-anchor='" + anchor + "'>" + KK_META[axis.code].label + "</text>";
     }
 
     var medPath = pathFor(medVals);
@@ -1956,25 +1956,28 @@ if (key === "growth" && cur && cur.pop) {
       if (mineVals[di] != null){
         var dr = (mineVals[di] / 100) * R;
         var dp = pt(di, dr);
-        dots += "<circle cx='" + dp[0].toFixed(1) + "' cy='" + dp[1].toFixed(1) + "' r='4' fill='#2a78d6'/>";
+        dots += "<circle cx='" + dp[0].toFixed(1) + "' cy='" + dp[1].toFixed(1) + "' r='6' fill='#2a78d6'/>";
       }
       if (medVals[di] != null){
         var mr = (medVals[di] / 100) * R;
         var mp = pt(di, mr);
-        medDots += "<circle cx='" + mp[0].toFixed(1) + "' cy='" + mp[1].toFixed(1) + "' r='3' fill='#a8a6a0'/>";
+        medDots += "<circle cx='" + mp[0].toFixed(1) + "' cy='" + mp[1].toFixed(1) + "' r='4' fill='#a8a6a0'/>";
       }
     }
 
-    var svg = "<svg viewBox='-260 -90 820 480' style='width:100%;max-width:440px;display:block;margin:0 auto;'>" +
+    var legX = cx + 60, legY = cy + R + 55;
+    var medLegend = "<line x1='" + (legX - 26) + "' y1='" + legY + "' x2='" + legX + "' y2='" + legY + "' stroke='#a8a6a0' stroke-width='2.5' stroke-dasharray='5,5'/>" +
+      "<text x='" + (legX + 8) + "' y='" + (legY + 5) + "' font-size='15' fill='#a09ca0'>\u5168\u56fd\u4e2d\u592e\u5024</text>";
+
+    var svg = "<svg viewBox='-380 -150 1080 640' style='width:100%;max-width:520px;display:block;margin:0 auto;'>" +
       grid +
-      "<path d='" + medPath + "' fill='none' stroke='#a8a6a0' stroke-width='2' stroke-dasharray='4,4'/>" + medDots +
-      "<path d='" + minePath + "' fill='#2a78d618' stroke='#2a78d6' stroke-width='2.5'/>" + dots +
-      labels +
+      "<path d='" + medPath + "' fill='none' stroke='#a8a6a0' stroke-width='2.5' stroke-dasharray='5,5'/>" + medDots +
+      "<path d='" + minePath + "' fill='#2a78d61f' stroke='#2a78d6' stroke-width='3.5'/>" + dots +
+      labels + medLegend +
       "</svg>";
 
-    var legend = "<div style='display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:6px;'>" +
-      "<span style='font-family:\"Kaisei Tokumin\",serif;font-size:22px;color:#3a2a6e;'>" + nm + "</span>" +
-      "<span style='display:flex;align-items:center;gap:5px;font-size:11px;color:#a09ca0;'><span style='width:9px;height:9px;border-radius:2px;background:#a8a6a0;'></span>" + (isPref ? "全国都道府県の中央値" : "全国市区町村の中央値") + "</span>" +
+    var legend = "<div style='text-align:center;margin-bottom:4px;'>" +
+      "<span style='font-family:\"Kaisei Tokumin\",serif;font-size:24px;color:#3a2a6e;'>" + nm + "</span>" +
       "</div>";
 
     return legend + svg;
