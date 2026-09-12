@@ -1942,7 +1942,7 @@ if (key === "growth" && cur && cur.pop) {
         "</div>";
     }
     // KK_RADAR_AXESの並び順: 0=上, 1=右, 2=下, 3=左
-    var chartBox = "<div style='position:relative;width:min(260px,55vw);height:min(260px,55vw);margin:0 auto;'>" +
+    var chartBox = "<div style='position:relative;width:clamp(70px,calc(100vw - 272px),260px);height:clamp(70px,calc(100vw - 272px),260px);margin:0 auto;'>" +
       "<div style='position:absolute;top:0;left:0;width:100%;height:100%;'>" + svg + "</div>" +
       "<div style='position:absolute;right:0;bottom:0;display:flex;align-items:center;gap:3px;font-size:10px;color:#6b6862;'>" +
       "<span style='display:inline-block;width:10px;height:0;border-top:2px dashed #6b6862;'></span>全国中央値" +
