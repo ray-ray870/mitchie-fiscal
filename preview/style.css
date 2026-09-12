@@ -213,3 +213,11 @@ h1::after{content:'✦';font-size:15px;position:absolute;top:-6px;right:-18px;ba
 .nk-pref-name{flex:1;font-size:13px;color:#3a2a6e;}
 .nk-pref-score{font-size:13px;font-weight:700;color:#6a3de8;}
 .nk-more-btn{width:100%;text-align:center;padding:10px;font-size:13px;color:#6a3de8;background:none;border:none;cursor:pointer;}
+
+/* ===== 財政／公会計タブ ===== */
+.fk-tabs{display:flex;gap:10px;margin-bottom:16px;}
+.fk-tab{flex:1;text-align:center;padding:12px 0;border-radius:16px;background:#f5f2fa;border:3px solid transparent;color:#8878a8;font-family:'Zen Maru Gothic',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:border-color 0.15s,background 0.15s,color 0.15s;}
+.fk-tab-fin-active{background:white;border-color:#6dcfad;color:#3a2a6e;}
+.fk-tab-kk-active{background:white;border-color:#f0c46a;color:#3a2a6e;}
+.kk-stat .sv{font-size:16px;}
+.sh-top{margin-bottom:4px;}
