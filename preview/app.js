@@ -984,6 +984,8 @@
     if (!cur) return;
     var m = META[key];
     if (!m) return;
+    var spWrapEl = document.getElementById("spWrap");
+    if (spWrapEl) spWrapEl.style.display = "";
     if (typeof gtag === "function") {
       gtag('event', 'view_metric_detail', { metric_key: key });
     }
@@ -1847,7 +1849,7 @@ if (key === "growth" && cur && cur.pop) {
       if ((code === "ka4" || code === "ka5") && cur.g != null && cur.g > 0) {
         var goodDirMatch = code === "ka4" ? diff < 0 : diff > 0;
         if (goodDirMatch) {
-          line += nm + "は人口が増加傾向にあり、" +
+          line += "<br><br>" + nm + "は人口が増加傾向にあり、" +
             (code === "ka4" ? "積極的な投資による可能性もあります。" : "将来世代への投資という側面もあると考えられます。");
         }
       }
@@ -1855,7 +1857,7 @@ if (key === "growth" && cur && cur.pop) {
         var eoGrowth = (cur.eo - cur.eo_r1) / cur.eo_r1;
         var expandMatch = code === "ka3" ? diff < 0 : val < 0;
         if (eoGrowth > 0.05 && expandMatch) {
-          line += nm + "は歳出が前年より増えており、" +
+          line += "<br><br>" + nm + "は歳出が前年より増えており、" +
             (code === "ka3" ? "大型の更新投資を行った可能性があります。" : "計画的な大型投資を行った年度の可能性があります。");
         }
       }
@@ -1892,6 +1894,8 @@ if (key === "growth" && cur && cur.pop) {
     document.getElementById("spSvg").innerHTML = "";
     document.getElementById("spSvg").style.height = "0px";
     document.getElementById("spLabels").innerHTML = "";
+    var kkSpWrapEl = document.getElementById("spWrap");
+    if (kkSpWrapEl) kkSpWrapEl.style.display = "none";
     document.getElementById("ovEl").classList.remove("hidden");
     var kkShEl = document.querySelector(".sh");
     if (kkShEl) kkShEl.scrollTop = 0;
