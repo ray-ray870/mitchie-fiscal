@@ -676,9 +676,8 @@
     "data-chugoku-shikoku.json",
     "data-kyushu.json"
   ];
-  Promise.all(dataFiles.map(function(f){ return fetch(f).then(function(r){ return r.json(); }); }).concat([fetch("kokaikei.json").then(function(r){ return r.json(); }).catch(function(){ return {}; })]))
+  Promise.all(dataFiles.map(function(f){ return fetch(f).then(function(r){ return r.json(); }); }))
     .then(function(results){
-      KK = results.pop();
       DB = {};
       results.forEach(function(data){ Object.assign(DB, data); });
       Object.keys(DB).forEach(function(k){ if (DB[k] && DB[k].p === k) DB[k].__pref = true; });
@@ -886,8 +885,7 @@
     var eigs = d.eig!=null ? (d.eig>=0?"+":"")+d.eig.toFixed(1)+"%" : "";
     var el = document.getElementById("resEl");
     el.innerHTML =
-      "<div class='fk-tabs'><button id='finTabBtn' class='fk-tab' role='button' tabindex='0'>財政</button><button id='kkTabBtn' class='fk-tab' role='button' tabindex='0'>公会計</button></div>" +
-      "<div class='card' id='finContent' style='border-left:5px solid #6dcfad;'>" +
+      "<div class='card'>" +
       "<div class='corner-row'><div class='compare-corner-wrap' id='compareBtnWrap'></div><div id='mmCompareBtnWrap'></div></div>" +
       "<h2 class='sr-only'>診断結果</h2><div class='hero'>" +
         "<div class='ava'>" +
@@ -925,10 +923,8 @@
       "<div class='adv'><strong>みっちーからのひとこと</strong><br>"+advice(nm,d)+"</div>" +
       "<div style='text-align:center;margin:16px 0 4px;'><button id='shareImgBtn' style='background:linear-gradient(135deg,#a08be8,#e060a8);color:white;border:none;border-radius:50px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(140,80,220,0.3);display:inline-flex;align-items:center;gap:8px;'>結果を共有する<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='18' cy='5' r='3'></circle><circle cx='6' cy='12' r='3'></circle><circle cx='18' cy='19' r='3'></circle><line x1='8.59' y1='13.51' x2='15.42' y2='17.49'></line><line x1='15.41' y1='6.51' x2='8.59' y2='10.49'></line></svg></button></div>" +
       "<div class='src'>📋 総務省「地方財政状況調査関係資料」令和6年度 | <a href='https://www.soumu.go.jp/iken/jokyo_chousa_shiryo.html' target='_blank'>総務省公式</a></div>" +
-      "</div>" +
-      "<div class='card hidden' id='kkContent' style='border-left:5px solid #f0c46a;'></div>";
+      "</div>";
     el.classList.remove("hidden");
-    fkInitTabs(nm, d);
     renderCompareButton(nm);
     mmRenderCompareBtn(nm);
     updateCompareBar();
@@ -955,7 +951,7 @@
   var META = {
     health:{icon:"🏥",label:"総合財政健全度スコア",desc:"総務省の公式データから財政力・借金返済・固定費・将来負担・貯金の5指標を用いて算出した、本アプリ独自の参考スコアです（0〜100点）。公式の格付けではありません。\n\n都道府県は高校・国道・河川など大規模な資産を抱えるため、将来負担比率や経常収支比率の水準が市区町村より構造的に高くなります。そのため都道府県には専用の基準を用いており、市区町村の点数とは直接比較できません。\n\n目安\n85点以上 → 絶好調\n70点以上 → 元気\n50点以上 → ちょっとしんどい\n30点以上 → ぐったり\n30点未満 → ひんし状態\n\nスコアの上に出る帯について\n⚠️「ただし、〜は高い水準です」\n総合スコアは高めでも、その指標だけが弱い場合に出ます。たとえば税収などの体力はあるものの、毎年の支出が固まっていて、新しい取り組みに回せるお金は少ない、という状態です。\n\n💡「〜は健全な水準です」\n総合スコアは低めでも、その指標は明確に良い場合に出ます。全体としては厳しくても、その部分の管理はできている、という意味です。\n\nスコアは5つの指標をまとめた参考値です。1つの数字だけで判断せず、各指標もあわせて見てください。",unit:"pt",hib:true},
     debt:{icon:"💳",label:"実質公債費比率",desc:"一般会計等が負担する実質的な公債費の標準財政規模に対する比率。25%以上で早期健全化基準、35%以上で財政再生基準となります。出典：総務省令和6年度\n\n目安\n10%未満 → 健全\n18%超 → 注意\n25%以上 → 早期健全化基準\n35%以上 → 財政再生基準\n\n📈 高くなる理由\n① 過去の大型公共事業・施設建設で地方債を多く発行した\n② 合併特例債など特別な借入が多い\nなど。\n\n📉 低くなる理由\n① 堅実な財政運営で借入を抑制してきた\n② 財政力が高く税収が豊富なため借入が少ない\nなど。",unit:"%",hib:false},
-    fiscalPower:{icon:"💪",label:"財政力指数",desc:"基準財政収入額を基準財政需要額で割った値。1.0以上の団体には地方交付税が交付されません（不交付団体）。出典：総務省令和6年度\n\n目安\n🟢 0.70以上 → 税収基盤が強い\n🔵 0.45〜0.70 → 標準的（中央値は市区町村0.44／都道府県0.47）\n🟡 0.25〜0.45 → 交付税への依存が大きい\n🟠 0.25未満 → 税収基盤が特に弱い\n\nこの数値が低いことは、それ自体では財政危機を意味しません。税収が少ない分は地方交付税で補われる仕組みになっているためです。人口が少ない地域や産業基盤の小さい地域では、低い値が出るのが通常です。\n\n📈 高くなる理由\n① 企業・工場が多く法人税・固定資産税が豊富\n② 人口が多く個人住民税が充実している\nなど。\n\n📉 低くなる理由\n① 産業が乏しく税収基盤が弱い\n② 人口減少・高齢化で税収が低下している\nなど。",unit:"",hib:true},
+    fiscalPower:{icon:"💪",label:"財政力指数",desc:"基準財政収入額を基準財政需要額で割った値。1.0以上の団体には地方交付税が交付されません（不交付団体）。出典：総務省令和6年度\n\n目安\n🟢 0.70以上 → 税収基盤が強い\n🔵 0.45〜0.70 → 標準的（中央値は市区町村0.44／都道府県0.47）\n🟡 0.25〜0.45 → 交付税への依存が大きい\n🟠 0.25未満 → 税収基盤が特に弱い\n\nなお1.0以上は不交付団体（地方交付税が交付されない団体）です。\n\nこの数値が低いことは、それ自体では財政危機を意味しません。税収が少ない分は地方交付税で補われる仕組みになっているためです。人口が少ない地域や産業基盤の小さい地域では、低い値が出るのが通常です。\n\n📈 高くなる理由\n① 企業・工場が多く法人税・固定資産税が豊富\n② 人口が多く個人住民税が充実している\nなど。\n\n📉 低くなる理由\n① 産業が乏しく税収基盤が弱い\n② 人口減少・高齢化で税収が低下している\nなど。",unit:"",hib:true},
     flex:{icon:"📊",label:"経常収支比率",desc:"毎年度の経常的収入のうち人件費・扶助費・公債費など経常的経費に充当された割合。低いほど財政に弾力性があります。出典：総務省令和6年度\n\n目安\nかつて「75〜80%が望ましい」とされてきましたが、これは法令上の基準ではなく慣例的な目安です。社会保障費の増加により全国的に上昇し、2003年度以降は全国平均が90%を超え続けています。\n\n🟢 90%未満 → 全国の中では余裕があるほう\n🔵 90〜95% → 標準的な水準（市区町村の中央値91.5%／都道府県93.8%）\n🟡 95〜98% → 新しい取り組みに回せるお金が少ない\n🟠 98%以上 → 余力がほぼない（全体の約9%）\n\nこの数字だけで良し悪しは判断できません。実質公債費比率や財政力指数と合わせて見てください。\n\n📈 高くなる理由\n① 人件費・社会保障費など固定的な支出が大きい\n② 過去の借金返済（公債費）が重い\nなど。\n\n📉 低くなる理由\n① 税収が豊富で財政に余裕がある\n② 行財政改革で人件費・固定費を削減した\nなど。",unit:"%",hib:false},
     future:{icon:"🏦",label:"将来負担比率",desc:"一般会計等が将来負担すべき実質的な負債総額の標準財政規模に対する比率。350%以上で早期健全化基準。出典：総務省令和6年度\n\n目安（市区町村）\n🟢 負担なし・0%\n🔵 60%未満 → 軽い\n🟡 60〜100% → 一定の負担あり\n🟠 100%以上 → 要注意\n\n目安（都道府県）\n🟢 100%未満\n🔵 100〜160% → 標準的（47都道府県の中央値は159.7%）\n🟡 160〜250% → やや重い\n🟠 250%以上 → 重い\n\n都道府県は高校・国道・河川など大規模な資産を抱えるため、市区町村より水準が高くなります。そのため色の基準を分けています。\n\nなお350%以上は法令上の早期健全化基準です（市区町村は350%、都道府県は400%）。\n\n📈 高くなる理由\n① 過去の借入が多く残債が大きい\n② 公営企業・第三セクターの債務も含まれる\nなど。\n\n📉 低くなる理由\n① 借入を抑制し着実に返済してきた\n② 財政調整基金など充当可能財源が多い\nなど。",unit:"%",hib:false},
     reserve:{icon:"🐧",label:"財政調整基金残高",desc:"年度間の財源不足に備えて積み立てている自治体の貯金です。残高が多いほど不測の事態への備えがあります。出典：総務省基金残高等一覧令和6年度（概算）\n\n目安（標準財政規模に対する割合）\n標準財政規模とは、自治体が使い道を決められるお金（一般財源）の標準的な総額です。財政調整基金の水準は、実務でもこの割合で語られます。\n\n市区町村（中央値24.8%）\n🟢 20%以上 → 一般に適正とされる上限に到達\n🔵 10〜20% → 一般に適正とされる範囲\n🟡 5〜10% → やや少なめ\n🟠 5%未満 → 少ないほう\n\n都道府県（中央値6.4%）\n🟢 10%以上 → 都道府県としては多いほう\n🔵 5〜10% → 総務省調査で最も多い水準\n🟡 2.5〜5% → やや少なめ\n🟠 2.5%未満 → 少ないほう\n\n適正水準に法令上の基準はありません。総務省が平成29年に行った調査では、積立の考え方を「標準財政規模の一定割合」と答えた団体の水準は、都道府県で5%前後、市町村で5〜20%が多いという結果でした。都道府県と市区町村では水準が大きく違うため、基準を分けています。\n\n多いほど良いとは限りません。積立の原資は住民が納めた税金であり、貯め込みすぎは「使うべきところに使えていない」という見方もできます。\n\n📈 多い理由\n① 税収が安定し積立を続けてきた\n② 原発立地など特別な収入がある\nなど。\n\n📉 少ない理由\n① 財政難で取り崩しが続いている\n② 大規模災害・事業で緊急支出があった\nなど。",unit:"億円",hib:true},
@@ -984,8 +980,6 @@
     if (!cur) return;
     var m = META[key];
     if (!m) return;
-    var spWrapEl = document.getElementById("spWrap");
-    if (spWrapEl) spWrapEl.style.display = "";
     if (typeof gtag === "function") {
       gtag('event', 'view_metric_detail', { metric_key: key });
     }
@@ -999,7 +993,6 @@
     if (shEl) shEl.scrollTop = 0;
     if (key === "fiscalStatus") {
       document.getElementById("shTitle").textContent = m.icon+" "+m.label;
-      document.getElementById("shTop").innerHTML = "";
       document.getElementById("shDesc").innerHTML = m.htmlDesc || chipifyHeaders(m.desc).replace(/\n/g,"<br>");
       document.getElementById("spSvg").innerHTML = "";
       document.getElementById("spSvg").style.height = "0px";
@@ -1239,8 +1232,7 @@
       });
       return text;
     }
-    var topSummaryHtml = "";
-    var descHtml = chipifyHeaders(descSrc).replace(/\n/g,"<br>");
+    var descHtml = rankHtml + chipifyHeaders(descSrc).replace(/\n/g,"<br>");
     if (PREF_MUNI_SIMPLE[key] && cur) {
       var pms = PREF_MUNI_SIMPLE[key];
       var pmsText = isPrefView ? pms.pref : pms.muni;
@@ -1251,60 +1243,51 @@
       var rb = reserveBands(isPrefView);
       var judge = ratio >= rb.hi ? "多いほう" : ratio >= rb.mid ? "標準的な水準" : ratio >= rb.lo ? "やや少なめ" : "少ないほう";
       var judgeColor = colorR(ratio, isPrefView);
-      topSummaryHtml += "<div style='background:"+judgeColor+"14;border:1px solid "+judgeColor+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:14px;color:#3a3a4a;line-height:1.7;'><span style='color:"+judgeColor+";font-weight:700;'>"+curName+"</span>の財政調整基金は標準財政規模の<span style='color:"+judgeColor+";font-weight:700;'>"+ratio.toFixed(1)+"%</span>で、"+judge+"です。</div>";
+      descHtml += "<br><br><strong style='color:"+judgeColor+";'>"+curName+"の財政調整基金は標準財政規模の"+ratio.toFixed(1)+"%で、"+judge+"です。</strong>";
       var rHist = [cur.r_r2, cur.r_r3, cur.r_r4, cur.r_r5].filter(function(v){ return v!=null; });
       if (rHist.length >= 2) {
         var rAvg = rHist.reduce(function(a,b){return a+b;},0) / rHist.length;
         var rRatio = rAvg > 0 ? cur.r / rAvg : 1;
         if (rRatio >= 1.5) {
-          topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u{1F4C8} "+curName+"の財政調整基金は過去平均（"+rAvg.toFixed(1)+"億円）より大きく増えています。国からの臨時交付金や、大型事業の先送りによる積立増加の可能性があります。</div>";
+          descHtml += "<br><span style='color:#2a8a6a;font-size:15px;'>\u{1F4C8} "+curName+"の財政調整基金は過去平均（"+rAvg.toFixed(1)+"億円）より大きく増えています。国からの臨時交付金や、大型事業の先送りによる積立増加の可能性があります。</span>";
         } else if (rRatio <= 0.5) {
-          topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u{1F4C9} "+curName+"の財政調整基金は過去平均（"+rAvg.toFixed(1)+"億円）より大きく減っています。災害対応や大型事業への取り崩しがあった可能性があります。</div>";
+          descHtml += "<br><span style='color:#c04030;font-size:15px;'>\u{1F4C9} "+curName+"の財政調整基金は過去平均（"+rAvg.toFixed(1)+"億円）より大きく減っています。災害対応や大型事業への取り崩しがあった可能性があります。</span>";
         }
       }
-      if (ratio < rb.lo && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F 貯金が少なめ＋固定費も重い→緊急時に回せるお金が限られやすい状態です</div>";
-      else if (ratio < rb.lo && cur.u > 100) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F 貯金が少なめ＋将来への借金も重い→今の備えと将来の返済の両方に課題があります</div>";
-      else if (ratio < rb.lo && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F 貯金が少なめ＋自力収入も乏しい→大きな支出があったときの余力が限られます</div>";
-      else if (ratio < rb.lo) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F 緊急時に備える積立が課題になりやすい水準です</div>";
-      else if (ratio < rb.mid && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F 貯金はやや少なめ＋固定費も重い→固定費の削減と積立増加が同時に課題です</div>";
-      else if (ratio < rb.mid) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F もう少し積み増せると緊急時の備えとして安心できる水準です</div>";
-      else if (ratio >= rb.hi && cur.u <= 0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2728 貯金が多め＋将来への借金もない→備えも負債もバランスの良い状態です</div>";
-      else if (ratio >= rb.hi && cur.x < 88) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2728 貯金が多め＋固定費も軽い→財政に余裕があり、危機対応力の高い状態です</div>";
-      else if (ratio >= rb.hi && cur.d > 25) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F ※歳出が極端に削減された自治体（財政再生団体など）は、この比率が高く見える場合があります。<br>"+curName+"は実質公債費比率が"+cur.d+"%と非常に高く、この基金の多くは借金返済や不測の事態への積立です。財政状況は深刻です。</div>";
-      else if (ratio >= rb.hi) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2728 いざというときの「自治体の貯金」として機能しやすい水準です</div>";
-          topSummaryHtml += "</div>";
-      if (KK && KK[curName] && KK[curName].ka1 != null) {
-        topSummaryHtml += "<div style='background:#e8f7f0;border:1px solid #6dcfad55;border-radius:12px;padding:12px 14px;margin-top:10px;'>" +
-          "<div style='font-size:13px;font-weight:700;color:#3a9970;margin-bottom:4px;'>\ud83d\udd17 公会計と合わせて見ると</div>" +
-          "<div style='font-size:13px;color:#3a5a4a;line-height:1.7;'>" + curName + "は貯金（財政調整基金）のほかに、資産全体では住民一人当たり" + KK[curName].ka1 + "万円を保有しています。貯金はすぐ使えるお金の一部にすぎず、資産の多くは道路や建物などすぐには現金化できないものです。</div>" +
-          "</div>";
-      }
+      if (ratio < rb.lo && cur.x > 95) descHtml += "<br><span style='color:#c04030;font-size:16px;'>\u26A0\uFE0F 貯金が少なめ＋固定費も重い→緊急時に回せるお金が限られやすい状態です</span>";
+      else if (ratio < rb.lo && cur.u > 100) descHtml += "<br><span style='color:#c04030;font-size:16px;'>\u26A0\uFE0F 貯金が少なめ＋将来への借金も重い→今の備えと将来の返済の両方に課題があります</span>";
+      else if (ratio < rb.lo && cur.f < 0.5) descHtml += "<br><span style='color:#c04030;font-size:16px;'>\u26A0\uFE0F 貯金が少なめ＋自力収入も乏しい→大きな支出があったときの余力が限られます</span>";
+      else if (ratio < rb.lo) descHtml += "<br><span style='color:#c04030;font-size:16px;'>\u26A0\uFE0F 緊急時に備える積立が課題になりやすい水準です</span>";
+      else if (ratio < rb.mid && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>\u26A0\uFE0F 貯金はやや少なめ＋固定費も重い→固定費の削減と積立増加が同時に課題です</span>";
+      else if (ratio < rb.mid) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>\u26A0\uFE0F もう少し積み増せると緊急時の備えとして安心できる水準です</span>";
+      else if (ratio >= rb.hi && cur.u <= 0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>\u2728 貯金が多め＋将来への借金もない→備えも負債もバランスの良い状態です</span>";
+      else if (ratio >= rb.hi && cur.x < 88) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>\u2728 貯金が多め＋固定費も軽い→財政に余裕があり、危機対応力の高い状態です</span>";
+      else if (ratio >= rb.hi && cur.d > 25) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>\u26A0\uFE0F ※歳出が極端に削減された自治体（財政再生団体など）は、この比率が高く見える場合があります。<br>"+curName+"は実質公債費比率が"+cur.d+"%と非常に高く、この基金の多くは借金返済や不測の事態への積立です。財政状況は深刻です。</span>";
+      else if (ratio >= rb.hi) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>\u2728 いざというときの「自治体の貯金」として機能しやすい水準です</span>";
     }
+    
 if (key === "growth" && cur && cur.pop) {
       var popStr = cur.pop.toLocaleString();
       var gSign = cur.g >= 0 ? "+" : "";
       var popColor = cur.g >= 0 ? "#6dcfad" : cur.g >= -0.5 ? "#f0c46a" : "#f0876a";
-      topSummaryHtml += "<div style='background:"+popColor+"14;border:1px solid "+popColor+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:14px;color:#3a3a4a;line-height:1.7;'><span style='color:"+popColor+";font-weight:700;'>"+curName+"</span>の人口は"+popStr+"人（令和7年1月1日時点）。前年比<span style='color:"+popColor+";font-weight:700;'>"+gSign+cur.g+"%</span>です。</div>";
+      descHtml += "<br><br><strong style='color:"+popColor+";'>"+curName+"の人口は"+popStr+"人（令和7年1月1日時点）。前年比"+gSign+cur.g+"%です。</strong>";
       if (cur.pop < 3000) {
-        topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ "+curName+"は人口が少ない（"+popStr+"人）ため、少数の転入・転出だけでも増減率が大きく振れやすい点にご注意ください。</div>";
+        descHtml += "<br><span style='color:#b8860b;font-size:15px;'>⚠️ "+curName+"は人口が少ない（"+popStr+"人）ため、少数の転入・転出だけでも増減率が大きく振れやすい点にご注意ください。</span>";
       }
-      if (cur.g >= 0 && cur.f >= 0.7) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 人口が増えている＋財政力も安定→人が集まることで税収も増え、好循環が生まれやすい状態です</div>";
-      else if (cur.g >= 0 && cur.ch >= 100) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 人口が増えている＋子どもへの投資も手厚い→子育て環境の充実が若い世代を引き寄せている可能性があります</div>";
-      else if (cur.g >= 0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 人口が増加中→住民が増えれば税収も増え、財政の安定にもつながります。この流れを維持したいところです</div>";
-      else if (cur.g < -1.0 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 人口が急減している＋固定費が重い→税収が減るのに支出が固定化、財政悪化が加速しやすい危険な組み合わせです</div>";
-      else if (cur.g < -1.0 && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 人口が急減している＋財政力も弱い→人口減少が税収減を招き、財政がじわじわ悪化するリスクが高い状態です</div>";
-      else if (cur.g < -0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 人口の減少が続いている→住民1人あたりの行政コストが上がり、財政を圧迫しやすくなります。定住促進策が急務です</div>";
-      else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 人口はやや減少傾向→緩やかな減少でも長期的には財政に影響します。子育て支援・移住促進が重要です</div>";
-          topSummaryHtml += "</div>";
+      if (cur.g >= 0 && cur.f >= 0.7) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 人口が増えている＋財政力も安定→人が集まることで税収も増え、好循環が生まれやすい状態です</span>";
+      else if (cur.g >= 0 && cur.ch >= 100) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 人口が増えている＋子どもへの投資も手厚い→子育て環境の充実が若い世代を引き寄せている可能性があります</span>";
+      else if (cur.g >= 0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 人口が増加中→住民が増えれば税収も増え、財政の安定にもつながります。この流れを維持したいところです</span>";
+      else if (cur.g < -1.0 && cur.x > 95) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 人口が急減している＋固定費が重い→税収が減るのに支出が固定化、財政悪化が加速しやすい危険な組み合わせです</span>";
+      else if (cur.g < -1.0 && cur.f < 0.5) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 人口が急減している＋財政力も弱い→人口減少が税収減を招き、財政がじわじわ悪化するリスクが高い状態です</span>";
+      else if (cur.g < -0.5) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 人口の減少が続いている→住民1人あたりの行政コストが上がり、財政を圧迫しやすくなります。定住促進策が急務です</span>";
+      else descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 人口はやや減少傾向→緩やかな減少でも長期的には財政に影響します。子育て支援・移住促進が重要です</span>";
     }
     // 各項目の判定メッセージ
     if (key === "health" && cur) {
       var h2 = calcH(cur.f, cur.d, cur.x, cur.u, cur.r, cur.eo, cur.__pref, cur.sfs);
       var hj = h2>=85?"絶好調な状態":h2>=70?"おおむね安定した状態":h2>=50?"やや課題がある状態":h2>=30?"かなり厳しい状態":"非常に危機的な状態";
       var hc = h2>=85?"#6dcfad":h2>=70?"#7bb8e8":h2>=50?"#f0c46a":h2>=30?"#f0876a":"#d0505a";
-      topSummaryHtml += "<div style='background:"+hc+"14;border:1px solid "+hc+"55;border-radius:12px;padding:12px 14px;'><div style='font-size:14px;color:#3a3a4a;line-height:1.7;'><span style='color:"+hc+";font-weight:700;'>"+curName+"</span>の総合スコアは<span style='color:"+hc+";font-weight:700;'>"+h2+"点</span>で、"+hj+"です。</div>" + (curTypeLabel ? "<div style='color:#8070c0;font-size:12px;margin-top:4px;'>（"+curTypeLabel+"）</div>" : "") + "</div>";
+      descHtml += "<div style='background:rgba(232,160,150,0.1);border:1.5px solid rgba(232,160,150,0.3);border-radius:10px;padding:10px 12px;margin-top:10px;'><strong style='color:"+hc+";'>"+curName+"の総合スコアは"+h2+"点で、"+hj+"です。</strong>" + (curTypeLabel ? " <span style='color:#8070c0;font-size:12px;'>（"+curTypeLabel+"）</span>" : "") + "</div>";
       var bd_sf = Math.min(cur.f/1.2*25, 25);
       var bd_sd = Math.max((25-Math.min(cur.d,25))/25*20, 0);
       var bd_sx = Math.min(Math.max((100-cur.x)/15*20, 0), 20);
@@ -1312,7 +1295,7 @@ if (key === "growth" && cur && cur.pop) {
       var bd_full = isPrefView ? 10 : 20;
       var bd_sr = (cur.sfs && cur.sfs > 0 && cur.r != null) ? Math.min((cur.r/cur.sfs*100)/bd_full*15, 15) : 7.5;
       var bdColor = function(score, max){ return (score/max) >= 0.5 ? "#1a7a5a" : "#c02020"; };
-      topSummaryHtml += "<div class='bd-toggle' onclick=\"var c=document.getElementById('bdContent');var a=document.getElementById('bdArrow');var isOpen=c.style.maxHeight&&c.style.maxHeight!=='0px';c.style.maxHeight=isOpen?'0px':'280px';a.classList.toggle('open');\" style='display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin-top:10px;background:rgba(160,139,232,0.08);border-radius:10px;padding:10px 12px;font-size:12px;color:#6a3de8;font-weight:700;'>" +
+      descHtml += "<div class='bd-toggle' onclick=\"var c=document.getElementById('bdContent');var a=document.getElementById('bdArrow');var isOpen=c.style.maxHeight&&c.style.maxHeight!=='0px';c.style.maxHeight=isOpen?'0px':'280px';a.classList.toggle('open');\" style='display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin-top:10px;background:rgba(160,139,232,0.08);border-radius:10px;padding:10px 12px;font-size:12px;color:#6a3de8;font-weight:700;'>" +
         "<span>📊 内訳を見る</span><span id='bdArrow' style='transition:transform 0.2s;'>▼</span></div>" +
         "<div id='bdContent' style='max-height:0;overflow:hidden;transition:max-height 0.25s ease;font-size:12px;color:#5a5a7a;line-height:1.9;'>" +
         "<div style='padding-top:8px;'>" +
@@ -1324,7 +1307,7 @@ if (key === "growth" && cur && cur.pop) {
         "</div></div>" +
         "<div style='border-top:2px dashed rgba(160,139,232,0.3);margin:14px 0 12px;'></div>";
       if (peersHtml) {
-        topSummaryHtml += "<div class='bd-toggle' onclick=\"var c=document.getElementById('peerContent');var a=document.getElementById('peerArrow');var isOpen=c.style.maxHeight&&c.style.maxHeight!=='0px';c.style.maxHeight=isOpen?'0px':'600px';a.classList.toggle('open');\" style='display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:rgba(232,160,150,0.12);border-radius:10px;padding:10px 12px;font-size:12px;color:#c07050;font-weight:700;'>" +
+        descHtml += "<div class='bd-toggle' onclick=\"var c=document.getElementById('peerContent');var a=document.getElementById('peerArrow');var isOpen=c.style.maxHeight&&c.style.maxHeight!=='0px';c.style.maxHeight=isOpen?'0px':'600px';a.classList.toggle('open');\" style='display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:rgba(232,160,150,0.12);border-radius:10px;padding:10px 12px;font-size:12px;color:#c07050;font-weight:700;'>" +
           "<span>🐧 スコアが近い自治体を見る</span><span id='peerArrow' style='transition:transform 0.2s;'>▼</span></div>" +
           "<div id='peerContent' style='max-height:0;overflow:hidden;transition:max-height 0.3s ease;'>" +
           "<div style='padding-top:10px;'>" + peersHtml + "</div></div>";
@@ -1333,133 +1316,102 @@ if (key === "growth" && cur && cur.pop) {
     if (key === "debt" && cur) {
       var dj = cur.d<10?"健全な水準":cur.d<18?"注意が必要な水準":cur.d<25?"要改善の水準":"早期健全化基準を超えています";
       var dc2 = cur.d<10?"#6dcfad":cur.d<18?"#7bb8e8":cur.d<25?"#f0c46a":"#f0876a";
-      topSummaryHtml += "<div style='background:"+dc2+"14;border:1px solid "+dc2+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:14px;color:#3a3a4a;line-height:1.7;'><span style='color:"+dc2+";font-weight:700;'>"+curName+"</span>の実質公債費比率は<span style='color:"+dc2+";font-weight:700;'>"+cur.d+"%</span>で、"+dj+"。</div>";
-      if (cur.d > 18 && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 借金返済が重い＋自力収入が乏しい→返済で手一杯なのに稼ぐ力もない、最も厳しい二重苦です</div>";
-      else if (cur.d > 18 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 借金返済が重い＋固定費も硬直化→お金の出口がふさがれており、新しい政策に回せる余地がほぼありません</div>";
-      else if (cur.d > 18) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 借金返済の負担が大きい→収入の多くが返済に消えており、住民サービスへの影響が出やすい状態です</div>";
-      else if (cur.d < 10 && cur.f >= 0.7 && cur.x < 88) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 借金返済が軽い＋自力収入も豊か＋固定費も適正→返済の心配がなく政策投資もできる、理想的な状態です</div>";
-      else if (cur.d < 10 && cur.f >= 0.7) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 借金返済が軽い＋自力収入も豊か→返済の心配がなく、新しい政策にも積極的に投資できる状態です</div>";
-      else if (cur.d < 10 && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 借金返済が軽い＋貯金も十分（標準財政規模比で多め）→いざというときの備えもあり、とても健全な財政です</div>";
-      else if (cur.d < 10 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 借金返済は軽いが固定費が重い→返済の心配はないものの、人件費・社会保障費が財政を圧迫しています</div>";
-      else if (cur.d < 10) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 借金返済の負担が軽く、財政に余裕があります。この水準を維持できると理想的です</div>";
-      else if (cur.d < 18 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 返済負担は標準的だが固定費が重い→借金は普通でも固定費に圧迫されており、政策の自由度が低い状態です</div>";
-      else if (cur.d < 18 && cur.f >= 0.7) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 返済負担は標準的＋自力収入も安定→大きな心配はありませんが、借入残高の推移は引き続き注視を</div>";
-      else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 返済負担がやや重め＋自力収入が少ない→交付税頼みになりやすく、国の制度変更の影響を受けやすい状態です</div>";
-          topSummaryHtml += "</div>";
+      descHtml += "<br><br><strong style='color:"+dc2+";'>"+curName+"の実質公債費比率は"+cur.d+"%で、"+dj+"。</strong>";
+      if (cur.d > 18 && cur.f < 0.5) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 借金返済が重い＋自力収入が乏しい→返済で手一杯なのに稼ぐ力もない、最も厳しい二重苦です</span>";
+      else if (cur.d > 18 && cur.x > 95) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 借金返済が重い＋固定費も硬直化→お金の出口がふさがれており、新しい政策に回せる余地がほぼありません</span>";
+      else if (cur.d > 18) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 借金返済の負担が大きい→収入の多くが返済に消えており、住民サービスへの影響が出やすい状態です</span>";
+      else if (cur.d < 10 && cur.f >= 0.7 && cur.x < 88) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 借金返済が軽い＋自力収入も豊か＋固定費も適正→返済の心配がなく政策投資もできる、理想的な状態です</span>";
+      else if (cur.d < 10 && cur.f >= 0.7) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 借金返済が軽い＋自力収入も豊か→返済の心配がなく、新しい政策にも積極的に投資できる状態です</span>";
+      else if (cur.d < 10 && reserveIsAmple(cur, isPrefView)) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 借金返済が軽い＋貯金も十分（標準財政規模比で多め）→いざというときの備えもあり、とても健全な財政です</span>";
+      else if (cur.d < 10 && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 借金返済は軽いが固定費が重い→返済の心配はないものの、人件費・社会保障費が財政を圧迫しています</span>";
+      else if (cur.d < 10) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 借金返済の負担が軽く、財政に余裕があります。この水準を維持できると理想的です</span>";
+      else if (cur.d < 18 && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 返済負担は標準的だが固定費が重い→借金は普通でも固定費に圧迫されており、政策の自由度が低い状態です</span>";
+      else if (cur.d < 18 && cur.f >= 0.7) descHtml += "<br><span style='color:#3070b8;font-size:16px;'>📋 返済負担は標準的＋自力収入も安定→大きな心配はありませんが、借入残高の推移は引き続き注視を</span>";
+      else descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 返済負担がやや重め＋自力収入が少ない→交付税頼みになりやすく、国の制度変更の影響を受けやすい状態です</span>";
     }
     if (key === "fiscalPower" && cur) {
       var fj = cur.f>=1.0?"不交付団体（財政力豊か）":cur.f>=0.7?"比較的安定した財政力":cur.f>=0.5?"やや交付税依存":"交付税依存度が高い状態";
       var fc2 = cur.f>=1.0?"#6dcfad":cur.f>=0.7?"#7bb8e8":cur.f>=0.5?"#f0c46a":"#f0876a";
-      topSummaryHtml += "<div style='background:"+fc2+"14;border:1px solid "+fc2+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:14px;color:#3a3a4a;line-height:1.7;'><span style='color:"+fc2+";font-weight:700;'>"+curName+"</span>の財政力指数は<span style='color:"+fc2+";font-weight:700;'>"+cur.f.toFixed(2)+"</span>で、"+fj+"です。</div>";
-      if (cur.f < 0.5 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 自力収入が乏しい＋固定費が重い→稼げないのにお金が出ていく一方、最も身動きが取りにくい状態です</div>";
-      else if (cur.f < 0.5 && cur.u > 100) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 自力収入が乏しい＋将来への借金も重い→今も苦しく将来も重荷を背負っており、構造的な改革が必要です</div>";
-      else if (cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 自力で稼ぐ力が弱い→国からの交付税に大きく依存しており、国の財政事情に左右されやすい状態です</div>";
-      else if (cur.f >= 1.0 && cur.x < 88) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 自力収入が豊か＋固定費も軽い→収入も支出もバランス良く、政策の自由度が高い理想的な財政です</div>";
-      else if (cur.f >= 1.0 && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 自力収入が豊か＋貯金も十分（標準財政規模比で多め）→財政力があり備えもある、とても安定した状態です</div>";
-      else if (cur.f >= 1.0 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 自力収入は豊かだが固定費が重い→稼ぐ力はあるのに固定費に消えており、政策投資の余地が限られています</div>";
-      else if (cur.f >= 1.0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 国からの交付税に頼らず自立した財政→住民サービスを自分たちの収入でまかなえる、強い自治体です</div>";
-      else if (cur.f >= 0.7 && cur.x < 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 財政力は安定＋固定費も許容範囲→大きな問題はなく、引き続きこの水準の維持が目標です</div>";
-      else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 交付税依存が高め→自主財源を増やす取り組み（企業誘致・定住促進など）が長期的な課題です</div>";
-          topSummaryHtml += "</div>";
+      descHtml += "<br><br><strong style='color:"+fc2+";'>"+curName+"の財政力指数は"+cur.f.toFixed(2)+"で、"+fj+"です。</strong>";
+      if (cur.f < 0.5 && cur.x > 95) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 自力収入が乏しい＋固定費が重い→稼げないのにお金が出ていく一方、最も身動きが取りにくい状態です</span>";
+      else if (cur.f < 0.5 && cur.u > 100) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 自力収入が乏しい＋将来への借金も重い→今も苦しく将来も重荷を背負っており、構造的な改革が必要です</span>";
+      else if (cur.f < 0.5) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 自力で稼ぐ力が弱い→国からの交付税に大きく依存しており、国の財政事情に左右されやすい状態です</span>";
+      else if (cur.f >= 1.0 && cur.x < 88) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 自力収入が豊か＋固定費も軽い→収入も支出もバランス良く、政策の自由度が高い理想的な財政です</span>";
+      else if (cur.f >= 1.0 && reserveIsAmple(cur, isPrefView)) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 自力収入が豊か＋貯金も十分（標準財政規模比で多め）→財政力があり備えもある、とても安定した状態です</span>";
+      else if (cur.f >= 1.0 && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 自力収入は豊かだが固定費が重い→稼ぐ力はあるのに固定費に消えており、政策投資の余地が限られています</span>";
+      else if (cur.f >= 1.0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 国からの交付税に頼らず自立した財政→住民サービスを自分たちの収入でまかなえる、強い自治体です</span>";
+      else if (cur.f >= 0.7 && cur.x < 95) descHtml += "<br><span style='color:#3070b8;font-size:16px;'>📋 財政力は安定＋固定費も許容範囲→大きな問題はなく、引き続きこの水準の維持が目標です</span>";
+      else descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 交付税依存が高め→自主財源を増やす取り組み（企業誘致・定住促進など）が長期的な課題です</span>";
     }
     if (key === "flex" && cur) {
       var xj = cur.x<88?"財政に弾力性がある状態":cur.x<95?"標準的な水準":"硬直化した状態";
       var xc2 = cur.x<88?"#6dcfad":cur.x<95?"#7bb8e8":"#f0876a";
-      topSummaryHtml += "<div style='background:"+xc2+"14;border:1px solid "+xc2+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:14px;color:#3a3a4a;line-height:1.7;'><span style='color:"+xc2+";font-weight:700;'>"+curName+"</span>の経常収支比率は<span style='color:"+xc2+";font-weight:700;'>"+cur.x.toFixed(1)+"%</span>で、"+xj+"です。</div>";
+      descHtml += "<br><br><strong style='color:"+xc2+";'>"+curName+"の経常収支比率は"+cur.x.toFixed(1)+"%で、"+xj+"です。</strong>";
       if (cur.x >= 100) {
-        topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 "+curName+"は経常収支比率が100%を超えているため、経常的な収入だけでは経常的な支出をまかないきれていない状態です。</div>";
+        descHtml += "<br><span style='color:#a02030;font-size:15px;'>🚨 "+curName+"は経常収支比率が100%を超えているため、経常的な収入だけでは経常的な支出をまかないきれていない状態です。</span>";
       }
-      if (cur.x > 95 && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 固定費が重い＋自力収入も乏しい→収入が少ないのに出費が固定化、新しいことに一切お金を使えない状態です</div>";
-      else if (cur.x > 95 && cur.r < 10) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 固定費が重い＋貯金も少ない→日常の支出でギリギリで、いざというときの備えもない、じわじわ危ない状態です</div>";
-      else if (cur.x > 95 && cur.u > 100) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 固定費が重い＋将来への借金も多い→今の家計も苦しく将来の返済も重い、二重の重荷を抱えています</div>";
-      else if (cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 固定費が重く硬直化→人件費・社会保障費・借金返済が収入の大半を占め、政策の自由度が低い状態です</div>";
-      else if (cur.x < 88 && cur.r > 20) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 固定費が軽い＋貯金も十分→支出に余裕があり備えもある、財政運営の理想的な姿です</div>";
-      else if (cur.x < 88 && cur.f >= 1.0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 固定費が軽い＋自力収入も豊か→稼いでいて使い方も健全、新しい政策に積極投資できる状態です</div>";
-      else if (cur.x < 88) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 固定費が適正で財政に弾力性がある→急な支出や新しい施策にも対応しやすい、健全な状態です</div>";
-      else if (cur.x < 95 && cur.f >= 0.7) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 固定費は標準的＋財政力も安定→大きな問題はありませんが、固定費が増えすぎないよう注視が必要です</div>";
-      else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 固定費は標準的な水準→大きな問題はありませんが、95%を超えると硬直化します。推移を注視しましょう</div>";
-          topSummaryHtml += "</div>";
+      if (cur.x > 95 && cur.f < 0.5) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 固定費が重い＋自力収入も乏しい→収入が少ないのに出費が固定化、新しいことに一切お金を使えない状態です</span>";
+      else if (cur.x > 95 && cur.r < 10) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 固定費が重い＋貯金も少ない→日常の支出でギリギリで、いざというときの備えもない、じわじわ危ない状態です</span>";
+      else if (cur.x > 95 && cur.u > 100) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 固定費が重い＋将来への借金も多い→今の家計も苦しく将来の返済も重い、二重の重荷を抱えています</span>";
+      else if (cur.x > 95) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 固定費が重く硬直化→人件費・社会保障費・借金返済が収入の大半を占め、政策の自由度が低い状態です</span>";
+      else if (cur.x < 88 && cur.r > 20) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 固定費が軽い＋貯金も十分→支出に余裕があり備えもある、財政運営の理想的な姿です</span>";
+      else if (cur.x < 88 && cur.f >= 1.0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 固定費が軽い＋自力収入も豊か→稼いでいて使い方も健全、新しい政策に積極投資できる状態です</span>";
+      else if (cur.x < 88) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 固定費が適正で財政に弾力性がある→急な支出や新しい施策にも対応しやすい、健全な状態です</span>";
+      else if (cur.x < 95 && cur.f >= 0.7) descHtml += "<br><span style='color:#3070b8;font-size:16px;'>📋 固定費は標準的＋財政力も安定→大きな問題はありませんが、固定費が増えすぎないよう注視が必要です</span>";
+      else descHtml += "<br><span style='color:#3070b8;font-size:16px;'>📋 固定費は標準的な水準→大きな問題はありませんが、95%を超えると硬直化します。推移を注視しましょう</span>";
     }
     if (key === "future" && cur) {
       var ul2 = cur.u<=0?"将来負担なし":cur.u<100?"一定の負担あり（注意水準）":cur.u<350?"要注意の水準":"早期健全化基準を超えています";
       var uc2 = cur.u<=0?"#6dcfad":cur.u<100?"#7bb8e8":cur.u<350?"#f0876a":"#d0505a";
       var uv = cur.u<=0?"0%":cur.u>=999?"再建中":cur.u.toFixed(1)+"%";
-      topSummaryHtml += "<div style='background:"+uc2+"14;border:1px solid "+uc2+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:14px;color:#3a3a4a;line-height:1.7;'><span style='color:"+uc2+";font-weight:700;'>"+curName+"</span>の将来負担比率は<span style='color:"+uc2+";font-weight:700;'>"+uv+"</span>で、"+ul2+"です。</div>";
-      if (cur.u > 100 && cur.r < 10) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 将来への借金が重い＋貯金も少ない→今も苦しく将来も重荷、借金まみれで備えもない綱渡りの状態です</div>";
-      else if (cur.u > 100 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 将来への借金が重い＋毎年の固定費も重い→過去の借金に縛られながら今も出費が固定化、構造改革が急務です</div>";
-      else if (cur.u > 100 && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 将来への借金が重い＋自力収入も乏しい→借金を返す力が弱く、長期的に財政が悪化するリスクがあります</div>";
-      else if (cur.u > 100) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 将来世代への借金が重い→今の住民が使ったお金を将来世代が返す構図で、世代間の公平性が問われます</div>";
-      else if (cur.u <= 0 && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 将来への借金がない＋貯金も十分（標準財政規模比で多め）→将来世代に負担を残さず、備えもある。財政の優等生です</div>";
-      else if (cur.u <= 0 && cur.f >= 1.0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 将来への借金がない＋自力収入も豊か→借金ゼロで稼ぐ力もある、非常に健全な財政状態です</div>";
-      else if (cur.u <= 0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 将来世代への負担がない→過去の借金を着実に返し終えており、次世代に重荷を残さない健全な状態です</div>";
-      else if (cur.u < 100 && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 将来への負担は一定あるが貯金（標準財政規模比で多め）で備えもある→心配しすぎる必要はないが、借入残高の推移は要注視です</div>";
-      else if (cur.u < 100 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 将来への借金がやや重い＋固定費も重い→返済余力が乏しく、借入残高の削減が急務です</div>";
-      else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 将来への借金がやや重め→公共施設の維持費・更新費も増える中、新規借入の抑制が課題です</div>";
-          topSummaryHtml += "</div>";
-      if (KK && KK[curName] && KK[curName].ka5 != null) {
-        var ka5v2 = KK[curName].ka5;
-        var ka5Med2 = isPrefView ? KK_MEDIANS.ka5.pref : KK_MEDIANS.ka5.muni;
-        var uHigh2 = cur.u > 100;
-        var ka5High2 = ka5v2 > ka5Med2;
-        var linkMsg;
-        if (!uHigh2 && !ka5High2) {
-          linkMsg = "将来世代への負担は、現金・資産どちらの面から見ても軽めです。";
-        } else if (uHigh2 && ka5High2) {
-          linkMsg = "将来世代への負担は、現金・資産どちらの面から見ても重めです。";
-        } else if (!uHigh2 && ka5High2) {
-          linkMsg = "普段の収支は健全に見えますが、資産全体でみると将来世代の負担は軽くありません。退職金の積立分など、普段の収支には出てこない負担が影響している可能性があります。";
-        } else {
-          linkMsg = "現金の収支面では借金の重さが目立ちますが、資産全体の規模でみると将来世代への実質的な負担はそれほど大きくない可能性があります。";
-        }
-        topSummaryHtml += "<div style='background:#e8f7f0;border:1px solid #6dcfad55;border-radius:12px;padding:12px 14px;margin-top:10px;'>" +
-          "<div style='font-size:13px;font-weight:700;color:#3a9970;margin-bottom:4px;'>\ud83d\udd17 公会計と合わせて見ると</div>" +
-          "<div style='font-size:13px;color:#3a5a4a;line-height:1.7;'>" + curName + "は公会計でみた将来世代負担比率も" + ka5v2 + "%です。" + linkMsg + "</div>" +
-          "</div>";
-      }
+      descHtml += "<br><br><strong style='color:"+uc2+";'>"+curName+"の将来負担比率は"+uv+"で、"+ul2+"です。</strong>";
+      if (cur.u > 100 && cur.r < 10) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 将来への借金が重い＋貯金も少ない→今も苦しく将来も重荷、借金まみれで備えもない綱渡りの状態です</span>";
+      else if (cur.u > 100 && cur.x > 95) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 将来への借金が重い＋毎年の固定費も重い→過去の借金に縛られながら今も出費が固定化、構造改革が急務です</span>";
+      else if (cur.u > 100 && cur.f < 0.5) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 将来への借金が重い＋自力収入も乏しい→借金を返す力が弱く、長期的に財政が悪化するリスクがあります</span>";
+      else if (cur.u > 100) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 将来世代への借金が重い→今の住民が使ったお金を将来世代が返す構図で、世代間の公平性が問われます</span>";
+      else if (cur.u <= 0 && reserveIsAmple(cur, isPrefView)) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 将来への借金がない＋貯金も十分（標準財政規模比で多め）→将来世代に負担を残さず、備えもある。財政の優等生です</span>";
+      else if (cur.u <= 0 && cur.f >= 1.0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 将来への借金がない＋自力収入も豊か→借金ゼロで稼ぐ力もある、非常に健全な財政状態です</span>";
+      else if (cur.u <= 0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 将来世代への負担がない→過去の借金を着実に返し終えており、次世代に重荷を残さない健全な状態です</span>";
+      else if (cur.u < 100 && reserveIsAmple(cur, isPrefView)) descHtml += "<br><span style='color:#3070b8;font-size:16px;'>📋 将来への負担は一定あるが貯金（標準財政規模比で多め）で備えもある→心配しすぎる必要はないが、借入残高の推移は要注視です</span>";
+      else if (cur.u < 100 && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 将来への借金がやや重い＋固定費も重い→返済余力が乏しく、借入残高の削減が急務です</span>";
+      else descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 将来への借金がやや重め→公共施設の維持費・更新費も増える中、新規借入の抑制が課題です</span>";
     }
     if (key === "education" && cur && cur.edu!=null) {
       var eduMed = isPrefView ? 18.9 : 10.5;
       var eduUnit = isPrefView ? "47都道府県" : "全国の市区町村";
       var ej = cur.edu >= eduMed ? "中央値より高めです" : "中央値より低めです";
-      topSummaryHtml += "<div style='background:#a08be814;border:1px solid #a08be855;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:14px;color:#3a3a4a;line-height:1.7;'><span style='color:#a08be8;font-weight:700;'>"+curName+"</span>の教育費比率は<span style='color:#a08be8;font-weight:700;'>"+cur.edu.toFixed(1)+"%</span>で、"+eduUnit+"の"+ej+"（中央値"+eduMed+"%）。</div>";
-      topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2139\uFE0F この数字は高い・低いが、そのまま良い・悪いを意味しません。高いのは教育を重視している場合もあれば、学校施設の老朽化対応や小規模校の維持で費用がかさんでいる場合もあります。都道府県は高校を持つため、市区町村より高く出ます。</div>";
+      descHtml += "<br><br><strong style='color:#a08be8;'>"+curName+"の教育費比率は"+cur.edu.toFixed(1)+"%で、"+eduUnit+"の"+ej+"（中央値"+eduMed+"%）。</strong>";
+      descHtml += "<br><span style='color:#6b5b95;font-size:14px;'>\u2139\uFE0F この数字は高い・低いが、そのまま良い・悪いを意味しません。高いのは教育を重視している場合もあれば、学校施設の老朽化対応や小規模校の維持で費用がかさんでいる場合もあります。都道府県は高校を持つため、市区町村より高く出ます。</span>";
       var eduCaveatFired = false;
       var eduHist = [cur.edu_r2, cur.edu_r3, cur.edu_r4, cur.edu_r5].filter(function(v){ return v!=null; });
       if (eduHist.length >= 2) {
         var eduAvg = eduHist.reduce(function(a,b){return a+b;},0) / eduHist.length;
         var eduRatio = eduAvg > 0 ? cur.edu / eduAvg : 1;
         if (eduRatio <= 0.7) {
-          topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📉 "+curName+"の教育費比率は過去平均（"+eduAvg.toFixed(1)+"%）より大きく下がっています。学校施設整備の完了、または災害復旧費など他の歳出が増えたことで相対的に比率が下がった可能性があります。</div>";
+          descHtml += "<br><span style='color:#3070b8;font-size:15px;'>📉 "+curName+"の教育費比率は過去平均（"+eduAvg.toFixed(1)+"%）より大きく下がっています。学校施設整備の完了、または災害復旧費など他の歳出が増えたことで相対的に比率が下がった可能性があります。</span>";
           eduCaveatFired = true;
         } else if (eduRatio >= 1.3) {
-          topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📈 "+curName+"の教育費比率は過去平均（"+eduAvg.toFixed(1)+"%）より大きく上がっています。学校施設整備などの大型事業、または他の歳出が減ったことで相対的に比率が上がった可能性があります。</div>";
+          descHtml += "<br><span style='color:#b8860b;font-size:15px;'>📈 "+curName+"の教育費比率は過去平均（"+eduAvg.toFixed(1)+"%）より大きく上がっています。学校施設整備などの大型事業、または他の歳出が減ったことで相対的に比率が上がった可能性があります。</span>";
           eduCaveatFired = true;
         }
       }
-      if (cur.edu >= 10 && cur.ch != null && cur.ch >= 100) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 教育費が多い＋子ども1人あたりの投資も手厚い→お金も手間もかけて子どもを育てる姿勢が数字に表れています</div>";
-      else if (cur.edu >= 10 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 教育には力を入れているが固定費も重い→苦しい財政の中でも教育を優先している姿勢は評価できますが、持続可能性に注意が必要です</div>";
-      else if (cur.edu >= 10 && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 財政力は弱いが教育には力を入れている→苦しい中でも未来への投資を優先している姿勢が見えます</div>";
-      else if (cur.edu >= 10 && !eduCaveatFired) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 教育への支出が手厚い→子どもの学びへの投資は将来の地域力につながる、前向きな財政です</div>";
-      else if (cur.edu < 6 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 教育費が少ない＋固定費が重い→固定費に圧迫されて教育への投資が削られている可能性があります</div>";
-      else if (cur.edu < 6 && !eduCaveatFired) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 教育への支出が少なめ→財政的制約がある可能性がありますが、子どもへの投資は将来の税収にも影響します</div>";
-      else if (!eduCaveatFired) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 教育費は標準的な水準→引き続き子どもへの投資の量と質を確認していきましょう</div>";
-          topSummaryHtml += "</div>";
+      if (cur.edu >= 10 && cur.ch != null && cur.ch >= 100) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 教育費が多い＋子ども1人あたりの投資も手厚い→お金も手間もかけて子どもを育てる姿勢が数字に表れています</span>";
+      else if (cur.edu >= 10 && cur.x > 95) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 教育には力を入れているが固定費も重い→苦しい財政の中でも教育を優先している姿勢は評価できますが、持続可能性に注意が必要です</span>";
+      else if (cur.edu >= 10 && cur.f < 0.5) descHtml += "<br><span style='color:#3070b8;font-size:16px;'>📋 財政力は弱いが教育には力を入れている→苦しい中でも未来への投資を優先している姿勢が見えます</span>";
+      else if (cur.edu >= 10 && !eduCaveatFired) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 教育への支出が手厚い→子どもの学びへの投資は将来の地域力につながる、前向きな財政です</span>";
+      else if (cur.edu < 6 && cur.x > 95) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 教育費が少ない＋固定費が重い→固定費に圧迫されて教育への投資が削られている可能性があります</span>";
+      else if (cur.edu < 6 && !eduCaveatFired) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 教育への支出が少なめ→財政的制約がある可能性がありますが、子どもへの投資は将来の税収にも影響します</span>";
+      else if (!eduCaveatFired) descHtml += "<br><span style='color:#3070b8;font-size:16px;'>📋 教育費は標準的な水準→引き続き子どもへの投資の量と質を確認していきましょう</span>";
     }
     if (key === "childInvest" && cur && cur.ch!=null) {
       var chMed = isPrefView ? 87.9 : 118.4;
       var chUnit = isPrefView ? "47都道府県" : "全国の市区町村";
       var cj2 = cur.ch >= chMed ? "中央値より高めです" : "中央値より低めです";
-      topSummaryHtml += "<div style='background:#a08be814;border:1px solid #a08be855;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:14px;color:#3a3a4a;line-height:1.7;'><span style='color:#a08be8;font-weight:700;'>"+curName+"</span>の子ども1人当たり投資額は<span style='color:#a08be8;font-weight:700;'>"+cur.ch.toFixed(1)+"万円</span>で、"+chUnit+"の"+cj2+"（中央値"+chMed+"万円）。</div>";
-      topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2139\uFE0F この数字は高い・低いが、そのまま良い・悪いを意味しません。子どもの人数で割った値なので、子どもが少ない自治体ほど大きく出ます。全国で最も高いのは974万円ですが、これは手厚いのではなく分母が小さいためです。</div>";
+      descHtml += "<br><br><strong style='color:#a08be8;'>"+curName+"の子ども1人当たり投資額は"+cur.ch.toFixed(1)+"万円で、"+chUnit+"の"+cj2+"（中央値"+chMed+"万円）。</strong>";
+      descHtml += "<br><span style='color:#6b5b95;font-size:14px;'>\u2139\uFE0F この数字は高い・低いが、そのまま良い・悪いを意味しません。子どもの人数で割った値なので、子どもが少ない自治体ほど大きく出ます。全国で最も高いのは974万円ですが、これは手厚いのではなく分母が小さいためです。</span>";
       var chCaveatFired = false;
       if (cur.pop && cur.pop < 3000 && cur.ch > 250) {
-        topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ "+curName+"は人口が少ない（"+cur.pop.toLocaleString()+"人）ため、子どもの人数自体が少なく、1人当たりで計算すると数値が実態以上に大きくなります。</div>";
+        descHtml += "<br><span style='color:#b8860b;font-size:15px;'>⚠️ "+curName+"は人口が少ない（"+cur.pop.toLocaleString()+"人）ため、子どもの人数自体が少なく、1人当たりで計算すると数値が実態以上に大きくなります。</span>";
         chCaveatFired = true;
       }
       var chHist = [cur.ch_r2, cur.ch_r3, cur.ch_r4, cur.ch_r5].filter(function(v){ return v!=null; });
@@ -1467,49 +1419,46 @@ if (key === "growth" && cur && cur.pop) {
         var chAvg = chHist.reduce(function(a,b){return a+b;},0) / chHist.length;
         var chRatio = chAvg > 0 ? cur.ch / chAvg : 1;
         if (chRatio <= 0.7) {
-          topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📉 "+curName+"の投資額は過去平均（"+chAvg.toFixed(1)+"万円）より大きく下がっています。学校施設整備の完了、または他の要因（人口変動など）が影響している可能性があります。</div>";
+          descHtml += "<br><span style='color:#3070b8;font-size:15px;'>📉 "+curName+"の投資額は過去平均（"+chAvg.toFixed(1)+"万円）より大きく下がっています。学校施設整備の完了、または他の要因（人口変動など）が影響している可能性があります。</span>";
           chCaveatFired = true;
         } else if (chRatio >= 1.3) {
-          topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📈 "+curName+"の投資額は過去平均（"+chAvg.toFixed(1)+"万円）より大きく上がっています。学校施設整備などの大型事業、または人口変動が影響している可能性があります。</div>";
+          descHtml += "<br><span style='color:#b8860b;font-size:15px;'>📈 "+curName+"の投資額は過去平均（"+chAvg.toFixed(1)+"万円）より大きく上がっています。学校施設整備などの大型事業、または人口変動が影響している可能性があります。</span>";
           chCaveatFired = true;
         }
       }
-      if (cur.ch >= 120 && cur.edu >= 10) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 子ども1人への投資が手厚い＋教育費比率も高い→量も割合も子どもに手をかけている、子育て支援に本気な自治体です</div>";
-      else if (cur.ch >= 120 && cur.g >= 0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 子どもへの投資が手厚い＋人口も増えている→子育て環境の充実が人口流入につながっている好循環です</div>";
-      else if (cur.ch >= 120 && !chCaveatFired) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 子ども1人あたりへの投資が手厚い→将来の地域を担う子どもへの投資は、長期的に見て最も大切な支出です</div>";
-      else if (cur.ch < 70 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 子どもへの投資が少ない＋固定費が重い→固定費に圧迫されて将来世代への投資が削られている構図です</div>";
-      else if (cur.ch < 70 && cur.g < -0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 子どもへの投資が少ない＋人口も減少中→投資不足が子育て世代の流出を招いている可能性があります</div>";
-      else if (cur.ch < 70 && !chCaveatFired) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 子どもへの投資が少なめ→保育・教育・医療費補助などの充実が、将来の定住促進にもつながります</div>";
-      else if (!chCaveatFired) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 子どもへの投資は標準的→近隣自治体と比較しながら、子育て世代に選ばれる地域づくりを目指したいところです</div>";
-          topSummaryHtml += "</div>";
+      if (cur.ch >= 120 && cur.edu >= 10) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 子ども1人への投資が手厚い＋教育費比率も高い→量も割合も子どもに手をかけている、子育て支援に本気な自治体です</span>";
+      else if (cur.ch >= 120 && cur.g >= 0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 子どもへの投資が手厚い＋人口も増えている→子育て環境の充実が人口流入につながっている好循環です</span>";
+      else if (cur.ch >= 120 && !chCaveatFired) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 子ども1人あたりへの投資が手厚い→将来の地域を担う子どもへの投資は、長期的に見て最も大切な支出です</span>";
+      else if (cur.ch < 70 && cur.x > 95) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 子どもへの投資が少ない＋固定費が重い→固定費に圧迫されて将来世代への投資が削られている構図です</span>";
+      else if (cur.ch < 70 && cur.g < -0.5) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 子どもへの投資が少ない＋人口も減少中→投資不足が子育て世代の流出を招いている可能性があります</span>";
+      else if (cur.ch < 70 && !chCaveatFired) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 子どもへの投資が少なめ→保育・教育・医療費補助などの充実が、将来の定住促進にもつながります</span>";
+      else if (!chCaveatFired) descHtml += "<br><span style='color:#3070b8;font-size:16px;'>📋 子どもへの投資は標準的→近隣自治体と比較しながら、子育て世代に選ばれる地域づくりを目指したいところです</span>";
     }
     if (key === "budget" && cur && cur.eo && cur.ei) {
       var bj = cur.ei>=cur.eo?"黒字基調です":cur.ei>=cur.eo*0.99?"ほぼ均衡しています":"赤字基調です";
       var bc2 = cur.ei>=cur.eo?"#6dcfad":cur.ei>=cur.eo*0.99?"#7bb8e8":"#f0876a";
-      topSummaryHtml += "<div style='background:"+bc2+"14;border:1px solid "+bc2+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:14px;color:#3a3a4a;line-height:1.7;'><span style='color:"+bc2+";font-weight:700;'>"+curName+"</span>の歳出は<span style='color:"+bc2+";font-weight:700;'>"+cur.eo.toLocaleString()+"億円</span>、歳入は<span style='color:"+bc2+";font-weight:700;'>"+cur.ei.toLocaleString()+"億円</span>で、"+bj+"。</div>";
+      descHtml += "<br><br><strong style='color:"+bc2+";'>"+curName+"の歳出は"+cur.eo.toLocaleString()+"億円、歳入は"+cur.ei.toLocaleString()+"億円で、"+bj+"。</strong>";
       var eoHist = [cur.eo_r1, cur.eo_r2, cur.eo_r3, cur.eo_r4].filter(function(v){ return v!=null; });
       if (eoHist.length >= 2) {
         var eoAvg = eoHist.reduce(function(a,b){return a+b;},0) / eoHist.length;
         var eoRatio = eoAvg > 0 ? cur.eo / eoAvg : 1;
         if (eoRatio >= 1.3) {
-          topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📈 "+curName+"の歳出は過去平均（"+eoAvg.toFixed(1)+"億円）より大きく増えています。災害復旧や大型施設整備など、一時的な要因が影響している可能性があります。</div>";
+          descHtml += "<br><span style='color:#b8860b;font-size:15px;'>📈 "+curName+"の歳出は過去平均（"+eoAvg.toFixed(1)+"億円）より大きく増えています。災害復旧や大型施設整備など、一時的な要因が影響している可能性があります。</span>";
         } else if (eoRatio <= 0.7) {
-          topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📉 "+curName+"の歳出は過去平均（"+eoAvg.toFixed(1)+"億円）より大きく減っています。前年度の大型事業や特別な支出が終了した可能性があります。</div>";
+          descHtml += "<br><span style='color:#3070b8;font-size:15px;'>📉 "+curName+"の歳出は過去平均（"+eoAvg.toFixed(1)+"億円）より大きく減っています。前年度の大型事業や特別な支出が終了した可能性があります。</span>";
         }
       }
-      if (cur.ei < cur.eo && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 収支が赤字＋固定費も重い→支出が収入を超えているのに固定費が大半を占め、改善の余地がほぼない最も厳しい状態です</div>";
-      else if (cur.ei < cur.eo && cur.r < 10) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 収支が赤字＋貯金も少ない→赤字を補う備えもなく、財政の持続可能性に黄信号です</div>";
-      else if (cur.ei < cur.eo && cur.u > 100) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 収支が赤字＋将来への借金も重い→今も赤字で将来の返済も重く、収支改善が急務です</div>";
-      else if (cur.ei < cur.eo) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 収入より支出が多い→財政調整基金や借入で補っている可能性があります。収支のバランス改善が課題です</div>";
-      else if (cur.ei >= cur.eo && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 収支は均衡しているが固定費が大半を占めている→数字上は黒字でも人件費・返済・社会保障で身動きが取れない硬直した状態です</div>";
-      else if (cur.ei >= cur.eo && cur.x > 88) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 収支は均衡しているが固定費がやや重め→収支は安定しているものの、新しい政策への投資余地は限られています</div>";
-      else if (cur.ei >= cur.eo && cur.f >= 1.0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 収支が黒字＋財政力も高い＋固定費も適正→自力で稼ぎ支出も健全、最も理想的な財政運営です</div>";
-      else if (cur.ei >= cur.eo && cur.r > 20) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 収支が黒字＋貯金も十分＋固定費も適正→稼いでいて備えもある、とても安定した財政運営です</div>";
-      else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 収支は均衡＋固定費も標準的→大きな問題はありませんが、社会保障費の増加など将来の支出増に備えた積立が重要です</div>";
-          topSummaryHtml += "</div>";
+      if (cur.ei < cur.eo && cur.x > 95) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 収支が赤字＋固定費も重い→支出が収入を超えているのに固定費が大半を占め、改善の余地がほぼない最も厳しい状態です</span>";
+      else if (cur.ei < cur.eo && cur.r < 10) descHtml += "<br><span style='color:#a02030;font-size:16px;'>🚨 収支が赤字＋貯金も少ない→赤字を補う備えもなく、財政の持続可能性に黄信号です</span>";
+      else if (cur.ei < cur.eo && cur.u > 100) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 収支が赤字＋将来への借金も重い→今も赤字で将来の返済も重く、収支改善が急務です</span>";
+      else if (cur.ei < cur.eo) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 収入より支出が多い→財政調整基金や借入で補っている可能性があります。収支のバランス改善が課題です</span>";
+      else if (cur.ei >= cur.eo && cur.x > 95) descHtml += "<br><span style='color:#c04030;font-size:16px;'>⚠️ 収支は均衡しているが固定費が大半を占めている→数字上は黒字でも人件費・返済・社会保障で身動きが取れない硬直した状態です</span>";
+      else if (cur.ei >= cur.eo && cur.x > 88) descHtml += "<br><span style='color:#b8860b;font-size:16px;'>⚠️ 収支は均衡しているが固定費がやや重め→収支は安定しているものの、新しい政策への投資余地は限られています</span>";
+      else if (cur.ei >= cur.eo && cur.f >= 1.0) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 収支が黒字＋財政力も高い＋固定費も適正→自力で稼ぎ支出も健全、最も理想的な財政運営です</span>";
+      else if (cur.ei >= cur.eo && cur.r > 20) descHtml += "<br><span style='color:#2a8a6a;font-size:16px;'>✨ 収支が黒字＋貯金も十分＋固定費も適正→稼いでいて備えもある、とても安定した財政運営です</span>";
+      else descHtml += "<br><span style='color:#3070b8;font-size:16px;'>📋 収支は均衡＋固定費も標準的→大きな問題はありませんが、社会保障費の増加など将来の支出増に備えた積立が重要です</span>";
     }
-    document.getElementById("shTop").innerHTML = rankHtml + topSummaryHtml; document.getElementById("shDesc").innerHTML = ((rankHtml || topSummaryHtml) ? "<div style='border-top:1px dashed #d8d5e8;margin:22px 0;'></div><div style='font-size:16px;font-weight:700;color:#3a6ee8;margin-bottom:8px;'>"+m.label+"とは？</div>" : "") + descHtml;
+    document.getElementById("shDesc").innerHTML = descHtml;
     var shElAfter = document.querySelector(".sh");
     if (shElAfter) shElAfter.scrollTop = 0;
     setTimeout(function(){ var s = document.querySelector(".sh"); if (s) s.scrollTop = 0; }, 50);
@@ -1726,8 +1675,7 @@ if (key === "growth" && cur && cur.pop) {
     }
     if (st && st.mitchieView === "detail") {
       // 詳細モーダルの状態に戻った場合は、同じ詳細パネルを再度開く
-      if (st.kk) { kkOpenDetail(st.key, true); }
-      else if (st.key) { openD(st.key, true); }
+      if (st.key) { openD(st.key, true); }
       return;
     }
     // ホーム（検索）画面まで戻る
@@ -2222,390 +2170,6 @@ if (key === "growth" && cur && cur.pop) {
       }
     });
   })();
-
-/* ===== 公会計機能 ===== */
-  var KK = null;
-  var KK_MEDIANS = {
-    ka2: {muni: 3.3, pref: 2.2},
-    ka3: {muni: 65.1, pref: 63},
-    ka4: {muni: 73.1, pref: 20.7},
-    ka5: {muni: 18.3, pref: 58.4},
-    ka9: {muni: 3.9, pref: 4.1}
-  };
-  var KK_META = {
-    ka1: {icon:"💰", label:"住民一人当たり資産額", unit:"万円", group:true,
-      desc:"【何を指すか】\n・自治体が持っている財産（建物や道路、貯金など）を、住民の数で割った金額。町の財産を住民みんなで分けたら一人いくら、というイメージです\n\n【含まれるもの】\n🏢庁舎・学校（建物などの事業用資産）\n🛣️道路・橋梁（インフラ資産）\n🚰水道設備（インフラ資産）\n🏦基金・預金（投資・流動資産）など…\n\n📈多い理由\n・大規模な公共施設・インフラを多く保有している\n・人口が少なく、一人当たりに換算すると大きくなる\n\n📉少ない理由\n・資産の老朽化・除却が進み評価額が下がっている\n・計画的に資産をスリム化した"},
-    ka2: {icon:"📦", label:"歳入額対資産比率", unit:"年", group:false,
-      desc:"【何を指すか】\n・今持っている財産が、1年分の収入の何年分にあたるか。数字が大きいほど、財産をたくさん蓄えていることになります\n\n📈高い理由\n・インフラ等の資産を多く抱えている\n\n📉低い理由\n・資産規模に対して歳入が大きい\n・資産そのものが少ない"},
-    ka3: {icon:"🏚️", label:"有形固定資産減価償却率", unit:"%", group:false,
-      desc:"【何を指すか】\n・道路や建物がどれくらい古くなっているかを表す割合。数字が大きいほど、そろそろ建て替えや修理が必要な時期に近づいています\n\n📈高い理由\n・施設の更新・改修が追いついていない\n・昭和期に整備した施設が多い\n\n📉低い理由\n・近年、建て替え・新設が進んでいる\n・大型投資で一気に新設・更新したため、逆に将来の借金負担は増えている可能性もあります"},
-    ka4: {icon:"🧾", label:"純資産比率", unit:"%", group:false,
-      desc:"【何を指すか】\n・町の財産のうち、借金ではなく自分たちのお金でまかなっている部分の割合。数字が大きいほど、借金に頼らず財産を築いてきたことになります\n\n📈高い理由\n・借入に頼らず資産形成してきた\n\n📉低い理由\n・地方債などの借入に依存して資産を形成している\n・人口増加や産業誘致を狙って、あえて積極的に投資している場合もあります"},
-    ka5: {icon:"🏦", label:"将来世代負担比率", unit:"%", group:false,
-      desc:"【何を指すか】\n・今ある財産のうち、まだ返し終わっていない借金でまかなわれている部分の割合。数字が大きいほど、これからの世代が返済を負担することになります\n\n📈高い理由\n・大型事業を借金でまかなってきた\n・将来世代も使う施設のため、意図的に将来世代にも負担してもらう方針（世代間の公平性）という考え方もあります\n\n📉低い理由\n・借金に頼らず整備してきた\n・資産の規模自体が小さい"},
-    ka6: {icon:"🧑‍💼", label:"住民一人当たり行政コスト", unit:"万円", group:true,
-      desc:"【何を指すか】\n・町が住民サービスのために1年間に使った費用を、住民の数で割った金額。将来払う退職金の積立分なども含めた、本当の意味でのコストです\n\n【含まれるもの】\n👔人件費（職員給与など）\n※「職員」とは、市役所・区役所・出張所などで働く地方公務員のことです（学校の先生や消防士なども含まれます）。民間企業の社員ではなく、その自治体に雇われている人たちです。\n🏢物件費（維持管理費・光熱費など）\n👨‍👩‍👧扶助費（生活保護・児童手当などの給付）\n📉減価償却費（建物や道路が古くなった分の目減り）\n💼退職手当引当金繰入額など（将来払う退職金の積立分）\n※「退職金」とは、職員たちが退職するときに、自治体から支払われるお金（退職手当）のことです。\n\n📈高い理由\n・高齢化で扶助費が多い\n・施設保有が多く減価償却費がかさむ\n・人口が少なく一人当たりに換算すると大きくなる\n\n📉低い理由\n・人口が多く一人当たりに薄まる\n・行財政改革でコスト削減している"},
-    ka7: {icon:"💳", label:"住民一人当たり負債額", unit:"万円", group:true,
-      desc:"【何を指すか】\n・町の借金の合計を、住民の数で割った金額。町の借金を住民みんなで分けたら一人いくら、というイメージです\n\n【含まれるもの】\n📜地方債（借金の残高）\n💼退職手当引当金（将来払う退職金の積立不足分）\n🧾未払金など\n\n📈高い理由\n・借入や引当金が多い\n・人口が少なく一人当たりに換算すると大きくなる\n\n📉低い理由\n・借入を抑制してきた\n・人口が多く一人当たりに薄まる"},
-    ka8: {icon:"⚖️", label:"業務・投資活動収支", unit:"百万円", group:true,
-      desc:"【何を指すか】\n・1年間の活動でお金がどれだけ余った（または足りなかった）かを表す数字。プラスなら、その年に必要なお金をきちんと賄えていたことになります\n\n📈プラスが大きい理由\n・税収等に対して支出を抑えている\n・必要な投資を先送りしている可能性もあります\n\n📉マイナスの理由\n・大型投資を行った年度だった（学校の建て替えなど、計画的な投資であれば悪いことではありません）\n・収入が支出に追いついていない"},
-    ka9: {icon:"🙋", label:"受益者負担比率", unit:"%", group:false,
-      desc:"【何を指すか】\n・行政サービスにかかった費用のうち、利用者が使用料や手数料として直接払っている割合。数字が大きいほど、利用者自身が費用を負担していることになります\n\n📈高い理由\n・受益者負担の原則を重視した料金設定\n\n📉低い理由\n・サービスの多くを税金でまかなっている"}
-  };
-  var KK_ORDER = ["ka1","ka2","ka3","ka4","ka5","ka6","ka7","ka8","ka9"];
-
-  function loadKokaikei(cb){
-    // kokaikei.jsonは起動時に一括で先読み済みのため、ここでは待つだけでよい
-    cb();
-  }
-
-  function kkFmt(v, unit){
-    if (v == null) return "―";
-    if (unit === "百万円") {
-      var oku = v / 100;
-      return (oku>=0?"+":"") + oku.toFixed(1) + "億円";
-    }
-    return v + unit;
-  }
-
-  var KK_GOOD_DIR = { ka3: -1, ka4: 1, ka5: -1 };
-  var KK_BLUE = "#4a90d9";
-  var KK_RED = "#e85050";
-  var KK_NEUTRAL_VAL = "#a08be8";
-
-  function kkCompareLine(code, nm, entry, isPref){
-    var meta = KK_META[code];
-    var val = entry[code];
-    if (val == null || !meta) return "";
-    var unit = meta.unit;
-    var med, scaleWord, n;
-    if (meta.group) {
-      var grp = entry.grp;
-      var bucket = isPref ? "pref" : "muni";
-      var gm = KK && KK._groupMedians && KK._groupMedians[bucket] && grp ? KK._groupMedians[bucket][grp] : null;
-      if (!gm || gm[code] == null) return "";
-      med = gm[code];
-      n = gm._n;
-      if (n <= 1) {
-        var valOnly = "<span style='color:" + KK_NEUTRAL_VAL + ";'>" + kkFmt(val, unit) + "</span>";
-        return "<span style='color:#6a3de8;'>" + nm + "</span>は" + meta.label + "が" + valOnly + "です。財政規模が大きく、比較できる同じ規模の" + (isPref ? "都道府県" : "都市") + "がありません。";
-      }
-      scaleWord = (isPref ? "同じ規模の都道府県" : "同じ規模の都市") + n + "件";
-    } else {
-      var mm = KK_MEDIANS[code];
-      if (!mm) return "";
-      med = isPref ? mm.pref : mm.muni;
-      scaleWord = "全国" + (isPref ? "都道府県" : "市区町村");
-    }
-    var diff = val - med;
-    var isSame = Math.abs(diff) <= Math.abs(med) * 0.05;
-    var cmpWord = isSame ? "ほぼ同水準" : (diff > 0 ? "高め" : "低め");
-
-    var dir = KK_GOOD_DIR[code];
-    var valColor = null, cmpColor = null;
-    if (code === "ka8") {
-      // 業務・投資活動収支は符号そのもので判定（黒字=良い/赤字=悪い）
-      valColor = val >= 0 ? KK_BLUE : KK_RED;
-      cmpColor = valColor;
-    } else if (dir) {
-      if (!isSame) {
-        var good = dir > 0 ? diff > 0 : diff < 0;
-        valColor = good ? KK_BLUE : KK_RED;
-        cmpColor = valColor;
-      }
-    } else {
-      valColor = KK_NEUTRAL_VAL; // 良し悪しを判定できない指標は数値だけ中立色
-    }
-
-    var valHtml = valColor ? "<span style='color:" + valColor + ";'>" + kkFmt(val, unit) + "</span>" : kkFmt(val, unit);
-    var cmpHtml = cmpColor ? "<span style='color:" + cmpColor + ";'>" + cmpWord + "です</span>" : cmpWord + "です";
-
-    var line = "<span style='color:#6a3de8;'>" + nm + "</span>は" + meta.label + "が" + valHtml + "で、" + scaleWord + "の中央値（" + kkFmt(med, unit) + "）と" + (isSame ? "" : "より") + cmpHtml + "。";
-    if (code === "ka8") {
-      line += val >= 0 ? "（黒字基調）" : "（赤字基調）";
-    }
-
-    // 財政データの裏付けがある場合、断定しすぎない一言を追加
-    if (!isSame && cur) {
-      if ((code === "ka4" || code === "ka5") && cur.g != null && cur.g > 0) {
-        var goodDirMatch = code === "ka4" ? diff < 0 : diff > 0;
-        if (goodDirMatch) {
-          line += "<br><br>" + nm + "は人口が増加傾向にあり、" +
-            (code === "ka4" ? "積極的な投資による可能性もあります。" : "将来世代への投資という側面もあると考えられます。");
-        }
-      }
-      if ((code === "ka3" || code === "ka8") && cur.eo != null && cur.eo_r1 != null && cur.eo_r1 > 0) {
-        var eoGrowth = (cur.eo - cur.eo_r1) / cur.eo_r1;
-        var expandMatch = code === "ka3" ? diff < 0 : val < 0;
-        if (eoGrowth > 0.05 && expandMatch) {
-          line += "<br><br>" + nm + "は歳出が前年より増えており、" +
-            (code === "ka3" ? "大型の更新投資を行った可能性があります。" : "計画的な大型投資を行った年度の可能性があります。");
-        }
-      }
-    }
-
-    return line;
-  }
-
-  function kkOpenDetail(code, skipPush){
-    if (!cur || !KK) return;
-    var nm = curName;
-    var entry = KK[nm];
-    if (!entry) return;
-    var isPref = (cur.p === nm);
-    var meta = KK_META[code];
-    if (!meta) return;
-    if (!skipPush && document.getElementById("ovEl").classList.contains("hidden")) {
-      if (history.state && history.state.mitchieView === "result") {
-        history.replaceState(Object.assign({}, history.state, {scrollY: window.scrollY, activeTab: "kk"}), "", "#result");
-      }
-      history.pushState({mitchieView:"detail", key:code, kk:true}, "", "#detail");
-    }
-    document.getElementById("shTitle").textContent = meta.icon + " " + meta.label;
-    var cmpLine = kkCompareLine(code, nm, entry, isPref);
-    var descHtml = meta.desc
-      .replace(/【([^】]+)】/g, "<strong style='color:#6a3de8;'>$1</strong>")
-      .replace(/。/g, "。\n")
-      .replace(/\n{2,}/g, "\n\n")
-      .replace(/\n/g, "<br>");
-    var html = (cmpLine ? "<div style='background:#a08be814;border:1px solid #a08be840;border-radius:12px;padding:12px 14px;font-weight:700;color:#3a2a6e;margin:0 0 14px;'>" + cmpLine + "</div>" : "")
-      + descHtml;
-    document.getElementById("shTop").innerHTML = "";
-    document.getElementById("shDesc").innerHTML = html;
-    document.getElementById("spSvg").innerHTML = "";
-    document.getElementById("spSvg").style.height = "0px";
-    document.getElementById("spLabels").innerHTML = "";
-    var kkSpWrapEl = document.getElementById("spWrap");
-    if (kkSpWrapEl) kkSpWrapEl.style.display = "none";
-    document.getElementById("ovEl").classList.remove("hidden");
-    var kkShEl = document.querySelector(".sh");
-    if (kkShEl) kkShEl.scrollTop = 0;
-    setTimeout(function(){ var s = document.querySelector(".sh"); if (s) s.scrollTop = 0; }, 50);
-  }
-
-  function kkColor(code, val, entry, isPref){
-    var NEUTRAL = "#a08be8";
-    if (val == null) return NEUTRAL;
-    if (code === "ka3") {
-      return val < 50 ? "#6dcfad" : val < 65 ? "#7bb8e8" : val < 75 ? "#f0c46a" : "#f0876a";
-    }
-    if (code === "ka4") {
-      return val >= 80 ? "#6dcfad" : val >= 60 ? "#7bb8e8" : val >= 40 ? "#f0c46a" : "#f0876a";
-    }
-    if (code === "ka5") {
-      return val < 10 ? "#6dcfad" : val < 30 ? "#7bb8e8" : val < 60 ? "#f0c46a" : "#f0876a";
-    }
-    if (code === "ka8") {
-      return val >= 0 ? "#6dcfad" : "#f0876a";
-    }
-    return NEUTRAL;
-  }
-
-  function kkBoxHtml(code, entry, isPref){
-    var meta = KK_META[code];
-    var v = entry[code];
-    var color = kkColor(code, v, entry, isPref);
-    return "<div class='stat kk-stat' data-kkcode='" + code + "' role='button' tabindex='0' style='background:" + color + "18;border-color:" + color + "44;'>" +
-      "<div class='si'>" + meta.icon + "</div>" +
-      "<div class='sl'>" + meta.label + "</div>" +
-      "<div class='sv' style='color:" + color + ";'>" + kkFmt(v, meta.unit) + "</div>" +
-      "<div class='su'>\u8a73\u7d30\u3092\u898b\u308b \u25b6</div>" +
-      "</div>";
-  }
-
-  var KK_AXIS_COLORS = ["#f0876a", "#7bb8e8", "#6dcfad", "#f0c46a"];
-
-  function kkRadarSvg(nm, entry, isPref, prefName){
-    var n = KK_RADAR_AXES.length;
-    var cx = 50, cy = 50, R = 42;
-    var angleStep = (Math.PI * 2) / n;
-    var startAngle = -Math.PI / 2;
-
-    function pt(i, r){
-      var a = startAngle + i * angleStep;
-      return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-    }
-
-    var mineVals = [], medVals = [];
-    KK_RADAR_AXES.forEach(function(axis){
-      var raw = entry[axis.code];
-      var med = kkRadarMedian(axis.code, entry, isPref);
-      mineVals.push(raw != null ? kkRadarNorm(axis, raw, med) : null);
-      if (axis.isSigned) {
-        medVals.push(50);
-      } else {
-        medVals.push(med != null ? kkRadarNorm(axis, med, med) : null);
-      }
-    });
-
-    function pathFor(vals){
-      var d = "";
-      for (var i = 0; i < n; i++){
-        if (vals[i] == null) continue;
-        var r = (vals[i] / 100) * R;
-        var p = pt(i, r);
-        d += (d ? "L" : "M") + p[0].toFixed(2) + "," + p[1].toFixed(2) + " ";
-      }
-      return d.trim() + " Z";
-    }
-
-    var grid = "";
-    [0.25, 0.5, 0.75, 1].forEach(function(frac){
-      var d = "";
-      for (var i = 0; i <= n; i++){
-        var p = pt(i % n, R * frac);
-        d += (i === 0 ? "M" : "L") + p[0].toFixed(2) + "," + p[1].toFixed(2) + " ";
-      }
-      grid += "<path d='" + d + "' fill='none' stroke='#b8b5ae' stroke-width='0.4'/>";
-    });
-    for (var gi = 0; gi < n; gi++){
-      var gp = pt(gi, R);
-      grid += "<line x1='" + cx + "' y1='" + cy + "' x2='" + gp[0].toFixed(2) + "' y2='" + gp[1].toFixed(2) + "' stroke='#b8b5ae' stroke-width='0.4'/>";
-    }
-
-    var medPath = pathFor(medVals);
-    var minePath = pathFor(mineVals);
-
-    var dots = "", medDots = "";
-    for (var di = 0; di < n; di++){
-      if (mineVals[di] != null){
-        var dr = (mineVals[di] / 100) * R;
-        var dp = pt(di, dr);
-        dots += "<circle cx='" + dp[0].toFixed(2) + "' cy='" + dp[1].toFixed(2) + "' r='2' fill='#2a78d6'/>";
-      }
-      if (medVals[di] != null){
-        var mr = (medVals[di] / 100) * R;
-        var mp = pt(di, mr);
-        medDots += "<circle cx='" + mp[0].toFixed(2) + "' cy='" + mp[1].toFixed(2) + "' r='1.5' fill='#6b6862'/>";
-      }
-    }
-
-    var svg = "<svg viewBox='0 0 100 100' style='display:block;width:100%;height:100%;'>" +
-      grid +
-      "<path d='" + medPath + "' fill='none' stroke='#6b6862' stroke-width='0.8' stroke-dasharray='1.6,1.6'/>" + medDots +
-      "<path d='" + minePath + "' fill='#2a78d61f' stroke='#2a78d6' stroke-width='1.1'/>" + dots +
-      "</svg>";
-
-    function axisLabelHtml(idx){
-      var axis = KK_RADAR_AXES[idx];
-      return "<div style='text-align:center;'>" +
-        "<span class='hlbl' style='background:" + KK_AXIS_COLORS[idx] + "22;color:" + KK_AXIS_COLORS[idx] + ";white-space:nowrap;'>" + axis.friendly + "</span>" +
-        "<div class='hmsg' style='margin-top:3px;'>" + KK_META[axis.code].label + "</div>" +
-        "</div>";
-    }
-    // KK_RADAR_AXESの並び順: 0=上, 1=右, 2=下, 3=左
-    var chartBox = "<div style='position:relative;width:clamp(70px,calc(100vw - 272px),260px);height:clamp(70px,calc(100vw - 272px),260px);margin:0 auto;'>" +
-      "<div style='position:absolute;top:0;left:0;width:100%;height:100%;'>" + svg + "</div>" +
-      "<div style='position:absolute;right:0;bottom:0;display:flex;align-items:center;gap:3px;font-size:10px;color:#6b6862;'>" +
-      "<svg width='24' height='6' style='display:inline-block;'><line x1='1' y1='3' x2='23' y2='3' stroke='#6b6862' stroke-width='2' stroke-dasharray='4,3'/></svg>全国中央値" +
-      "</div></div>";
-    var vertexGrid = "<div style='display:grid;grid-template-columns:92px 1fr 92px;align-items:center;justify-items:center;gap:6px;'>" +
-      "<div></div><div>" + axisLabelHtml(0) + "</div><div></div>" +
-      "<div>" + axisLabelHtml(3) + "</div>" + chartBox + "<div>" + axisLabelHtml(1) + "</div>" +
-      "<div></div><div>" + axisLabelHtml(2) + "</div><div></div>" +
-      "</div>";
-
-    var head = "<div style='text-align:center;margin-bottom:16px;'>" +
-      "<span style='font-family:\"Kaisei Tokumin\",serif;font-size:24px;color:#3a2a6e;'>" + nm + "</span>" +
-      (isPref ? "" : "<div class='cpref' style='margin-top:2px;margin-bottom:14px;'>" + prefName + "</div>") +
-      "</div>";
-
-    return head + vertexGrid;
-  }
-
-  var KK_RADAR_AXES = [
-    {code:"ka3", friendly:"老朽化への強さ", invert:true},
-    {code:"ka4", friendly:"資産の自立度", invert:false},
-    {code:"ka5", friendly:"将来世代への配慮", invert:true},
-    {code:"ka8", friendly:"収支の健全性", invert:false, isSigned:true}
-  ];
-
-  function kkRadarMedian(code, entry, isPref){
-    var meta = KK_META[code];
-    if (meta.group) {
-      var grp = entry.grp;
-      var bucket = isPref ? "pref" : "muni";
-      var gm = KK && KK._groupMedians && KK._groupMedians[bucket] && grp ? KK._groupMedians[bucket][grp] : null;
-      return gm ? gm[code] : null;
-    }
-    var mm = KK_MEDIANS[code];
-    return mm ? (isPref ? mm.pref : mm.muni) : null;
-  }
-
-  function kkRadarNorm(axis, val, med){
-    if (val == null) return null;
-    if (axis.isSigned) {
-      var scale = Math.max(Math.abs(med || 0) * 2, 100);
-      var t = Math.max(-1, Math.min(1, val / scale));
-      return 50 + t * 50;
-    }
-    var v = axis.invert ? (100 - val) : val;
-    return Math.max(0, Math.min(100, v));
-  }
-
-  function kkRender(nm, d){
-    var body = document.getElementById("kkContent");
-    if (!body) return;
-    var isPref = (d.p === nm);
-    var entry = KK ? KK[nm] : null;
-    if (!entry) {
-      body.innerHTML = "<p style='text-align:center;color:#a090c8;padding:24px 0;'>\u3053\u306e\u81ea\u6cbb\u4f53\u306e\u516c\u4f1a\u8a08\u30c7\u30fc\u30bf\u306f\u672a\u516c\u8868\u3067\u3059\u3002</p>";
-      return;
-    }
-    var html = kkRadarSvg(nm, entry, isPref, d.p);
-    html += "<div class='tap-hint' style='margin-top:20px;'>\ud83d\udcca \u5404\u9805\u76ee\u3092\u30bf\u30c3\u30d7\u3059\u308b\u3068\u8aac\u660e\u304c\u8868\u793a\u3055\u308c\u307e\u3059</div><div class='grid'>";
-    KK_ORDER.forEach(function(code){ html += kkBoxHtml(code, entry, isPref); });
-    html += "</div><div class='src'>\ud83d\udccb \u7dcf\u52d9\u7701\u300c\u7d71\u4e00\u7684\u306a\u57fa\u6e96\u306b\u3088\u308b\u8ca1\u52d9\u66f8\u985e\u306b\u95a2\u3059\u308b\u8abf\u300d\u4ee4\u548c5\u5e74\u5ea6</div>";
-    body.innerHTML = html;
-    body.querySelectorAll(".kk-stat").forEach(function(el){
-      el.addEventListener("click", function(){ kkOpenDetail(this.getAttribute("data-kkcode")); });
-    });
-  }
-
-  function fkShowFin(){
-    var finTab = document.getElementById("finTabBtn");
-    var kkTab = document.getElementById("kkTabBtn");
-    var finBody = document.getElementById("finContent");
-    var kkBody = document.getElementById("kkContent");
-    if (!finTab || !kkTab || !finBody || !kkBody) return;
-    finTab.classList.add("active", "fk-tab-fin-active");
-    kkTab.classList.remove("active", "fk-tab-kk-active");
-    finBody.classList.remove("hidden");
-    kkBody.classList.add("hidden");
-  }
-
-  function fkShowKokaikei(nm, d){
-    var finTab = document.getElementById("finTabBtn");
-    var kkTab = document.getElementById("kkTabBtn");
-    var finBody = document.getElementById("finContent");
-    var kkBody = document.getElementById("kkContent");
-    if (!finTab || !kkTab || !finBody || !kkBody) return;
-    kkTab.classList.add("active", "fk-tab-kk-active");
-    finTab.classList.remove("active", "fk-tab-fin-active");
-    finBody.classList.add("hidden");
-    kkBody.classList.remove("hidden");
-    loadKokaikei(function(){ kkRender(nm, d); });
-  }
-
-  function fkInitTabs(nm, d){
-    var finTab = document.getElementById("finTabBtn");
-    var kkTab = document.getElementById("kkTabBtn");
-    if (!finTab || !kkTab) return;
-    var wantKk = !!(history.state && history.state.activeTab === "kk");
-    if (wantKk) { fkShowKokaikei(nm, d); } else { fkShowFin(); }
-    finTab.onclick = function(){
-      fkShowFin();
-      if (history.state && history.state.mitchieView === "result" && history.state.activeTab !== "fin") {
-        history.pushState(Object.assign({}, history.state, {activeTab: "fin"}), "", "#result");
-      }
-    };
-    kkTab.onclick = function(){
-      fkShowKokaikei(nm, d);
-      if (history.state && history.state.mitchieView === "result" && history.state.activeTab !== "kk") {
-        history.pushState(Object.assign({}, history.state, {activeTab: "kk"}), "", "#result");
-      }
-    };
-  }
 
 })();
 
