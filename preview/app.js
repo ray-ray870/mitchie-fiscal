@@ -997,6 +997,7 @@
     if (shEl) shEl.scrollTop = 0;
     if (key === "fiscalStatus") {
       document.getElementById("shTitle").textContent = m.icon+" "+m.label;
+      document.getElementById("shTop").innerHTML = "";
       document.getElementById("shDesc").innerHTML = m.htmlDesc || chipifyHeaders(m.desc).replace(/\n/g,"<br>");
       document.getElementById("spSvg").innerHTML = "";
       document.getElementById("spSvg").style.height = "0px";
@@ -1506,7 +1507,7 @@ if (key === "growth" && cur && cur.pop) {
       else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 収支は均衡＋固定費も標準的→大きな問題はありませんが、社会保障費の増加など将来の支出増に備えた積立が重要です</div>";
           topSummaryHtml += "</div>";
     }
-    document.getElementById("shDesc").innerHTML = rankHtml + topSummaryHtml + (topSummaryHtml ? "<div style='border-top:1px dashed #d8d5e8;margin:14px 0;'></div>" : "") + descHtml;
+    document.getElementById("shTop").innerHTML = rankHtml + topSummaryHtml; document.getElementById("shDesc").innerHTML = ((rankHtml || topSummaryHtml) ? "<div style='border-top:1px dashed #d8d5e8;margin:22px 0;'></div>" : "") + descHtml;
     var shElAfter = document.querySelector(".sh");
     if (shElAfter) shElAfter.scrollTop = 0;
     setTimeout(function(){ var s = document.querySelector(".sh"); if (s) s.scrollTop = 0; }, 50);
@@ -1886,11 +1887,15 @@ if (key === "growth" && cur && cur.pop) {
       .replace(/\n/g, "<br>");
     var html = (cmpLine ? "<div style='background:#a08be814;border:1px solid #a08be840;border-radius:12px;padding:12px 14px;font-weight:700;color:#3a2a6e;margin:0 0 14px;'>" + cmpLine + "</div>" : "")
       + descHtml;
+    document.getElementById("shTop").innerHTML = "";
     document.getElementById("shDesc").innerHTML = html;
     document.getElementById("spSvg").innerHTML = "";
     document.getElementById("spSvg").style.height = "0px";
     document.getElementById("spLabels").innerHTML = "";
     document.getElementById("ovEl").classList.remove("hidden");
+    var kkShEl = document.querySelector(".sh");
+    if (kkShEl) kkShEl.scrollTop = 0;
+    setTimeout(function(){ var s = document.querySelector(".sh"); if (s) s.scrollTop = 0; }, 50);
   }
 
   function kkColor(code, val, entry, isPref){

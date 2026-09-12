@@ -163,3 +163,4 @@ h1::after{content:'✦';font-size:15px;position:absolute;top:-6px;right:-18px;ba
 .fk-tab-fin-active{background:white;border-color:#6dcfad;color:#3a2a6e;}
 .fk-tab-kk-active{background:white;border-color:#f0c46a;color:#3a2a6e;}
 .kk-stat .sv{font-size:16px;}
+.sh-top{margin-bottom:4px;}
