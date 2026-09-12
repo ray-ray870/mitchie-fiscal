@@ -1934,26 +1934,30 @@ if (key === "growth" && cur && cur.pop) {
       "<path d='" + minePath + "' fill='#2a78d61f' stroke='#2a78d6' stroke-width='1.1'/>" + dots +
       "</svg>";
 
-    var chartBox = "<div style='width:100%;max-width:260px;aspect-ratio:1/1;margin:0 auto;'>" + svg + "</div>";
-
-    var head = "<div style='text-align:center;margin-bottom:4px;'>" +
-      "<span style='font-family:\"Kaisei Tokumin\",serif;font-size:24px;color:#3a2a6e;'>" + nm + "</span>" +
-      "</div>" +
-      "<div style='display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:#6b6862;margin-bottom:14px;'>" +
-      "<span style='display:inline-block;width:14px;height:0;border-top:2px dashed #6b6862;'></span>全国中央値" +
-      "</div>";
-
-    var legendGrid = "<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;'>";
-    for (var li = 0; li < n; li++){
-      var axis = KK_RADAR_AXES[li];
-      legendGrid += "<div style='text-align:center;'>" +
-        "<span class='hlbl' style='background:" + KK_AXIS_COLORS[li] + "22;color:" + KK_AXIS_COLORS[li] + ";white-space:nowrap;'>" + axis.friendly + "</span>" +
-        "<div class='hmsg' style='margin-top:4px;'>" + KK_META[axis.code].label + "</div>" +
+    function axisLabelHtml(idx){
+      var axis = KK_RADAR_AXES[idx];
+      return "<div style='text-align:center;'>" +
+        "<span class='hlbl' style='background:" + KK_AXIS_COLORS[idx] + "22;color:" + KK_AXIS_COLORS[idx] + ";white-space:nowrap;'>" + axis.friendly + "</span>" +
+        "<div class='hmsg' style='margin-top:3px;'>" + KK_META[axis.code].label + "</div>" +
         "</div>";
     }
-    legendGrid += "</div>";
+    // KK_RADAR_AXESの並び順: 0=上, 1=右, 2=下, 3=左
+    var chartBox = "<div style='position:relative;width:min(260px,55vw);height:min(260px,55vw);margin:0 auto;'>" +
+      "<div style='position:absolute;top:0;left:0;width:100%;height:100%;'>" + svg + "</div>" +
+      "<div style='position:absolute;right:0;bottom:0;display:flex;align-items:center;gap:3px;font-size:10px;color:#6b6862;'>" +
+      "<span style='display:inline-block;width:10px;height:0;border-top:2px dashed #6b6862;'></span>全国中央値" +
+      "</div></div>";
+    var vertexGrid = "<div style='display:grid;grid-template-columns:92px 1fr 92px;align-items:center;justify-items:center;gap:6px;'>" +
+      "<div></div><div>" + axisLabelHtml(0) + "</div><div></div>" +
+      "<div>" + axisLabelHtml(3) + "</div>" + chartBox + "<div>" + axisLabelHtml(1) + "</div>" +
+      "<div></div><div>" + axisLabelHtml(2) + "</div><div></div>" +
+      "</div>";
 
-    return head + chartBox + legendGrid;
+    var head = "<div style='text-align:center;margin-bottom:16px;'>" +
+      "<span style='font-family:\"Kaisei Tokumin\",serif;font-size:24px;color:#3a2a6e;'>" + nm + "</span>" +
+      "</div>";
+
+    return head + vertexGrid;
   }
 
   var KK_RADAR_AXES = [
