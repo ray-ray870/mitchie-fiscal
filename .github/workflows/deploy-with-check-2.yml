@@ -1,0 +1,176 @@
+name: 構文チェック後にデプロイ
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Node.jsをセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: js/ 配下の全ファイルの構文チェック
+        run: |
+          for f in js/*.js; do
+            echo "構文チェック: $f"
+            node --check "$f"
+          done
+
+      - name: images.js の構文チェック
+        run: node --check images.js
+
+      - name: 必要なファイルが揃っているか確認
+        run: |
+          python3 - << 'PYEOF'
+          import os, sys
+          need = ['index.html', 'style.css', 'images.js', 'manifest.json',
+                  'data-hokkaido-tohoku.json', 'data-kanto.json', 'data-chubu.json',
+                  'data-kinki.json', 'data-chugoku-shikoku.json', 'data-kyushu.json',
+                  'kokaikei.json', 'kana-index.json']
+          miss = [f for f in need if not os.path.exists(f)]
+          if miss:
+              print('::error::ファイルが見つかりません: ' + ', '.join(miss))
+              sys.exit(1)
+          print('必要ファイル: OK (%d件)' % len(need))
+
+          need_js = ['data.js', 'score.js', 'comparison.js', 'search.js', 'share.js',
+                     'my-mitchie.js', 'ranking.js', 'kokaikei.js', 'ui.js']
+          miss_js = [f for f in need_js if not os.path.exists(os.path.join('js', f))]
+          if miss_js:
+              print('::error::js/ に見つからないファイルがあります: ' + ', '.join(miss_js))
+              sys.exit(1)
+          print('js/ 必要ファイル: OK (%d件)' % len(need_js))
+          PYEOF
+
+      - name: 読み込みタグと順序を確認
+        run: |
+          python3 - << 'PYEOF'
+          import re, sys
+          h = open('index.html', encoding='utf-8').read()
+          ng = False
+
+          if 'style.css' not in h:
+              print('::error::index.html に style.css の読み込みがありません。')
+              ng = True
+          if 'images.js' not in h:
+              print('::error::index.html に images.js の読み込みがありません。')
+              ng = True
+
+          # 依存関係上必ず守るべき順序（この順で登場すればOK。間に他のタグが挟まっても良い）
+          required_order = [
+              'js/data.js', 'js/score.js', 'js/comparison.js', 'js/search.js',
+              'js/share.js', 'js/my-mitchie.js', 'js/ranking.js', 'js/kokaikei.js', 'js/ui.js',
+          ]
+          positions = {}
+          for f in required_order:
+              pattern = re.compile(r'<script[^>]*src=["\'][^"\']*' + re.escape(f) + r'[^"\']*["\']', re.I)
+              m = pattern.search(h)
+              if not m:
+                  print('::error::index.html に %s の<script>タグが見つかりません。' % f)
+                  ng = True
+              else:
+                  positions[f] = m.start()
+
+          if len(positions) == len(required_order):
+              ordered = sorted(positions, key=lambda k: positions[k])
+              if ordered != required_order:
+                  print('::error::index.html の<script>タグの読み込み順序が正しくありません。')
+                  print('  期待する順序: ' + ' -> '.join(required_order))
+                  print('  実際の順序:   ' + ' -> '.join(ordered))
+                  ng = True
+
+              # images.js / html2canvas は js/data.js より必ず前でなければならない
+              i = h.find('images.js')
+              c = h.find('html2canvas')
+              first_js = positions['js/data.js']
+              if not (i != -1 and c != -1 and i < c < first_js):
+                  print('::error::読み込み順序が違います。images.js → html2canvas → js/data.js(以降) の順である必要があります。')
+                  ng = True
+
+          if 'G-5BGX6KQZFL' not in h:
+              print('::error::GA4タグが消えています。')
+              ng = True
+          if 'og:image' not in h:
+              print('::error::OGPタグが消えています。')
+              ng = True
+
+          if ng:
+              sys.exit(1)
+          print('読み込みタグと順序: OK')
+          PYEOF
+
+      - name: HTMLタグの開閉バランスを確認
+        run: |
+          python3 - << 'PYEOF'
+          import sys
+          h = open('index.html', encoding='utf-8').read()
+          o, c = h.count('<div'), h.count('</div>')
+          if o != c:
+              print('::error::<div>の数(%d)と</div>の数(%d)が一致していません。' % (o, c))
+              sys.exit(1)
+          print('<div>タグのバランス: OK (%d組)' % o)
+          PYEOF
+
+      - name: データファイルの中身を確認
+        run: |
+          python3 - << 'PYEOF'
+          import json, glob, sys
+          total = 0
+          for f in sorted(glob.glob('data-*.json')):
+              try:
+                  d = json.load(open(f, encoding='utf-8'))
+              except Exception as e:
+                  print('::error::%s が壊れています: %s' % (f, e))
+                  sys.exit(1)
+              if not isinstance(d, dict) or len(d) == 0:
+                  print('::error::%s の中身が空です。' % f)
+                  sys.exit(1)
+              print('  %s %d件' % (f, len(d)))
+              total += len(d)
+          if total < 1700:
+              print('::error::データ件数が %d件しかありません。1,700件を下回っています。' % total)
+              sys.exit(1)
+          print('データ合計: %d件 OK' % total)
+          PYEOF
+
+      - name: 財政・公会計・かな検索インデックスの整合性を確認
+        run: python3 scripts/check_data_consistency.py
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Pagesの設定を準備
+        uses: actions/configure-pages@v5
+
+      - name: 公開用データをまとめる
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: GitHub Pagesに公開
+        id: deployment
+        uses: actions/deploy-pages@v4
