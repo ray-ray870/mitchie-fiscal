@@ -1,0 +1,116 @@
+name: プレビュー用 構文チェック
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'preview/**'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Node.jsをセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: js/ 配下の全ファイルの構文チェック
+        run: |
+          cd preview
+          for f in js/*.js; do
+            echo "構文チェック: $f"
+            node --check "$f"
+          done
+
+      - name: images.js の構文チェック
+        run: node --check preview/images.js
+
+      - name: js/ に必要な9ファイルが揃っているか確認
+        run: |
+          python3 - << 'PYEOF'
+          import os, sys
+          need = ['data.js', 'score.js', 'comparison.js', 'search.js', 'share.js',
+                   'my-mitchie.js', 'ranking.js', 'kokaikei.js', 'ui.js']
+          base = 'preview/js'
+          miss = [f for f in need if not os.path.exists(os.path.join(base, f))]
+          if miss:
+              print('::error::preview/js/ に見つからないファイルがあります: ' + ', '.join(miss))
+              sys.exit(1)
+          print('js/ 必要ファイル: OK (%d件)' % len(need))
+          PYEOF
+
+      - name: preview/index.html が9ファイル全部を正しい順序で読み込んでいるか確認
+        run: |
+          python3 - << 'PYEOF'
+          import re, sys
+          h = open('preview/index.html', encoding='utf-8').read()
+
+          # 依存関係上必ず守るべき順序（この順で登場すればOK。間に他のタグが挟まっても良い）
+          required_order = [
+              'js/data.js', 'js/score.js', 'js/comparison.js', 'js/search.js',
+              'js/share.js', 'js/my-mitchie.js', 'js/ranking.js', 'js/kokaikei.js', 'js/ui.js',
+          ]
+
+          ng = False
+          positions = {}
+          for f in required_order:
+              # クエリ文字列(?v=...)が付いていても検出できるように部分一致で探す
+              pattern = re.compile(r'<script[^>]*src=["\'][^"\']*' + re.escape(f) + r'[^"\']*["\']', re.I)
+              m = pattern.search(h)
+              if not m:
+                  print('::error::preview/index.html に %s の<script>タグが見つかりません。' % f)
+                  ng = True
+              else:
+                  positions[f] = m.start()
+
+          if not ng:
+              ordered = sorted(positions, key=lambda k: positions[k])
+              if ordered != required_order:
+                  print('::error::preview/index.html の<script>タグの読み込み順序が正しくありません。')
+                  print('  期待する順序: ' + ' -> '.join(required_order))
+                  print('  実際の順序:   ' + ' -> '.join(ordered))
+                  ng = True
+
+          # 古い単一app.jsの読み込みが残っていないか（分割漏れの残骸チェック）
+          if re.search(r'<script[^>]*src=["\'][^"\']*(?<!my-mitchie|comparison)(?<!/)app\.js', h, re.I):
+              print('::error::preview/index.html にまだ古い単一 app.js の読み込みが残っています。')
+              ng = True
+
+          if 'style.css' not in h:
+              print('::error::preview/index.html に style.css の読み込みがありません。')
+              ng = True
+          if 'images.js' not in h:
+              print('::error::preview/index.html に images.js の読み込みがありません。')
+              ng = True
+
+          if ng:
+              sys.exit(1)
+          print('index.html の読み込みタグと順序: OK')
+          PYEOF
+
+      - name: preview/ のデータファイルの中身を確認
+        run: |
+          python3 - << 'PYEOF'
+          import json, glob, sys
+          total = 0
+          for f in sorted(glob.glob('preview/data-*.json')):
+              try:
+                  d = json.load(open(f, encoding='utf-8'))
+              except Exception as e:
+                  print('::error::%s が壊れています: %s' % (f, e))
+                  sys.exit(1)
+              if not isinstance(d, dict) or len(d) == 0:
+                  print('::error::%s の中身が空です。' % f)
+                  sys.exit(1)
+              print('  %s %d件' % (f, len(d)))
+              total += len(d)
+          if total < 1700:
+              print('::error::データ件数が %d件しかありません。1,700件を下回っています。' % total)
+              sys.exit(1)
+          print('データ合計: %d件 OK' % total)
+          PYEOF
