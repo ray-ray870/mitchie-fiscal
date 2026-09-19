@@ -1,0 +1,64 @@
+name: プレビューを本番に反映
+
+# 「Actions」タブから手動で実行するワークフロー。
+# preview/ フォルダで動作確認済みのJS・CSSファイルを本番(ルート)にコピーし、
+# index.html内のキャッシュ用バージョン番号(?v=...)を自動で新しくして、
+# 最後に deploy-with-check.yml を呼び出してサイトに公開する。
+#
+# ⚠️ 対象は js/*.js・images.js・style.css・index.htmlのバージョン番号のみ。
+#    data-*.json や kokaikei.json などのデータファイルはこのワークフローでは
+#    一切触らない(データ更新は update-data.yml の役目のため)。
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: プレビューのJS・CSSを本番にコピー
+        run: |
+          set -e
+          cp -f preview/js/*.js js/
+          if [ -f preview/images.js ]; then cp -f preview/images.js images.js; fi
+          if [ -f preview/style.css ]; then cp -f preview/style.css style.css; fi
+
+      - name: キャッシュ用バージョン番号を新しくする
+        run: |
+          set -e
+          NEWVER=$(date -u +%Y%m%d%H%M)
+          sed -i -E "s/(js\/[a-zA-Z0-9_-]+\.js\?v=)[0-9]+/\1${NEWVER}/g" index.html
+          sed -i -E "s/(images\.js\?v=)[0-9]+/\1${NEWVER}/g" index.html
+          sed -i -E "s/(style\.css\?v=)[0-9]+/\1${NEWVER}/g" index.html
+          echo "新バージョン番号: ${NEWVER}"
+
+      - name: 差分がある場合のみコミット
+        id: commit
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add js/*.js images.js style.css index.html
+          if git diff --cached --quiet; then
+            echo "変更なし。コミットをスキップします。"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "プレビューの内容を本番に反映"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 公開処理(deploy-with-check)を自動実行
+        if: steps.commit.outputs.changed == 'true'
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy-with-check.yml/dispatches" \
+            -d '{"ref":"main"}'
