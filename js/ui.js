@@ -50,6 +50,26 @@
       return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
     });
   }
+  function furuGoToCity(name) {
+    var ov = document.getElementById("ovEl");
+    if (ov) ov.classList.add("hidden");
+    var input = document.getElementById("cityInput");
+    if (!input) return;
+    input.value = name;
+    if (typeof hideSuggestions === "function") hideSuggestions();
+    diagnose();
+  }
+  // ふるさと納税ランキングBOXの開閉状態。自治体をまたいで戻る/開き直しても
+  // 直前の開閉状態を保つため、DOMではなくこの変数で覚えておく。
+  var furuRankOpen = false;
+  function furuToggleRank() {
+    furuRankOpen = !furuRankOpen;
+    var b = document.getElementById("furuRankBox");
+    var t = document.getElementById("furuRankBtnLabel");
+    if (!b || !t) return;
+    b.style.display = furuRankOpen ? "block" : "none";
+    t.innerHTML = furuRankOpen ? "🏆 全国ランキングTOP10 ▲" : "🏆 全国ランキングTOP10 ▶";
+  }
   function diagnose() {
     var q = document.getElementById("cityInput").value;
     if (!q.trim()) return;
@@ -186,7 +206,7 @@
         "<div class='stat' id='s5' role='button' tabindex='0' style='background:#7bb8e818;border-color:#7bb8e844;'><div class='si'>💹</div><div class='sl'>歳出／歳入</div><div class='sv' style='font-size:14px;line-height:1.7;'><span style='color:"+eoc+";display:block;'>💸 歳出 "+eol+" <small style='font-size:13px;'>"+eogs+"</small></span><span style='color:"+eic+";display:block;'>💰 歳入 "+eil+" <small style='font-size:13px;'>"+eigs+"</small></span></div></div>" +
         "<div class='stat' id='s6' role='button' tabindex='0' style='background:"+educ+"18;border-color:"+educ+"44;'><div class='si'>📚</div><div class='sl'>教育費一般財源比率</div><div class='sv' style='color:"+educ+";'>"+edul+"</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s7' role='button' tabindex='0' style='background:"+chc+"18;border-color:"+chc+"44;'><div class='si'>👧</div><div class='sl'>子ども1人当たり投資額</div><div class='sv' style='color:"+chc+";'>"+chl+"</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s8' role='button' tabindex='0' style='background:"+fuc+"18;border-color:"+fuc+"44;'><div class='si'>🎁</div><div class='sl'>ふるさと納税受入額</div><div class='sv' style='color:"+fuc+";'>"+(d.fu!=null?fmtManOku(d.fu):"—")+"</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s8' role='button' tabindex='0' style='background:"+fuc+"18;border-color:"+fuc+"44;'><div class='si'>🎁</div><div class='sl'>ふるさと納税</div><div class='sv' style='font-size:14px;line-height:1.7;'><span style='color:#6dcfad;display:block;'>🎁 受入額 "+(d.fu!=null?fmtManOku(d.fu):"—")+"</span><span style='color:#f0876a;display:block;'>📤 住民税控除額 "+(d.fk!=null?fmtManOku(d.fk):"—")+"</span></div></div>" +
       "</div>" +
       "<div class='adv'><strong>みっちーからのひとこと</strong><br>"+advice(nm,d)+"</div>" +
       "<div style='text-align:center;margin:16px 0 4px;'><button id='shareImgBtn' style='background:linear-gradient(135deg,#a08be8,#e060a8);color:white;border:none;border-radius:50px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(140,80,220,0.3);display:inline-flex;align-items:center;gap:8px;'>結果を共有する<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='18' cy='5' r='3'></circle><circle cx='6' cy='12' r='3'></circle><circle cx='18' cy='19' r='3'></circle><line x1='8.59' y1='13.51' x2='15.42' y2='17.49'></line><line x1='15.41' y1='6.51' x2='8.59' y2='10.49'></line></svg></button></div>" +
@@ -488,14 +508,48 @@
       if (spWrapF) spWrapF.style.display = "none";
 
       var natTotalF = 0;
-      if (DB) { Object.keys(DB).forEach(function(k){ var e=DB[k]; if (e.fu!=null) natTotalF += e.fu; }); }
+      var topFuList = [];
+      if (DB) {
+        Object.keys(DB).forEach(function(k){
+          var e = DB[k];
+          if (e.fu != null) {
+            natTotalF += e.fu;
+            topFuList.push({ name: k, pref: e.p, fu: e.fu });
+          }
+        });
+        topFuList.sort(function(a,b){ return b.fu - a.fu; });
+        topFuList = topFuList.slice(0, 10);
+      }
       var natTotalOkuF = Math.round(natTotalF / 10000).toLocaleString();
+
+      var RANK_MEDAL = ["#f0a93a", "#aab2c2", "#c98652"]; // 金・銀・銅
+      var topFuRowsHtml = topFuList.map(function(row, i){
+        var medalStyle = i < 3
+          ? "background:linear-gradient(135deg,"+RANK_MEDAL[i]+"cc,"+RANK_MEDAL[i]+");color:#fff;"
+          : "background:#cfcbe6;color:#fff;";
+        var mmChip = (typeof mmIsMine === "function" && mmIsMine(row.name))
+          ? "<span style='display:inline-block;background:#a08be822;color:#6a4dc0;border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:6px;white-space:nowrap;'>🐧 Myみっちー</span>"
+          : "";
+        return "<div role='button' tabindex='0' onclick=\"furuGoToCity('"+row.name.replace(/'/g,"\\'")+"')\" style='display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e6e3f2;border-radius:12px;padding:9px 12px;margin-bottom:6px;cursor:pointer;'>" +
+          "<div style='width:24px;height:24px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;"+medalStyle+"'>"+(i+1)+"</div>" +
+          "<div style='flex:1;min-width:0;'><div style='font-size:14px;font-weight:700;color:#2c2c3c;'>"+escapeHtml(row.name)+mmChip+"</div><div style='font-size:11px;color:#9a97b5;'>"+escapeHtml(row.pref||"")+"</div></div>" +
+          "<div style='font-size:13px;font-weight:700;color:#2a8a6a;white-space:nowrap;'>"+fmtManOku(row.fu)+"</div>" +
+        "</div>";
+      }).join("");
+      var furuRankBoxHtml = "<div id='furuRankBox' style='display:"+(furuRankOpen?"block":"none")+";margin-top:10px;'>" +
+        "<div style='font-size:12px;color:#9090a8;margin-bottom:8px;'>受入額 TOP10（R7年度・総務省公表データ）</div>" +
+        topFuRowsHtml +
+      "</div>";
 
       var descHtmlF = "<div style='font-size:15px;color:#3a3a4a;line-height:1.8;margin-bottom:14px;'>" +
         "生まれ故郷や応援したい自治体に寄附をすると、返礼品がもらえ、翌年の住民税・所得税が控除される制度です。寄附する自治体は自由に選べます。" +
         "</div>" +
+        "<div style='background:#eeecf8;border:1px solid #dcd8ee;border-radius:14px;padding:14px 16px;margin-bottom:16px;'>" +
+        "<div style='font-size:15px;color:#3a3a4a;line-height:1.8;'><strong><span style='color:#3a6ee8;'>R7年度</span> 全国のふるさと納税受入額は約<span style='color:#3a6ee8;font-size:16px;'>" + natTotalOkuF + "億円</span>です。</strong></div>" +
+        "<div style='text-align:center;margin-top:10px;'><button type='button' onclick=\"furuToggleRank()\" style='display:inline-flex;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#f7b955,#f0876a);color:#fff;font-weight:700;font-size:13px;border:none;border-radius:999px;padding:9px 16px;box-shadow:0 3px 8px rgba(240,135,106,0.35);cursor:pointer;font-family:inherit;'><span id='furuRankBtnLabel'>"+(furuRankOpen?"🏆 全国ランキングTOP10 ▲":"🏆 全国ランキングTOP10 ▶")+"</span></button></div>" +
+        furuRankBoxHtml +
+        "</div>" +
         "<div style='font-size:15px;color:#3a3a4a;line-height:1.8;'>" +
-        "<strong><span style='color:#3a6ee8;'>R7年度</span> 全国のふるさと納税受入額は約<span style='color:#3a6ee8;font-size:16px;'>" + natTotalOkuF + "億円</span>です。</strong><br><br>" +
         "ふるさと納税には、方向が逆の2つのお金の動きがあります。<br><br>" +
         "<span style='display:inline-block;background:#6dcfad18;color:#2a8a6a;border-radius:8px;padding:2px 8px;font-weight:700;font-size:13px;'>🎁 受入額</span><br>" +
         "全国の人がこの自治体に寄附した金額の合計（＝この自治体の収入）。返礼品や経費を引く前の総額です。<br><br>" +
