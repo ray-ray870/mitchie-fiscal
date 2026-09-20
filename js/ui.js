@@ -564,7 +564,10 @@
       document.getElementById("ovEl").classList.remove("hidden");
       return;
     }
-    var val = key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs):key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?cur.u:key==="reserve"?cur.r:key==="budget"?(cur.eo||0):key==="education"?(cur.edu||0):key==="childInvest"?(cur.ch||0):cur.g;
+    // 将来負担比率(u)は総務省の資料で「充当可能財源等が将来負担額を上回る（＝負担なし）」場合に
+    // 数値ではなく「－」で公表されており、取り込み時にnullになっている。これは欠測ではなく
+    // 実質0%（負担なし）を意味するため、以後この値を扱う箇所ではnullを0として扱う。
+    var val = key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs):key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?(cur.u==null?0:cur.u):key==="reserve"?cur.r:key==="budget"?(cur.eo||0):key==="education"?(cur.edu||0):key==="childInvest"?(cur.ch||0):cur.g;
     var seed = (Math.abs(val*137) + key.charCodeAt(0)*31) % 100;
     var MAX_HIST = 7; // 履歴探索の上限（実際のデータは最大5年分＋最新=6ポイント。将来の年数増加にも耐えられるよう余裕を持たせている）
     function countHist(prefix, startIdx) {
@@ -576,7 +579,8 @@
       return n;
     }
     var histCountFiscal = countHist("f", 1);
-    var growthStartIdx = 1;
+    // growthのみ令和2年始まり（g_r1は存在しないため）。取得開始位置と件数カウントの起点を必ず揃えること
+    var growthStartIdx = (key === "growth") ? 2 : 1;
     var histCountGrowth = (key==="reserve"||key==="education"||key==="childInvest") ? countHist(key==="education"?"edu":key==="childInvest"?"ch":"r", growthStartIdx) : countHist("g", 2);
     var vals = [];
     var yrs;
@@ -590,14 +594,14 @@
         if (key==="fiscalPower") return cur["f"+suffix];
         if (key==="debt") return cur["d"+suffix];
         if (key==="flex") return cur["x"+suffix];
-        if (key==="future") return cur["u"+suffix];
+        if (key==="future") { var uHistV = cur["u"+suffix]; return uHistV==null ? 0 : uHistV; }
         if (key==="health") {
           var f=cur["f"+suffix], d=cur["d"+suffix], x=cur["x"+suffix];
           return (f!=null&&d!=null&&x!=null)?calcH(f,d,x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs):null;
         }
         return null;
       };
-      var mainVal = key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?cur.u:key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs):null;
+      var mainVal = key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?(cur.u==null?0:cur.u):key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs):null;
       var histDecimals = key==="fiscalPower" ? 2 : 1;
       for (var hi=1; hi<=N; hi++) {
         var v2 = getVal(hi);
@@ -618,12 +622,12 @@
       var growthYrLabels = growthStartIdx===1 ? ["R1","R2","R3","R4","R5","R6","R7"] : ["R2","R3","R4","R5","R6","R7","R8"];
       yrs = growthYrLabels.slice(0,N2).concat(["R"+(N2+growthStartIdx)+"（最新）"]);
     } else {
-      // 推計（従来ロジック）
-      yrs = ["R1","R2","R3","R4","R5（最新）"];
-      var v = val * (0.88 + (seed%20)/100);
-      for (var i=0; i<5; i++) { v = v + Math.sin(i*2.1+seed*0.1)*Math.abs(val)*0.08; vals.push(parseFloat(v.toFixed(1))); }
-      vals.push(val);
+      // 過去の実績データが1件も無い場合：以前はサインカーブで「それっぽい」架空の推移を
+      // 描いていたが、実データではないので誤解を招く。架空データは作らず、
+      // グラフ自体を「データなし」表示にする（下のnoRealHistoryフラグで分岐）。
+      yrs = [];
     }
+    var noRealHistory = (!hasHistory && !hasGrowthHistory);
     var reserveRatio = (cur && cur.sfs && cur.sfs > 0) ? (cur.r / cur.sfs * 100) : null;
     var budgetColor = (cur && cur.eo!=null && cur.ei!=null) ? (cur.ei>=cur.eo?"#6dcfad":cur.ei>=cur.eo*0.99?"#7bb8e8":"#f0876a") : "#7bb8e8";
     // 各色分けは「詳細画面の一言」(descHtml)の判定ロジックと基準を統一しています
@@ -1192,19 +1196,60 @@ if (key === "growth" && cur && cur.pop) {
         jumpToCity(this.getAttribute("data-city"));
       });
     });
-    var yrsLabelHtml = yrs.map(function(y,i){
-      var pct = yrs.length>1 ? (20+(i/(yrs.length-1))*(300-40))/300*100 : 50;
+    // データが無い年（null）は、先頭・末尾はもちろん、途中の年も含めて
+    // ラベル・グラフの両方から完全に取り除く（間延びした空白の目盛りを表示しない）。
+    // ただし「実際の年が連続しているか」は取り除く前の位置(chartGap)で覚えておき、
+    // 年が飛んでいる箇所だけは線をつながず、連続している箇所だけ線でつなぐ。
+    // これにより「歯抜けは常にコンパクトな表示になり、線がつながるのは本当に連続した年だけ」で統一される。
+    var chartVals = [], chartYrs = [], chartGap = [];
+    if (key !== "budget") {
+      var prevRealIdx = null;
+      for (var tvi=0; tvi<vals.length; tvi++){
+        if (vals[tvi]==null) continue;
+        chartVals.push(vals[tvi]);
+        chartYrs.push(yrs[tvi]);
+        chartGap.push(prevRealIdx!==null && tvi!==prevRealIdx+1);
+        prevRealIdx = tvi;
+      }
+    } else {
+      chartVals = vals; chartYrs = yrs;
+    }
+    var yrsLabelHtml = chartYrs.map(function(y,i){
+      var pct = chartYrs.length>1 ? (20+(i/(chartYrs.length-1))*(300-40))/300*100 : 50;
       var yDisp = y.replace("（最新）", "");
       return "<span style='left:"+pct+"%;text-align:center;'>"+yDisp+"</span>";
     }).join("");
+    // データが存在しない年度（先頭・末尾で表示から除外した分も含む）は、無言で消すのではなく
+    // 「総務省の公表データが無い」ことを明記する。グラフだけを見て「バグ？」と誤解されないようにするため。
+    // ※年度ラベルは絶対配置(position:absolute)の細い帯の中にあるため、同じ場所にメッセージを
+    //   置くと重なってしまう。グラフの白い枠(#spWrap)より下、#shDescの先頭に独立して表示する。
+    var missingNoteHtml = "";
+    if (key !== "budget" && (hasHistory || hasGrowthHistory)) {
+      var missingYearLabels = [];
+      for (var myi=0; myi<vals.length; myi++){
+        if (vals[myi]==null) missingYearLabels.push(yrs[myi].replace("（最新）",""));
+      }
+      if (missingYearLabels.length) {
+        missingNoteHtml = "<div style='font-size:12px;color:#c98a3a;background:#c98a3a14;border:1px solid #c98a3a40;border-radius:10px;padding:10px 12px;margin:10px 0;line-height:1.6;'>⚠️ "+missingYearLabels.join("・")+"年度は総務省の公表データが無いため表示していません（前後の実データを直線ではつないでいません）</div>";
+      }
+    }
+    // 過去の実績データが1件も無い場合：架空の推計線は描かず、その旨だけをはっきり伝える
+    if (key !== "budget" && noRealHistory) {
+      missingNoteHtml = "<div style='font-size:12px;color:#8a8a9a;background:#8a8a9a14;border:1px solid #8a8a9a33;border-radius:10px;padding:10px 12px;margin:10px 0;line-height:1.6;'>📭 過去の推移データは総務省の公表資料に無いため、表示できません（現在値のみ上に表示しています）</div>";
+    }
     document.getElementById("spLabels").innerHTML = yrsLabelHtml;
+    if (missingNoteHtml) {
+      var shDescElForNote = document.getElementById("shDesc");
+      if (shDescElForNote) shDescElForNote.innerHTML = missingNoteHtml + shDescElForNote.innerHTML;
+    }
     if (key === "budget") {
       // 歳出・歳入 2本線グラフ
       var eoVal = cur.eo || 0, eiVal = cur.ei || 0;
       var budgetHistCount = countHist("eo", 1);
       var eoVals = [], eiVals = [];
       var budgetYrs;
-      if (budgetHistCount > 0) {
+      var noBudgetHistory = budgetHistCount <= 0;
+      if (!noBudgetHistory) {
         for (var bi=1; bi<=budgetHistCount; bi++) {
           eoVals.push(cur["eo_r"+bi] != null ? cur["eo_r"+bi] : null);
           eiVals.push(cur["ei_r"+bi] != null ? cur["ei_r"+bi] : null);
@@ -1212,31 +1257,28 @@ if (key === "growth" && cur && cur.pop) {
         eoVals.push(eoVal); eiVals.push(eiVal);
         budgetYrs = ["R1","R2","R3","R4","R5","R6","R7"].slice(0,budgetHistCount).concat(["R"+(budgetHistCount+1)+"（最新）"]);
       } else {
-        var eoSeed = (Math.abs(eoVal*137) + 31) % 100;
-        var eiSeed = (Math.abs(eiVal*137) + 61) % 100;
-        var ev = eoVal * (0.88 + (eoSeed%20)/100);
-        var iv = eiVal * (0.88 + (eiSeed%20)/100);
-        for (var i=0; i<5; i++) {
-          ev = ev + Math.sin(i*2.1+eoSeed*0.1)*Math.abs(eoVal)*0.08;
-          iv = iv + Math.sin(i*2.1+eiSeed*0.1)*Math.abs(eiVal)*0.08;
-          eoVals.push(parseFloat(ev.toFixed(0)));
-          eiVals.push(parseFloat(iv.toFixed(0)));
-        }
-        eoVals.push(eoVal); eiVals.push(eiVal);
-        budgetYrs = ["R1","R2","R3","R4","R5（最新）"];
+        // 過去の歳出入データが無い場合：以前はサインカーブで架空の推移を描いていたが、
+        // 実データではないため廃止。現在値のみのグラフにし、「データなし」を明記する。
+        eoVals = [eoVal]; eiVals = [eiVal];
+        budgetYrs = ["R（最新）"];
       }
+      var budgetMissingNote = noBudgetHistory ? "<div style='font-size:12px;color:#8a8a9a;background:#8a8a9a14;border:1px solid #8a8a9a33;border-radius:10px;padding:10px 12px;margin:10px 0;line-height:1.6;'>📭 過去の歳出入の推移データは総務省の公表資料に無いため、表示できません（現在値のみ上に表示しています）</div>" : "";
       document.getElementById("spLabels").innerHTML = budgetYrs.map(function(y,i){
         var pct = budgetYrs.length>1 ? (14+(i/(budgetYrs.length-1))*(300-28))/300*100 : 50;
         var yDisp = y.replace("（最新）", "");
         return "<span style='left:"+pct+"%;text-align:center;'>"+yDisp+"</span>";
       }).join("");
+      if (budgetMissingNote) {
+        var shDescElForBudgetNote = document.getElementById("shDesc");
+        if (shDescElForBudgetNote) shDescElForBudgetNote.innerHTML = budgetMissingNote + shDescElForBudgetNote.innerHTML;
+      }
       var allV = eoVals.concat(eiVals).filter(function(v){ return v!=null; });
       var W=300,H=100,P=14;
       var mn2=Math.min.apply(null,allV), mx2=Math.max.apply(null,allV);
       var rng2 = Math.max(mx2-mn2, mx2*0.15) || 1;
       mn2 = mn2 - rng2*0.1; mx2 = mx2 + rng2*0.1; rng2 = mx2 - mn2;
       var Ptop2=22, Pbottom2=26;
-      function px2(i){return P+(i/(eoVals.length-1))*(W-P*2);}
+      function px2(i){return eoVals.length>1 ? P+(i/(eoVals.length-1))*(W-P*2) : W/2;}
       function py2(v){return H-Pbottom2-((v-mn2)/rng2)*(H-Ptop2-Pbottom2);}
       function mkLine(arr){ var l=null; for(var j=0;j<arr.length;j++){ if(arr[j]==null) continue; l = l===null ? ("M"+px2(j)+","+py2(arr[j])) : (l+" L"+px2(j)+","+py2(arr[j])); } return l||""; }
       function fmtB(v){ return v>=10000 ? Math.round(v/100)/10+"千億" : v+"億"; }
@@ -1271,7 +1313,7 @@ if (key === "growth" && cur && cur.pop) {
         }
       }
       // 凡例
-      var budgetNote = budgetHistCount>0 ? ("※令和元〜"+(budgetHistCount+1)+"年の実績値") : "※元〜4年は参考値（推計）";
+      var budgetNote = budgetHistCount>0 ? ("※令和元〜"+(budgetHistCount+1)+"年の実績値") : "";
       var legend="<text x='"+P+"' y='"+(svgH-2)+"' font-size='10' fill='#a08be8'>■ 歳出</text><text x='"+(P+50)+"' y='"+(svgH-2)+"' font-size='10' fill='#7bb8e8'>■ 歳入</text><text x='"+P+"' y='"+(svgH+9)+"' font-size='8' fill='#aaa'>"+budgetNote+"</text>";
       var spSvg = document.getElementById("spSvg");
       spSvg.setAttribute("viewBox","0 0 "+W+" "+(svgH+10));
@@ -1281,40 +1323,69 @@ if (key === "growth" && cur && cur.pop) {
         "<path d='"+eiLine+"' fill='none' stroke='#7bb8e8' stroke-width='2' stroke-dasharray='4,3' stroke-linecap='round' stroke-linejoin='round'/>" +
         dots2 + legend;
     } else {
-    var validVals = vals.filter(function(v){ return v!=null; });
-    var mn=Math.min.apply(null,validVals), mx=Math.max.apply(null,validVals), rng=mx-mn||1;
+    var validVals = chartVals.filter(function(v){ return v!=null; });
+    var mn=validVals.length?Math.min.apply(null,validVals):0, mx=validVals.length?Math.max.apply(null,validVals):0, rng=mx-mn||1;
     var W=300,H=100,P=20,Ptop=26;
-    function px(i){return P+(i/(vals.length-1))*(W-P*2);}
+    function px(i){return chartVals.length>1 ? P+(i/(chartVals.length-1))*(W-P*2) : W/2;}
     function py(v){return H-P-((v-mn)/rng)*(H-Ptop-P);}
     var area="", line="", dots="";
-    var firstValid = true;
-    for(var j=0;j<vals.length;j++){
-      if(vals[j]==null) continue;
-      if(firstValid){ area="M"+px(j)+","+py(vals[j]); line="M"+px(j)+","+py(vals[j]); firstValid=false; }
-      else { area+=" L"+px(j)+","+py(vals[j]); line+=" L"+px(j)+","+py(vals[j]); }
+    // 実際の年が飛んでいる箇所（chartGap[j]===true）はそこで線を切り、
+    // 年が連続している区間だけを線でつなぐ（歯抜けの2点をいきなり直線で結ばない）。
+    var segStartIdx = null, prevIdx = null;
+    for(var j=0;j<chartVals.length;j++){
+      if(prevIdx===null || chartGap[j]){
+        if (segStartIdx!==null) area+=" L"+px(prevIdx)+","+H+" L"+px(segStartIdx)+","+H+" Z";
+        area += (area?" ":"") + "M"+px(j)+","+py(chartVals[j]);
+        line += (line?" ":"") + "M"+px(j)+","+py(chartVals[j]);
+        segStartIdx = j;
+      } else {
+        area += " L"+px(j)+","+py(chartVals[j]);
+        line += " L"+px(j)+","+py(chartVals[j]);
+      }
+      prevIdx = j;
     }
-    var lastIdx=vals.length-1;
-    area+=" L"+px(lastIdx)+","+H+" L"+px(0)+","+H+" Z";
-    for(var k=0;k<vals.length;k++){
-      if(vals[k]==null) continue;
-      var last=k===vals.length-1;
-      dots+="<circle cx='"+px(k)+"' cy='"+py(vals[k])+"' r='"+(last?5:3)+"' fill='"+(last?c:"white")+"' stroke='"+c+"' stroke-width='2'/>";
-      var dispVal = (m.unit==="億円" && vals[k]>=10000) ? Math.round(vals[k]/100)/10+"千億" : vals[k]+(m.unit==="%"?"%":m.unit==="億円"?"億":"");
-      var prevV = k>0 ? vals[k-1] : null;
-      var nextV = k<vals.length-1 ? vals[k+1] : null;
-      var isValley = (prevV==null || vals[k] <= prevV) && (nextV==null || vals[k] <= nextV) && (prevV!=null || nextV!=null);
+    if (segStartIdx!==null) area+=" L"+px(prevIdx)+","+H+" L"+px(segStartIdx)+","+H+" Z";
+    for(var k=0;k<chartVals.length;k++){
+      var last=k===chartVals.length-1;
+      dots+="<circle cx='"+px(k)+"' cy='"+py(chartVals[k])+"' r='"+(last?5:3)+"' fill='"+(last?c:"white")+"' stroke='"+c+"' stroke-width='2'/>";
+      var dispVal = (m.unit==="億円" && chartVals[k]>=10000) ? Math.round(chartVals[k]/100)/10+"千億" : chartVals[k]+(m.unit==="%"?"%":m.unit==="億円"?"億":"");
+      var prevV = k>0 ? chartVals[k-1] : null;
+      var nextV = k<chartVals.length-1 ? chartVals[k+1] : null;
+      var isValley = (prevV==null || chartVals[k] <= prevV) && (nextV==null || chartVals[k] <= nextV) && (prevV!=null || nextV!=null);
       var lblAnchor = k===0 ? "start" : "middle";
-      if(last && isValley) dots+="<text x='"+px(k)+"' y='"+(py(vals[k])+19)+"' text-anchor='"+lblAnchor+"' font-size='12' fill='"+cText+"' font-weight='700'>"+dispVal+"</text>";
-      else if(last) dots+="<text x='"+px(k)+"' y='"+(py(vals[k])-9)+"' text-anchor='"+lblAnchor+"' font-size='12' fill='"+cText+"' font-weight='700'>"+dispVal+"</text>";
-      else if(isValley) dots+="<text x='"+px(k)+"' y='"+(py(vals[k])+16)+"' text-anchor='"+lblAnchor+"' font-size='9' fill='"+cText+"' opacity='0.9'>"+dispVal+"</text>";
-      else dots+="<text x='"+px(k)+"' y='"+(py(vals[k])-8)+"' text-anchor='"+lblAnchor+"' font-size='9' fill='"+cText+"' opacity='0.9'>"+dispVal+"</text>";
+      if(last && isValley) dots+="<text x='"+px(k)+"' y='"+(py(chartVals[k])+19)+"' text-anchor='"+lblAnchor+"' font-size='12' fill='"+cText+"' font-weight='700'>"+dispVal+"</text>";
+      else if(last) dots+="<text x='"+px(k)+"' y='"+(py(chartVals[k])-9)+"' text-anchor='"+lblAnchor+"' font-size='12' fill='"+cText+"' font-weight='700'>"+dispVal+"</text>";
+      else if(isValley) dots+="<text x='"+px(k)+"' y='"+(py(chartVals[k])+16)+"' text-anchor='"+lblAnchor+"' font-size='9' fill='"+cText+"' opacity='0.9'>"+dispVal+"</text>";
+      else dots+="<text x='"+px(k)+"' y='"+(py(chartVals[k])-8)+"' text-anchor='"+lblAnchor+"' font-size='9' fill='"+cText+"' opacity='0.9'>"+dispVal+"</text>";
     }
-    var noteText = hasHistory ? ("※令和元〜"+(N+1)+"年の実績値") : hasGrowthHistory ? (key==="growth" ? ("※令和"+(growthStartIdx===1?"元":growthStartIdx)+"〜"+(N2+growthStartIdx)+"年の実績値（市・都道府県）") : ("※令和"+(growthStartIdx===1?"元":growthStartIdx)+"〜"+(N2+growthStartIdx)+"年の実績値")) : key==="growth" ? "※元〜4年は参考値（推計）※町村はデータなし" : "※元〜4年は参考値（推計）";
+    // 前後のnullを除外した実際の表示範囲(chartYrs)に合わせて注記の年度表示を作る
+    // （元のN・N2ベースのままだと、末尾のデータが無い年を除外した後もラベルと表示範囲がズレるため）
+    function reiwaLabelForNote(y) {
+      var yy = y.replace("（最新）", "");
+      var num = parseInt(yy.replace(/[^0-9]/g, ""), 10);
+      return num === 1 ? "元" : String(num);
+    }
+    var noteText;
+    if ((hasHistory || hasGrowthHistory) && chartYrs.length >= 1) {
+      var noteFrom = reiwaLabelForNote(chartYrs[0]);
+      var noteTo = reiwaLabelForNote(chartYrs[chartYrs.length - 1]);
+      noteText = (hasGrowthHistory && key==="growth") ? ("※令和"+noteFrom+"〜"+noteTo+"年の実績値（市・都道府県）") : ("※令和"+noteFrom+"〜"+noteTo+"年の実績値");
+    } else {
+      // 過去の実績データが無い場合、以前はここに「※元〜4年は参考値（推計）」と出して
+      // 架空の推計線を描いていたが、実データではないため廃止。注記はspLabels側の
+      // 「データなし」メッセージに一本化し、グラフ領域自体は非表示にする。
+      noteText = "";
+    }
     var noteColor = (hasHistory||hasGrowthHistory) ? "#6dcfad" : "#aaa";
     var spSvgEl = document.getElementById("spSvg");
-    spSvgEl.setAttribute("viewBox","0 0 "+W+" "+(H+10));
-    spSvgEl.style.height=(H+10)+"px";
-    spSvgEl.innerHTML = "<defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='"+c+"' stop-opacity='0.2'/><stop offset='100%' stop-color='"+c+"' stop-opacity='0'/></linearGradient></defs><text x='"+P+"' y='10' font-size='10' fill='"+noteColor+"'>"+noteText+"</text><path d='"+area+"' fill='url(#g)'/><path d='"+line+"' fill='none' stroke='"+c+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+dots;
+    if (noRealHistory) {
+      spSvgEl.innerHTML = "";
+      spSvgEl.style.height = "0px";
+    } else {
+      spSvgEl.setAttribute("viewBox","0 0 "+W+" "+(H+10));
+      spSvgEl.style.height=(H+10)+"px";
+      spSvgEl.innerHTML = "<defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='"+c+"' stop-opacity='0.2'/><stop offset='100%' stop-color='"+c+"' stop-opacity='0'/></linearGradient></defs><text x='"+P+"' y='10' font-size='10' fill='"+noteColor+"'>"+noteText+"</text><path d='"+area+"' fill='url(#g)'/><path d='"+line+"' fill='none' stroke='"+c+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+dots;
+    }
     }
     document.getElementById("ovEl").classList.remove("hidden");
     document.body.style.overflow="hidden";
