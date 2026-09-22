@@ -1,0 +1,85 @@
+name: プレビューのデータを本番に反映
+
+# 「Actions」タブから手動で実行するワークフロー。
+# preview/ フォルダに置いた data-*.json・kokaikei.json（プレビューで動作確認済みのもの）を
+# 本番（ルート）にコピーする。
+#
+# 「プレビューを本番に反映」(promote-preview-to-prod.yml) とは別ワークフロー。
+# 意図的に分けている：
+#   ・promote-preview-to-prod.yml は js/*.js・images.js・style.css だけが対象で、
+#     data-*.json・kokaikei.json には一切触れない。
+#   ・年次データ更新(update-data.yml)はルート直下の data-*.json だけを更新し、
+#     preview/ 側には反映しない。
+#   ・そのため、もし data-*.json を promote-preview-to-prod.yml に混ぜてしまうと、
+#     「年次データ更新の後、たまたまUIの微修正のためだけにpromoteを実行したら、
+#      更新前の古いpreviewデータでルートの最新データを巻き戻してしまう」事故が
+#      起こり得る。このワークフローを独立させることで、データを反映するタイミングを
+#      常に明示的に選べるようにしている。
+#
+# コピー後、①値域・重複キー等のチェック(update_fiscal_data.pyのvalidate()と同じ)、
+# ②公会計データ・かな検索インデックスとの自治体の顔ぶれ一致チェック
+# の2つに通らない場合はコミットせず処理を中断する。
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  promote-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: プレビューのdata-*.json・kokaikei.jsonを本番にコピー
+        run: |
+          set -e
+          shopt -s nullglob
+          for f in preview/data-*.json; do
+            cp -f "$f" "$(basename "$f")"
+          done
+          if [ -f preview/kokaikei.json ]; then cp -f preview/kokaikei.json kokaikei.json; fi
+
+      - name: 整合性チェック①（値域・重複キー・重複スライド検知）
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, 'scripts')
+          from update_fiscal_data import validate
+          sys.exit(0 if validate() else 1)
+          "
+
+      - name: 整合性チェック②（公会計データ・かな検索インデックスとの自治体名の一致）
+        run: python scripts/check_data_consistency.py
+
+      - name: 差分がある場合のみコミット
+        id: commit
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data-*.json kokaikei.json
+          if git diff --cached --quiet; then
+            echo "変更なし。コミットをスキップします。"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "プレビューのデータを本番に反映"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 公開処理(deploy-with-check)を自動実行
+        if: steps.commit.outputs.changed == 'true'
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy-with-check.yml/dispatches" \
+            -d '{"ref":"main"}'
