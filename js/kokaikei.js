@@ -17,11 +17,11 @@
   // 直近で同じ方向に動き続けている区間を遡って探し、「R3年度から減少傾向」のような文言を返す
   // 推移フレーズに、指標ごとの意味づけメッセージを付け加える
   var TREND_MEANING = {
-    u:   {"増加":"将来世代への負担が年々重くなってきています。", "減少":"将来世代への負担が年々軽くなってきています。"},
-    d:   {"増加":"毎年の返済負担が年々重くなってきています。", "減少":"毎年の返済負担が年々軽くなってきています。"},
+    u:   {"増加":"将来世代への負担が重くなる方向で推移しています。", "減少":"将来世代への負担が軽くなる方向で推移しています。"},
+    d:   {"増加":"毎年の返済負担が重くなる方向で推移しています。", "減少":"毎年の返済負担が軽くなる方向で推移しています。"},
     r:   {"増加":"貯金を着実に積み増している状態です。", "減少":"貯金を取り崩している状態です。今後の水準に注意が必要です。"},
     ka3: {"増加":"施設の更新・改修のタイミングが近づいている可能性があります。", "減少":"施設の更新・改修が進んでいる可能性があります。"},
-    ka4: {"増加":"借入に頼らず資産を築けている状態が続いています。", "減少":"借入への依存度が年々高まっている状態です。"},
+    ka4: {"増加":"借入に頼らず資産を築けている状態が続いています。", "減少":"借入への依存度が高まる方向で推移しています。"},
     ka1: {"増加":"このペースでの推移が続くかどうか、今後の数字にも注目です。", "減少":"このペースでの推移が続くかどうか、今後の数字にも注目です。"},
     ka6: {"増加":"このペースでの推移が続くかどうか、今後の数字にも注目です。", "減少":"このペースでの推移が続くかどうか、今後の数字にも注目です。"},
     ka7: {"増加":"このペースでの推移が続くかどうか、今後の数字にも注目です。", "減少":"このペースでの推移が続くかどうか、今後の数字にも注目です。"}
@@ -33,7 +33,7 @@
     return m ? phrase + "。" + m[dir] : phrase;
   }
   // valsArr: 古い年→新しい年の順で並んだ配列（例:[R1,R2,R3,R4,R5,現在]）をそのまま渡す
-  function trendSincePhrase(valsArr, currentYear) {
+  function trendSincePhrase(valsArr, currentYear, unit, decimals) {
     var start = 0;
     while (start < valsArr.length && valsArr[start] == null) start++;
     var vals = valsArr.slice(start);
@@ -54,8 +54,24 @@
       else break;
     }
     if (lastDir === null) return null;
-    if (startIdx === n-1) return null; // 直近1年だけの変化では「傾向」と言えない
-    return yrLabels[startIdx] + "年度から" + (lastDir>0 ? "増加傾向" : "減少傾向");
+    var dirWord = lastDir > 0 ? "増加" : "減少";
+    var runSteps = (n - 1) - startIdx; // 同方向が何年連続したか
+    if (runSteps >= 2) {
+      // 2年以上連続で同じ方向に動いている→従来通り「傾向」と言ってよい
+      return yrLabels[startIdx] + "年度から" + dirWord + "傾向";
+    }
+    // 直近1年だけの変化。「傾向」と言い切ると誤解を招くため、
+    // 直前に逆方向の動き（反転）があれば、それも合わせて一言で説明する
+    if (startIdx > 0) {
+      var prevDiff = vals[startIdx] - vals[startIdx - 1];
+      var prevDir = prevDiff > 0 ? 1 : prevDiff < 0 ? -1 : 0;
+      if (prevDir !== 0 && prevDir !== lastDir) {
+        var prevDirWord = prevDir > 0 ? "増加" : "減少";
+        var lastValStr = unit ? (vals[n-1] + unit + "に") : "";
+        return yrLabels[startIdx] + "年度に一度" + prevDirWord + "しましたが、" + yrLabels[n-1] + "年度は" + lastValStr + dirWord;
+      }
+    }
+    return yrLabels[startIdx] + "年度から" + yrLabels[n-1] + "年度にかけて" + dirWord;
   }
   function trendDescribe(oldVal, newVal, unit, decimals) {
     if (oldVal == null || newVal == null) return null;
@@ -89,6 +105,7 @@
 
   var KK_CROSSCHECK_CAVEAT = "<div style='background:rgba(160,139,232,0.08);border-radius:10px;padding:12px 14px;margin-top:10px;'>" +
     "<div style='font-size:13px;color:#6b5b80;line-height:1.7;'>起債計画や基金の使い方によって、この2つの指標の動き方は自治体ごとに大きく異なります。この街の場合の具体的な背景は、市の実施計画や財政状況資料集で確認できます。</div>" +
+    "<div style='font-size:11px;color:#999;margin-top:6px;'>※「軽め」「重め」「高め」「低め」は総務省の公式区分ではなく、当アプリが分かりやすさのために設けた独自の目安です。</div>" +
     "</div>";
   // 将来負担比率×(老朽化率/資産額/行政コスト)の判定ロジックを1箇所にまとめる（財政タブ・公会計タブ両方から呼ばれる）
   var FUTURE_COMBO_META = {
@@ -201,8 +218,8 @@
       else if (rHighRec && !ka4HighRec) { judgeRec = "多め"; analysisRec = "貯金と長期的な財産形成は別物です。"; }
       else { judgeRec = "やや少なめ"; analysisRec = "日々の備えと長期的な財産形成は別物です。"; }
       function ratioAtRec(sfx){ var rv=sfx?cur["r_r"+sfx]:cur.r; var sv=sfx?cur["sfs_r"+sfx]:cur.sfs; return (rv!=null&&sv)?rv/sv*100:null; }
-      var rTrendPhrase = withTrendMeaning("r", trendSincePhrase([ratioAtRec(1),ratioAtRec(2),ratioAtRec(3),ratioAtRec(4),ratioAtRec(5),ratioAtRec(null)], 6));
-      var ka4TrendPhrase = entry ? withTrendMeaning("ka4", trendSincePhrase([entry.ka4_r1,entry.ka4_r2,entry.ka4_r3,entry.ka4_r4,entry.ka4], 5)) : null;
+      var rTrendPhrase = withTrendMeaning("r", trendSincePhrase([ratioAtRec(1),ratioAtRec(2),ratioAtRec(3),ratioAtRec(4),ratioAtRec(5),ratioAtRec(null)], 6, "%", 1));
+      var ka4TrendPhrase = entry ? withTrendMeaning("ka4", trendSincePhrase([entry.ka4_r1,entry.ka4_r2,entry.ka4_r3,entry.ka4_r4,entry.ka4_r5,entry.ka4], 5, "%", 1)) : null;
       return kkCrossBox("🔗 財政と比べてみると", "財政調整基金残高", ratioRec.toFixed(1)+"%", judgeRec, "純資産比率", entryV+"%", ka4HighRec?"中央値より高め":"中央値より低め", analysisRec, true, rTrendPhrase, ka4TrendPhrase) + KK_CROSSCHECK_CAVEAT;
     }
     if (code === "ka7" && cur.d != null) {
@@ -224,8 +241,8 @@
         var ka7TrendD = kkMetricTrend(entry, "ka7", entryV);
         analysisD2 = ka7TrendD === "declining" ? "短期集中で返済を終えつつある可能性も考えられます。" : "返済期間を短く設定している可能性も考えられます。";
       }
-      var dTrendPhrase = withTrendMeaning("d", trendSincePhrase([cur.d_r1,cur.d_r2,cur.d_r3,cur.d_r4,cur.d_r5,cur.d], 6));
-      var ka7TrendPhrase = entry ? withTrendMeaning("ka7", trendSincePhrase([entry.ka7_r1,entry.ka7_r2,entry.ka7_r3,entry.ka7_r4,entry.ka7], 5)) : null;
+      var dTrendPhrase = withTrendMeaning("d", trendSincePhrase([cur.d_r1,cur.d_r2,cur.d_r3,cur.d_r4,cur.d_r5,cur.d], 6, "%", 1));
+      var ka7TrendPhrase = entry ? withTrendMeaning("ka7", trendSincePhrase([entry.ka7_r1,entry.ka7_r2,entry.ka7_r3,entry.ka7_r4,entry.ka7_r5,entry.ka7], 5, "万円", 1)) : null;
       return kkCrossBox("🔗 財政と比べてみると", "実質公債費比率", cur.d+"%", judgeD, "住民一人当たり負債額", entryV+"万円", ka7HighRec?"中央値より高め":"中央値より低め", analysisD2, true, dTrendPhrase, ka7TrendPhrase) + KK_CROSSCHECK_CAVEAT;
     }
     if ((code === "ka3" || code === "ka1" || code === "ka6") && cur.u != null) {
@@ -302,9 +319,9 @@
       n = gm._n;
       if (n <= 1) {
         var valOnly = "<span style='color:" + KK_NEUTRAL_VAL + ";'>" + kkFmt(val, unit) + "</span>";
-        return "<span style='color:#6a3de8;'>" + nm + "</span>は" + meta.label + "が" + valOnly + "です。財政規模が大きく、比較できる同じ規模の" + (isPref ? "都道府県" : "都市") + "がありません。";
+        return "<span style='color:#6a3de8;'>" + nm + "</span>は" + meta.label + "が" + valOnly + "です。財政規模が大きく、比較できる類似団体（" + grp + "）がありません。";
       }
-      scaleWord = (isPref ? "同じ規模の都道府県" : "同じ規模の都市") + n + "件";
+      scaleWord = "類似団体（" + grp + "）" + n + (isPref ? "都道府県" : "自治体");
     } else {
       var mm = KK_MEDIANS[code];
       if (!mm) return "";
@@ -337,6 +354,13 @@
     var line = "<span style='color:#6a3de8;'>" + nm + "</span>は" + meta.label + "が" + valHtml + "で、" + scaleWord + "の中央値（" + kkFmt(med, unit) + "）と" + (isSame ? "" : "より") + cmpHtml + "。";
     if (code === "ka8") {
       line += val >= 0 ? "（黒字基調）" : "（赤字基調）";
+    }
+    if (meta.group) {
+      // 区分（grp）自体は総務省の公会計データファイルに同梱の公式「類似団体」区分をそのまま使用。
+      // ただし中央値はアプリが算出したもので、総務省が直接公表した数値ではない。
+      // また類似団体の所属数は総務省の資料・年度によって異なることがある
+      // （区分は数年おきに見直されるため。例：財政指標系の資料は令和4年度区分、当データは令和5年度区分）。
+      line += "<div style='font-size:11px;color:#999;margin-top:4px;'>※区分は総務省の類似団体区分（令和5年度公会計データに同梱）を使用。中央値は当アプリで算出しています。区分の対象自治体数は総務省の資料・年度により異なる場合があります。</div>";
     }
 
     // 財政データの裏付けがある場合、断定しすぎない一言を追加

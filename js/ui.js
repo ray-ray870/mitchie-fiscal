@@ -267,7 +267,7 @@
     flex:{icon:"📊",label:"経常収支比率",desc:"毎年度の経常的収入のうち人件費・扶助費・公債費など経常的経費に充当された割合。低いほど財政に弾力性があります。出典：総務省令和6年度\n\n目安\nかつて「75〜80%が望ましい」とされてきましたが、これは法令上の基準ではなく慣例的な目安です。社会保障費の増加により全国的に上昇し、2003年度以降は全国平均が90%を超え続けています。\n\n🟢 90%未満 → 全国の中では余裕があるほう\n🔵 90〜95% → 標準的な水準（市区町村の中央値91.5%／都道府県93.8%）\n🟡 95〜98% → 新しい取り組みに回せるお金が少ない\n🟠 98%以上 → 余力がほぼない（全体の約9%）\n\nこの数字だけで良し悪しは判断できません。実質公債費比率や財政力指数と合わせて見てください。\n\n📈 高くなる理由\n① 人件費・社会保障費など固定的な支出が大きい\n② 過去の借金返済（公債費）が重い\nなど。\n\n📉 低くなる理由\n① 税収が豊富で財政に余裕がある\n② 行財政改革で人件費・固定費を削減した\nなど。",unit:"%"},
     future:{icon:"🏦",label:"将来負担比率",desc:"一般会計等が将来負担すべき実質的な負債総額の標準財政規模に対する比率。350%以上で早期健全化基準。出典：総務省令和6年度\n\n目安（市区町村）\n🟢 負担なし・0%\n🔵 60%未満 → 軽い\n🟡 60〜100% → 一定の負担あり\n🟠 100%以上 → 要注意\n\n目安（都道府県）\n🟢 100%未満\n🔵 100〜160% → 標準的（47都道府県の中央値は159.7%）\n🟡 160〜250% → やや重い\n🟠 250%以上 → 重い\n\n都道府県は高校・国道・河川など大規模な資産を抱えるため、市区町村より水準が高くなります。そのため色の基準を分けています。\n\nなお350%以上は法令上の早期健全化基準です（市区町村は350%、都道府県は400%）。\n\n📈 高くなる理由\n① 過去の借入が多く残債が大きい\n② 公営企業・第三セクターの債務も含まれる\nなど。\n\n📉 低くなる理由\n① 借入を抑制し着実に返済してきた\n② 財政調整基金など充当可能財源が多い\nなど。",unit:"%"},
     reserve:{icon:"🐧",label:"財政調整基金残高",desc:"年度間の財源不足に備えて積み立てている自治体の貯金です。残高が多いほど不測の事態への備えがあります。出典：総務省基金残高等一覧令和6年度（概算）\n\n目安（標準財政規模に対する割合）\n標準財政規模とは、自治体が使い道を決められるお金（一般財源）の標準的な総額です。財政調整基金の水準は、実務でもこの割合で語られます。\n\n市区町村（中央値24.8%）\n🟢 20%以上 → 一般に適正とされる上限に到達\n🔵 10〜20% → 一般に適正とされる範囲\n🟡 5〜10% → やや少なめ\n🟠 5%未満 → 少ないほう\n\n都道府県（中央値6.4%）\n🟢 10%以上 → 都道府県としては多いほう\n🔵 5〜10% → 総務省調査で最も多い水準\n🟡 2.5〜5% → やや少なめ\n🟠 2.5%未満 → 少ないほう\n\n適正水準に法令上の基準はありません。総務省が平成29年に行った調査では、積立の考え方を「標準財政規模の一定割合」と答えた団体の水準は、都道府県で5%前後、市町村で5〜20%が多いという結果でした。都道府県と市区町村では水準が大きく違うため、基準を分けています。\n\n多いほど良いとは限りません。積立の原資は住民が納めた税金であり、貯め込みすぎは「使うべきところに使えていない」という見方もできます。\n\n📈 多い理由\n① 税収が安定し積立を続けてきた\n② 原発立地など特別な収入がある\nなど。\n\n📉 少ない理由\n① 財政難で取り崩しが続いている\n② 大規模災害・事業で緊急支出があった\nなど。",unit:"億円"},
-    growth:{icon:"👥",label:"人口増減率",desc:"住民基本台帳に基づく前年比人口増減率。人口減少は税収低下や社会保障費増加につながります。出典：総務省令和7年\n\n目安\n0%以上 → 人口増加\n-0.5%以上 → 緩やかな減少\n-1%以下 → 深刻な人口減少\n\n📈 増加の理由\n① 子育て支援・住環境が充実した新興住宅地\n② 企業誘致・雇用創出が成功している\nなど。\n\n📉 減少の理由\n① 若者が都市部へ流出している\n② 少子高齢化が急速に進んでいる\nなど。",unit:"%"},
+    growth:{icon:"👥",label:"人口増減率",desc:"住民基本台帳に基づく前年比人口増減率。人口減少は税収低下や社会保障費増加につながります。出典：総務省令和8年\n\n目安\n0%以上 → 人口増加\n-0.5%以上 → 緩やかな減少\n-1%以下 → 深刻な人口減少\n\n📈 増加の理由\n① 子育て支援・住環境が充実した新興住宅地\n② 企業誘致・雇用創出が成功している\nなど。\n\n📉 減少の理由\n① 若者が都市部へ流出している\n② 少子高齢化が急速に進んでいる\nなど。",unit:"%"},
     budget:{icon:"💹",label:"歳出／歳入",desc:"一般会計の歳出・歳入総額（億円）。自治体の予算規模を示します。歳出は人件費・扶助費・公債費・投資的経費などの総支出、歳入は地方税・地方交付税・国庫支出金・地方債などの総収入です。出典：総務省令和6年度地方財政状況調査\n\n目安\n歳入＞歳出 → 黒字基調\n歳入＝歳出 → 収支均衡\n歳入＜歳出 → 赤字基調（要注意）",unit:"億円"},
     education:{icon:"📚",label:"教育費一般財源比率",desc:"歳出総額に占める教育費の割合です（総務省令和6年度データ）。\n\n目安\n中央値は市区町村10.5%、都道府県18.9%です。都道府県は高校・特別支援学校を持つため、市区町村より構造的に高くなります。\n\n⚠️ この数字には良し悪しがありません。そのため色分けをしていません。\n高いのは教育を重視しているからとも、学校施設の老朽化対応や小規模校の維持で費用がかさんでいるからとも読めます。低いのは子どもの人口が多くて相対的に下がっている場合もあります。他の指標と合わせてご覧ください。\n\n📈 比率が高くなる理由\n① 学校施設の老朽化対応（校舎・体育館の改修・建替え）\n② 少子化でも学校を統廃合できず固定費がかかる\n③ 教育・子育てを重点政策と位置づけ積極的に投資している\n④ 過疎地・離島で小規模校を存続させている\nなど。\n\n📉 比率が低くなる理由\n① 子ども人口が多く相対的に比率が下がる\n② 子育て・教育より、他の政策を優先する政策判断のため。（他の政策→インフラ・高齢者福祉などが考えられる）\nなど。",unit:"%"},
     childInvest:{icon:"👧",label:"子ども1人当たり投資額",desc:"教育費と児童福祉費の合計を18歳未満人口で割った値です（総務省令和6年度データ）。\n\n目安\n中央値は市区町村118.4万円、都道府県87.9万円です。\n\n⚠️ この数字には良し悪しがありません。そのため色分けをしていません。\n18歳未満の人数で割った値なので、子どもが少ない自治体ほど大きく出ます。全国で最も高いのは974万円ですが、これは投資が手厚いのではなく、分母となる子どもの数が極端に少ないためです。逆に子育て世代が多い新興住宅地では、分母が大きくなるため低く出ます。\n\n金額の大小ではなく、同じ規模の自治体との比較や、経年の変化を見るほうが実態をつかめます。\n\n📉 数値が低い理由\n① 子育て世代が多く子ども人口が多い新興住宅地（分母が大きい）\n② 財政が厳しく教育・子育てへの支出が少ない\n③ 子育て・教育より、他の政策を優先する政策判断のため。（他の政策→インフラ・高齢者福祉などが考えられる）\nなど。\n\n📈 数値が高い理由\n① 過疎地で子ども数が極少なため1人当たりコストが膨らむ\n② 教育・子育てを重点政策と位置づけ積極的に投資している\nなど。",unit:"万円"},
@@ -579,12 +579,19 @@
       return n;
     }
     var histCountFiscal = countHist("f", 1);
-    // growthのみ令和2年始まり（g_r1は存在しないため）。取得開始位置と件数カウントの起点を必ず揃えること
-    var growthStartIdx = (key === "growth") ? 2 : 1;
-    var histCountGrowth = (key==="reserve"||key==="education"||key==="childInvest") ? countHist(key==="education"?"edu":key==="childInvest"?"ch":"r", growthStartIdx) : countHist("g", 2);
+    // 人口増減率も、実際にはg_r1（令和元年）に実データが存在するため、他の指標と同じくR1始まりに統一。
+    // （2026-09-20：以前はg_r1が存在しない前提でR2始まりだったが、全1,786/1,788自治体で
+    //   実データが確認できたため、取得開始位置を1に修正。取得開始位置と件数カウントの起点は必ず揃えること）
+    var growthStartIdx = 1;
+    // 歳出・歳入(eo/ei)は、過去のデータ移行時の事故でeo_r1・ei_r1が実在せず、
+    // 本物の履歴データはeo_r2から始まる（2026-09-23：eo/eiのラベル入れ替わり・
+    // 重複データを総務省の実データで修正した際に判明。取得開始位置と件数カウントの
+    // 起点は必ず揃えること）。
+    var budgetStartIdx = 2;
+    var histCountGrowth = (key==="reserve"||key==="education"||key==="childInvest") ? countHist(key==="education"?"edu":key==="childInvest"?"ch":"r", growthStartIdx) : countHist("g", growthStartIdx);
     var vals = [];
     var yrs;
-    // f・x・d・health・reserve・education・childInvestは令和元年始まりの実績データ、growthのみ令和2年始まりの実績値
+    // f・x・d・health・reserve・education・childInvest・growthは、すべて令和元年始まりの実績データ
     var hasHistory = (key==="fiscalPower"||key==="debt"||key==="flex"||key==="health"||key==="future") && histCountFiscal > 0;
     var hasGrowthHistory = (key==="growth"||key==="reserve"||key==="education"||key==="childInvest") && histCountGrowth > 0;
     if (hasHistory) {
@@ -884,8 +891,8 @@
           "財政調整基金残高", ratio.toFixed(1)+"%", rHigh?"多め":"やや少なめ",
           "純資産比率", ka4v+"%", ka4Judge,
           analysisR,
-          false, (function(){ function ratioAt(sfx){ var rv=sfx?cur["r_r"+sfx]:cur.r; var sv=sfx?cur["sfs_r"+sfx]:cur.sfs; return (rv!=null&&sv)?rv/sv*100:null; } return withTrendMeaning("r", trendSincePhrase([ratioAt(1),ratioAt(2),ratioAt(3),ratioAt(4),ratioAt(5),ratioAt(null)], 6)); })(),
-          (function(){ var e=KK[curName]; return withTrendMeaning("ka4", trendSincePhrase([e.ka4_r1,e.ka4_r2,e.ka4_r3,e.ka4_r4,e.ka4], 5)); })());
+          false, (function(){ function ratioAt(sfx){ var rv=sfx?cur["r_r"+sfx]:cur.r; var sv=sfx?cur["sfs_r"+sfx]:cur.sfs; return (rv!=null&&sv)?rv/sv*100:null; } return withTrendMeaning("r", trendSincePhrase([ratioAt(1),ratioAt(2),ratioAt(3),ratioAt(4),ratioAt(5),ratioAt(null)], 6, "%", 1)); })(),
+          (function(){ var e=KK[curName]; return withTrendMeaning("ka4", trendSincePhrase([e.ka4_r1,e.ka4_r2,e.ka4_r3,e.ka4_r4,e.ka4_r5,e.ka4], 5, "%", 1)); })());
         topSummaryHtml += KK_CROSSCHECK_CAVEAT;
         }
       }
@@ -894,8 +901,17 @@ if (key === "growth" && cur && cur.pop) {
       var popStr = cur.pop.toLocaleString();
       var gSign = cur.g >= 0 ? "+" : "";
       var popColor = cur.g >= 0 ? "#6dcfad" : cur.g >= -0.5 ? "#f0c46a" : "#f0876a";
+      // ハードコードした年号ではなく、実際に読み込まれているデータの件数(histCountGrowth)から
+      // 現在値の対象年（令和何年か）を動的に算出する。来年以降データを更新した際に、この文言が
+      // 古い年号のまま取り残されて矛盾する、という事故を防ぐため。
+      // 人口(pop)と増減率(g)は別々のフィールドで、まれに前年と数値が完全一致して
+      // スライドがスキップされる（reserve等と同じ重複防止ガード）ことがあり、その場合
+      // pop側とg側で履歴件数がズレうる。ここは「人口」の年号なので、g基準ではなく
+      // pop自身の実データ件数(countHist("pop",1))を基準に算出する。
+      var curPopReiwaNum = countHist("pop", 1) + 1;
+      var curPopReiwaLabel = curPopReiwaNum === 1 ? "元" : String(curPopReiwaNum);
       topSummaryHtml += "<div style='background:"+popColor+"14;border:1px solid "+popColor+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+popColor+";font-weight:700;'>"+curName+"</span>の人口は"+popStr+"人（令和7年1月1日時点）。前年比<span style='color:"+popColor+";font-weight:700;'>"+gSign+cur.g+"%</span>です。</div>";
+        "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+popColor+";font-weight:700;'>"+curName+"</span>の人口は"+popStr+"人（令和"+curPopReiwaLabel+"年1月1日時点）。前年比<span style='color:"+popColor+";font-weight:700;'>"+gSign+cur.g+"%</span>です。</div>";
       if (cur.pop < 3000) {
         topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ "+curName+"は人口が少ない（"+popStr+"人）ため、少数の転入・転出だけでも増減率が大きく振れやすい点にご注意ください。</div>";
       }
@@ -981,9 +997,9 @@ if (key === "growth" && cur && cur.pop) {
           var ka7TrendB = kkMetricTrend(KK[curName], "ka7", ka7v);
           analysisD = ka7TrendB === "declining" ? "短期集中で返済を終えつつある可能性も考えられます。" : "返済期間を短く設定している可能性も考えられます。";
         }
-        var dTrendPhraseF = withTrendMeaning("d", trendSincePhrase([cur.d_r1,cur.d_r2,cur.d_r3,cur.d_r4,cur.d_r5,cur.d], 6));
+        var dTrendPhraseF = withTrendMeaning("d", trendSincePhrase([cur.d_r1,cur.d_r2,cur.d_r3,cur.d_r4,cur.d_r5,cur.d], 6, "%", 1));
         var ka7EntryF = KK[curName];
-        var ka7TrendPhraseF = withTrendMeaning("ka7", trendSincePhrase([ka7EntryF.ka7_r1,ka7EntryF.ka7_r2,ka7EntryF.ka7_r3,ka7EntryF.ka7_r4,ka7EntryF.ka7], 5));
+        var ka7TrendPhraseF = withTrendMeaning("ka7", trendSincePhrase([ka7EntryF.ka7_r1,ka7EntryF.ka7_r2,ka7EntryF.ka7_r3,ka7EntryF.ka7_r4,ka7EntryF.ka7_r5,ka7EntryF.ka7], 5, "万円", 1));
         topSummaryHtml += kkCrossBox("🔗 公会計と比べてみると",
           "実質公債費比率", cur.d+"%", dHigh?"重め":"軽め",
           "住民一人当たり負債額", ka7v+"万円", ka7Judge,
@@ -1119,9 +1135,9 @@ if (key === "growth" && cur && cur.pop) {
       var bc2 = cur.ei>=cur.eo?"#6dcfad":cur.ei>=cur.eo*0.99?"#7bb8e8":"#f0876a";
       topSummaryHtml += "<div style='background:"+bc2+"14;border:1px solid "+bc2+"55;border-radius:12px;padding:12px 14px;'>" +
         "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+bc2+";font-weight:700;'>"+curName+"</span>の歳出は<span style='color:"+bc2+";font-weight:700;'>"+cur.eo.toLocaleString()+"億円</span>、歳入は<span style='color:"+bc2+";font-weight:700;'>"+cur.ei.toLocaleString()+"億円</span>で、"+bj+"。</div>";
-      var budgetHistCountEarly = countHist("eo", 1);
+      var budgetHistCountEarly = countHist("eo", budgetStartIdx);
       var eoHist = [];
-      for (var ehi=1; ehi<=budgetHistCountEarly; ehi++){ if (cur["eo_r"+ehi]!=null) eoHist.push(cur["eo_r"+ehi]); }
+      for (var ehi=budgetStartIdx; ehi<budgetStartIdx+budgetHistCountEarly; ehi++){ if (cur["eo_r"+ehi]!=null) eoHist.push(cur["eo_r"+ehi]); }
       if (eoHist.length >= 2) {
         var eoAvg = eoHist.reduce(function(a,b){return a+b;},0) / eoHist.length;
         var eoRatio = eoAvg > 0 ? cur.eo / eoAvg : 1;
@@ -1245,24 +1261,35 @@ if (key === "growth" && cur && cur.pop) {
     if (key === "budget") {
       // 歳出・歳入 2本線グラフ
       var eoVal = cur.eo || 0, eiVal = cur.ei || 0;
-      var budgetHistCount = countHist("eo", 1);
+      var budgetHistCount = countHist("eo", budgetStartIdx);
       var eoVals = [], eiVals = [];
       var budgetYrs;
       var noBudgetHistory = budgetHistCount <= 0;
       if (!noBudgetHistory) {
-        for (var bi=1; bi<=budgetHistCount; bi++) {
+        for (var bi=budgetStartIdx; bi<budgetStartIdx+budgetHistCount; bi++) {
           eoVals.push(cur["eo_r"+bi] != null ? cur["eo_r"+bi] : null);
           eiVals.push(cur["ei_r"+bi] != null ? cur["ei_r"+bi] : null);
         }
         eoVals.push(eoVal); eiVals.push(eiVal);
-        budgetYrs = ["R1","R2","R3","R4","R5","R6","R7"].slice(0,budgetHistCount).concat(["R"+(budgetHistCount+1)+"（最新）"]);
+        var budgetYrLabels = ["R1","R2","R3","R4","R5","R6","R7","R8"].slice(budgetStartIdx-1);
+        budgetYrs = budgetYrLabels.slice(0,budgetHistCount).concat(["R"+(budgetHistCount+budgetStartIdx)+"（最新）"]);
       } else {
         // 過去の歳出入データが無い場合：以前はサインカーブで架空の推移を描いていたが、
         // 実データではないため廃止。現在値のみのグラフにし、「データなし」を明記する。
         eoVals = [eoVal]; eiVals = [eiVal];
         budgetYrs = ["R（最新）"];
       }
-      var budgetMissingNote = noBudgetHistory ? "<div style='font-size:12px;color:#8a8a9a;background:#8a8a9a14;border:1px solid #8a8a9a33;border-radius:10px;padding:10px 12px;margin:10px 0;line-height:1.6;'>📭 過去の歳出入の推移データは総務省の公表資料に無いため、表示できません（現在値のみ上に表示しています）</div>" : "";
+      // 途中の年だけ歳出・歳入データが欠測している場合も、他の指標(future/growthなど)と同じく
+      // 「総務省の公表データが無い」ことを明記する（2026-09-20追加：以前はbudgetだけこの注記が無かった）。
+      var budgetMissingYearLabels = [];
+      if (!noBudgetHistory) {
+        for (var bmi=0; bmi<budgetYrs.length; bmi++){
+          if (eoVals[bmi]==null || eiVals[bmi]==null) budgetMissingYearLabels.push(budgetYrs[bmi].replace("（最新）",""));
+        }
+      }
+      var budgetMissingNote = noBudgetHistory
+        ? "<div style='font-size:12px;color:#8a8a9a;background:#8a8a9a14;border:1px solid #8a8a9a33;border-radius:10px;padding:10px 12px;margin:10px 0;line-height:1.6;'>📭 過去の歳出入の推移データは総務省の公表資料に無いため、表示できません（現在値のみ上に表示しています）</div>"
+        : (budgetMissingYearLabels.length ? "<div style='font-size:12px;color:#c98a3a;background:#c98a3a14;border:1px solid #c98a3a40;border-radius:10px;padding:10px 12px;margin:10px 0;line-height:1.6;'>⚠️ "+budgetMissingYearLabels.join("・")+"年度は総務省の公表データが無いため表示していません（前後の実データを直線ではつないでいません）</div>" : "");
       document.getElementById("spLabels").innerHTML = budgetYrs.map(function(y,i){
         var pct = budgetYrs.length>1 ? (14+(i/(budgetYrs.length-1))*(300-28))/300*100 : 50;
         var yDisp = y.replace("（最新）", "");
@@ -1280,7 +1307,21 @@ if (key === "growth" && cur && cur.pop) {
       var Ptop2=22, Pbottom2=26;
       function px2(i){return eoVals.length>1 ? P+(i/(eoVals.length-1))*(W-P*2) : W/2;}
       function py2(v){return H-Pbottom2-((v-mn2)/rng2)*(H-Ptop2-Pbottom2);}
-      function mkLine(arr){ var l=null; for(var j=0;j<arr.length;j++){ if(arr[j]==null) continue; l = l===null ? ("M"+px2(j)+","+py2(arr[j])) : (l+" L"+px2(j)+","+py2(arr[j])); } return l||""; }
+      // 年が飛んでいる箇所(欠測年)は線をつながず、実際に連続している年だけ線でつなぐ
+      // （他の指標(future/growthなど)と同じ「chartGap」の考え方をbudgetにも適用。2026-09-20追加）
+      function mkLine(arr){
+        var l=null, prevRealIdx=null;
+        for(var j=0;j<arr.length;j++){
+          if(arr[j]==null) continue;
+          if (l===null || j!==prevRealIdx+1) {
+            l = (l===null?"":l+" ") + "M"+px2(j)+","+py2(arr[j]);
+          } else {
+            l += " L"+px2(j)+","+py2(arr[j]);
+          }
+          prevRealIdx = j;
+        }
+        return l||"";
+      }
       function fmtB(v){ return v>=10000 ? Math.round(v/100)/10+"千億" : v+"億"; }
       var eoLine=mkLine(eoVals), eiLine=mkLine(eiVals);
       var svgH = H+20;
@@ -1313,7 +1354,8 @@ if (key === "growth" && cur && cur.pop) {
         }
       }
       // 凡例
-      var budgetNote = budgetHistCount>0 ? ("※令和元〜"+(budgetHistCount+1)+"年の実績値") : "";
+      var budgetNoteFrom = budgetStartIdx===1 ? "元" : String(budgetStartIdx);
+      var budgetNote = budgetHistCount>0 ? ("※令和"+budgetNoteFrom+"〜"+(budgetHistCount+budgetStartIdx)+"年の実績値") : "";
       var legend="<text x='"+P+"' y='"+(svgH-2)+"' font-size='10' fill='#a08be8'>■ 歳出</text><text x='"+(P+50)+"' y='"+(svgH-2)+"' font-size='10' fill='#7bb8e8'>■ 歳入</text><text x='"+P+"' y='"+(svgH+9)+"' font-size='8' fill='#aaa'>"+budgetNote+"</text>";
       var spSvg = document.getElementById("spSvg");
       spSvg.setAttribute("viewBox","0 0 "+W+" "+(svgH+10));
@@ -1377,6 +1419,29 @@ if (key === "growth" && cur && cur.pop) {
       noteText = "";
     }
     var noteColor = (hasHistory||hasGrowthHistory) ? "#6dcfad" : "#aaa";
+    // 人口増減率タブ限定：財政指標（f/d/x/u/health、年度基準）と人口（暦年基準）は
+    // 総務省の別々の公表統計・別々の区切り方（年度／暦年）に基づくため、最新の対象年がズレうる。
+    // ハードコードした年号ではなく、実際に読み込まれているデータの件数(histCountFiscal・
+    // chartYrsの実データ末尾)から動的に算出することで、来年以降データを更新しても
+    // このメッセージ自体が古いまま残って矛盾する、という事故を防ぐ。
+    if (key === "growth" && hasGrowthHistory && chartYrs.length >= 1) {
+      var fiscalReiwaNum = histCountFiscal + 1;
+      var fiscalReiwaLabel = fiscalReiwaNum === 1 ? "元" : String(fiscalReiwaNum);
+      // グラフのx軸は増減率(g)の実データ件数を基準にしているが、この文言は「人口」自体の
+      // 最新年を説明するものなので、g基準(chartYrs)ではなくpop自身の実データ件数を使う。
+      // g側だけ前年と数値が完全一致してスライドがスキップされるケースがあり、その場合
+      // chartYrs(g基準)を使うと人口の実際の最新年より1年古い表示になってしまうため。
+      var popReiwaNum2 = countHist("pop", 1) + 1;
+      var popReiwaLabel = popReiwaNum2 === 1 ? "元" : String(popReiwaNum2);
+      var yearNoteHtml =
+        "<div style='font-size:12.5px;color:#5a5a7a;background:#eef0fb;border:1px solid #d6d9f2;border-radius:12px;padding:12px 14px;margin:10px 0;line-height:1.75;'>" +
+        "<p style='margin:0 0 6px;'>ℹ️ 財政力指数などの財政指標は、総務省の決算統計に基づき「年度」（4月〜翌3月）区切りで公表されるため、最新は<b style='color:#4a4a72;'>令和"+fiscalReiwaLabel+"年度</b>です。</p>" +
+        "<p style='margin:0 0 6px;'>人口は総務省「住民基本台帳に基づく人口、人口動態及び世帯数」に基づき「年」（暦年）区切りで公表されるため、最新は<b style='color:#4a4a72;'>令和"+popReiwaLabel+"年1月1日時点</b>です。</p>" +
+        "<p style='margin:0;'>出典となる統計と集計期間の区切り方（年度／暦年）が異なるため、対象年が一致しない場合があります。</p>" +
+        "</div>";
+      var shDescElForYearNote = document.getElementById("shDesc");
+      if (shDescElForYearNote) shDescElForYearNote.innerHTML = yearNoteHtml + shDescElForYearNote.innerHTML;
+    }
     var spSvgEl = document.getElementById("spSvg");
     if (noRealHistory) {
       spSvgEl.innerHTML = "";
