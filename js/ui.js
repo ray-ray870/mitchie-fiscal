@@ -157,6 +157,17 @@
     var uc = colorU(d.u, d.p === curName);
     var rc = colorR((d.sfs && d.sfs > 0) ? d.r / d.sfs * 100 : null, d.p === curName);
     var gc = d.g>=0?"#6dcfad":d.g>=-0.5?"#f0c46a":"#f0876a";
+    // 人口増減率だけ「年」（暦年）区切り、他の財政指標は「年度」区切りで総務省が別々に公表しているため、
+    // 人口の方が新しいデータが先に出て年度がズレて見えることがある（2026-09-23）。
+    // ハードコードした年号ではなく、実際に読み込まれているデータの件数から動的に算出することで、
+    // 来年以降データを更新してもこの注記が古いまま残って矛盾する、という事故を防ぐ。
+    function reiwaNumToLabel(num) { return num === 1 ? "元" : String(num); }
+    var fiscalReiwaNumMain = 1;
+    for (var _fi = 1; _fi < 8; _fi++) { if (Object.prototype.hasOwnProperty.call(d, "f_r" + _fi)) fiscalReiwaNumMain++; else break; }
+    var popReiwaNumMain = 1;
+    for (var _pi = 1; _pi < 8; _pi++) { if (Object.prototype.hasOwnProperty.call(d, "pop_r" + _pi)) popReiwaNumMain++; else break; }
+    var gYearNoteHtml = (popReiwaNumMain !== fiscalReiwaNumMain) ?
+      ("<div style='font-size:11px;color:#8a8a9a;margin-top:2px;'>※財政指標は令和" + reiwaNumToLabel(fiscalReiwaNumMain) + "年度、人口は令和" + reiwaNumToLabel(popReiwaNumMain) + "年1月時点（区切り方が異なります）</div>") : "";
     var ul = d.u<=0?"負担なし":d.u>=999?"再建中":d.u.toFixed(1)+"%";
     var chc = "#a08be8";  /* 良し悪しを判定できない指標のため中立色 */
     var chl = d.ch!=null ? d.ch.toFixed(1)+"万円" : "－";
@@ -202,7 +213,7 @@
         "<div class='stat' id='s1' role='button' tabindex='0' style='background:"+xc+"18;border-color:"+xc+"44;'><div class='si'>📊</div><div class='sl'>経常収支比率</div><div class='sv' style='color:"+xc+";'>"+d.x.toFixed(1)+"%</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s2' role='button' tabindex='0' style='background:"+uc+"18;border-color:"+uc+"44;'><div class='si'>🏦</div><div class='sl'>将来負担比率</div><div class='sv' style='color:"+uc+";'>"+ul+"</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s3' role='button' tabindex='0' style='background:"+rc+"18;border-color:"+rc+"44;'><div class='si'>🐧</div><div class='sl'>財政調整基金</div><div class='sv' style='color:"+rc+";'>"+((d.sfs && d.sfs>0)?(d.r/d.sfs*100).toFixed(1)+"%":d.r+"億円")+"</div><div style='font-size:12px;color:#8a8a9a;margin-top:2px;'>("+d.r+"億円)</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s4' role='button' tabindex='0' style='background:"+gc+"18;border-color:"+gc+"44;'><div class='si'>👥</div><div class='sl'>人口増減率</div><div class='sv' style='color:"+gc+";'>"+(d.g>=0?"+":"")+d.g.toFixed(1)+"%</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s4' role='button' tabindex='0' style='background:"+gc+"18;border-color:"+gc+"44;'><div class='si'>👥</div><div class='sl'>人口増減率</div><div class='sv' style='color:"+gc+";'>"+(d.g>=0?"+":"")+d.g.toFixed(1)+"%</div>"+gYearNoteHtml+"<div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s5' role='button' tabindex='0' style='background:#7bb8e818;border-color:#7bb8e844;'><div class='si'>💹</div><div class='sl'>歳出／歳入</div><div class='sv' style='font-size:14px;line-height:1.7;'><span style='color:"+eoc+";display:block;'>💸 歳出 "+eol+" <small style='font-size:13px;'>"+eogs+"</small></span><span style='color:"+eic+";display:block;'>💰 歳入 "+eil+" <small style='font-size:13px;'>"+eigs+"</small></span></div></div>" +
         "<div class='stat' id='s6' role='button' tabindex='0' style='background:"+educ+"18;border-color:"+educ+"44;'><div class='si'>📚</div><div class='sl'>教育費一般財源比率</div><div class='sv' style='color:"+educ+";'>"+edul+"</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s7' role='button' tabindex='0' style='background:"+chc+"18;border-color:"+chc+"44;'><div class='si'>👧</div><div class='sl'>子ども1人当たり投資額</div><div class='sv' style='color:"+chc+";'>"+chl+"</div><div class='su'>詳細を見る ▶</div></div>" +
