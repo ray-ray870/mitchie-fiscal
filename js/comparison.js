@@ -74,6 +74,31 @@
     return "<tr><td>"+label+"</td>"+cells+"</tr>";
   }
 
+  function buildFurusatoRow(entries) {
+    var values = entries.map(function(e){ return e.d.fu==null?0:e.d.fu; });
+    var bestI = 0, worstI = 0;
+    for (var i=1;i<values.length;i++){
+      if (values[i]>values[bestI]) bestI=i;
+      if (values[i]<values[worstI]) worstI=i;
+    }
+    var multi = values.length > 1;
+    var cells = entries.map(function(e,i){
+      var fu = e.d.fu, fk = e.d.fk;
+      var color = (fu!=null && fk!=null) ? (fu>fk ? "#6dcfad" : (fk>fu ? "#f0876a" : "#a0a0a0")) : "#a0a0a0";
+      var mark = multi && i===bestI ? "🏆 " : (multi && i===worstI && bestI!==worstI ? "😥 " : "");
+      var mainText = fu!=null ? fmtManOku(fu) : "—";
+      var diffHtml = "";
+      if (fu!=null && fk!=null) {
+        var diff = fu - fk;
+        var diffLabel = diff>0 ? "黒字" : (diff<0 ? "赤字" : "収支同額");
+        var diffColor = diff>0 ? "#6dcfad" : (diff<0 ? "#f0876a" : "#a0a0a0");
+        diffHtml = "<br><span style='font-size:10px;color:"+diffColor+";font-weight:700;'>"+diffLabel+" "+fmtManOku(Math.abs(diff))+"</span>";
+      }
+      return "<td class='compare-cell-detail' data-city='"+e.name+"' data-metric='furusato' style='color:"+color+";font-weight:700;'>"+mark+mainText+diffHtml+"</td>";
+    }).join("");
+    return "<tr><td>ふるさと納税</td>"+cells+"</tr>";
+  }
+
   function buildCompareHtml(entries) {
     var compact = entries.length >= 3;
     var scoreFontSize = compact ? "13px" : "15px";
@@ -117,6 +142,7 @@
     rows += buildCompareRow("人口増減率", entries, function(e){return e.d.g;},
       function(v){ return v>=0?"#6dcfad":v>=-0.5?"#f0c46a":"#f0876a"; },
       function(v){ return (v>=0?"+":"")+v.toFixed(1)+"%"; }, true, "growth");
+    rows += buildFurusatoRow(entries);
 
     return "<div class='compare-title'><span>📊 比較リスト（"+entries.length+"自治体）</span><span class='close' id='compareCloseBtn'>✕ 閉じる</span></div>" +
       "<div style='overflow-x:auto;'>" +
