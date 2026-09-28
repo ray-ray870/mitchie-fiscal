@@ -391,6 +391,8 @@
       return;
     }
     if (key === "furusato") {
+      // ふるさと納税グラフの年度ラベル（受入額の年度）。scripts/build_furusato.py が年次更新時に自動で書き換える
+      var FURU_YEARS = ["H30","R1","R2","R3","R4","R5","R6","R7"];
       document.getElementById("shTitle").textContent = m.icon+" "+m.label;
       var isPrefViewF = cur && curName === cur.p;
 
@@ -421,6 +423,7 @@
             var e = DB[k];
             if (k === e.p) return;
             if (e.fu == null) return;
+            if (!(e.fu > 0) && !(e.fk > 0)) return; // データなしは順位の対象外
             natListF.push({k:k, v:e.fu});
             if (e.p === cur.p) prefListF2.push({k:k, v:e.fu});
           });
@@ -446,11 +449,13 @@
       var fuH = (cur.fuH && cur.fuH.length) ? cur.fuH : [fu];
       var fkH = (cur.fkH && cur.fkH.length) ? cur.fkH : [fk];
 
+      var noFuruData = !(fu > 0) && !(fk > 0);
       var diff = fu - fk;
       var mainColor = diff > 0 ? "#2a8a6a" : (diff < 0 ? "#c04030" : "#5a5a7a");
       var mainTerm = diff > 0 ? "黒字" : (diff < 0 ? "赤字" : "均衡");
       var relText;
-      if (fk <= 0 && fu > 0) relText = "住民税控除額がほとんど発生しておらず";
+      if (noFuruData) relText = "";
+      else if (fk <= 0 && fu > 0) relText = "住民税控除額がほとんど発生しておらず";
       else if (fu >= fk*2) relText = "受入額が住民税控除額を大きく上回っており";
       else if (fu > fk) relText = "受入額が住民税控除額を上回っており";
       else if (fk >= fu*2) relText = "住民税控除額が受入額を大きく上回っており";
@@ -462,9 +467,20 @@
         "<div style='background:rgba(255,255,255,0.6);border-radius:10px;padding:8px 10px;text-align:center;'><div style='font-size:12px;color:#5a5a7a;'>受入額</div><div style='font-size:17px;font-weight:700;color:#6dcfad;'>"+fmtManOku(fu)+"</div></div>" +
         "<div style='background:rgba(255,255,255,0.6);border-radius:10px;padding:8px 10px;text-align:center;'><div style='font-size:12px;color:#5a5a7a;'>住民税控除額</div><div style='font-size:17px;font-weight:700;color:#f0876a;'>"+fmtManOku(fk)+"</div></div>" +
         "</div>" +
-        "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+mainColor+";font-weight:700;'>"+curName+"</span>は、"+relText+"、ふるさと納税で<span style='color:"+mainColor+";font-weight:700;'>"+mainTerm+"</span>です。</div>";
+        (noFuruData
+          ? "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+mainColor+";font-weight:700;'>"+curName+"</span>は、ふるさと納税の受入額・住民税控除額のデータがありません。</div>"
+          : "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+mainColor+";font-weight:700;'>"+curName+"</span>は、"+relText+"、ふるさと納税で<span style='color:"+mainColor+";font-weight:700;'>"+mainTerm+"</span>です。</div>");
+      // 指定取消しなどの事情がある自治体の注記（scripts/furusato_notes.json → fuNote）
+      if (cur.fuNote && cur.fuNote.length) {
+        for (var fni=0; fni<cur.fuNote.length; fni++){
+          var nt = cur.fuNote[fni];
+          topSummaryHtmlF += "<div style='background:#fff6e0;border:1px solid #f0c060;border-radius:10px;padding:8px 10px;margin-top:10px;font-size:13px;color:#6a5020;line-height:1.6;'>⚠️ "+nt.t+
+            (nt.u ? "<div style='font-size:11px;margin-top:4px;'>出典：<a href='"+nt.u+"' target='_blank' rel='noopener' style='color:#8a6a20;'>"+(nt.s||"リンク")+"</a></div>" : "")+
+            "</div>";
+        }
+      }
       if (fuH.length >= 2 && fuH[0] > 0) {
-        var yrLabelsShortF = ["H30","R1","R2","R3","R4","R5","R6","R7"].slice(0, fuH.length);
+        var yrLabelsShortF = FURU_YEARS.slice(0, fuH.length);
         var lastIdxF = fuH.length - 1;
         var ratioF = fuH[lastIdxF] / fuH[0];
         var peakIdxF = 0;
@@ -495,7 +511,7 @@
 
       // グラフ（受入額・住民税控除額をそれぞれ独立したグラフで表示）
       function fmtFuruShort(v){ return v>=10000 ? (Math.round(v/1000)/10)+"億" : Math.round(v)+"万"; }
-      var yrLabelsF = ["H30","R1","R2","R3","R4","R5","R6","R7"].slice(0, fuH.length);
+      var yrLabelsF = FURU_YEARS.slice(0, fuH.length);
 
       function buildMiniChart(arr, lineColor, textColor, labelBg, gradId){
         var Wm=300, Hm=72, Pm=10;
