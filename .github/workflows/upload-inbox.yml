@@ -1,0 +1,71 @@
+name: アップロードを反映
+
+# upload/ フォルダにファイルをアップロードすると自動で動くワークフロー。
+# スマホで保存したときに付く番号（index-153.html・ui (1).js など）を取って、
+# リポジトリ内の正しい場所に上書きし、1回のコミットにまとめてから公開処理を実行する。
+#
+#   ・置き場所の決め方は scripts/process_upload.py の先頭に説明あり
+#     （同じ名前が本番とプレビューの両方にあるときは、必ず preview/ 側に入る）
+#   ・置き場所が決まらないファイルが1つでもあると、何も動かさずに止まる（赤い×）
+#   ・ワークフロー（.github/workflows/ の .yml）はGitHubの制限でこの仕組みでは置けない
+#
+# 使い方は upload/使い方.md
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'upload/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+# 続けてアップロードしたときは1つずつ順番に処理する
+concurrency:
+  group: upload-inbox
+  cancel-in-progress: false
+
+jobs:
+  place:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリを取得（最新の状態）
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: ファイルを正しい場所に移動
+        run: python scripts/process_upload.py
+
+      - name: 差分がある場合のみコミット
+        id: commit
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "変更なし。コミットをスキップします。"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git diff --cached --stat
+            git commit -m "アップロードを反映: $(git diff --cached --name-only | grep -v '^upload/' | tr '\n' ' ')"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 公開処理(deploy-with-check)を自動実行
+        if: steps.commit.outputs.changed == 'true'
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy-with-check.yml/dispatches" \
+            -d '{"ref":"main"}'
