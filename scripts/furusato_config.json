@@ -1,0 +1,4 @@
+{
+  "kojo_latest_year": 2026,
+  "_説明": "build_furusato.py が自動で書き換える。kojo_latest_year = data-*.json の控除額(fkH)の最新課税年度（西暦年度。2026 = 令和8年度課税）"
+}
