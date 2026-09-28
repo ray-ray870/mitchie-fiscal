@@ -238,3 +238,16 @@ h1::after{content:'✦';font-size:15px;position:absolute;top:-6px;right:-18px;ba
 .fk-tab-kk-active{background:white;border-color:#f0c46a;color:#3a2a6e;}
 .kk-stat .sv{font-size:16px;}
 .sh-top{margin-bottom:4px;}
+
+/* ===== アップデート情報（バージョン表示） ===== */
+.update-pill{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:999px;background:#fdf9ff;color:#6a3de8;font-family:'Zen Maru Gothic',sans-serif;font-size:12.5px;font-weight:800;border:1.5px solid rgba(160,139,232,.4);box-shadow:0 3px 12px rgba(140,100,255,.15);cursor:pointer;margin-bottom:14px;}
+.update-dot{width:7px;height:7px;border-radius:50%;background:#e85a7a;flex-shrink:0;}
+.update-modal-overlay{position:fixed;inset:0;background:rgba(47,36,64,.5);display:flex;align-items:center;justify-content:center;z-index:300;padding:24px;}
+.update-modal-box{background:#fff;border-radius:20px;padding:24px;width:100%;max-width:340px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,.25);}
+.update-modal-title{font-family:'Kaisei Tokumin',serif;font-size:17px;font-weight:900;color:#3a2a6e;margin-bottom:14px;}
+.update-item{border-top:1px solid rgba(160,139,232,.25);padding:11px 0;}
+.update-item:first-child{border-top:none;padding-top:2px;}
+.update-item-head{display:flex;gap:8px;align-items:baseline;font-size:13.5px;font-weight:900;color:#3a2a6e;}
+.update-item-date{font-size:11px;color:#a89bbd;font-weight:700;}
+.update-item ul{margin:5px 0 0;padding-left:1.2em;font-size:12.5px;line-height:1.75;color:#4a4a5a;}
+.update-modal-close{width:100%;padding:13px;border:none;border-radius:12px;background:#f1edf7;color:#8b7ba8;font-family:'Zen Maru Gothic',sans-serif;font-size:15px;font-weight:700;margin-top:16px;cursor:pointer;}

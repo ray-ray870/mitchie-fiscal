@@ -50,6 +50,63 @@
       return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
     });
   }
+  /* ================= アップデート情報 =================
+     新しい版を出したら、いちばん上に1件足す（新しい順）。
+     番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
+     （みっちーの席くじと同じ考え方） */
+  var APP_UPDATES = [
+    { version:"3.0.1", date:"2026.9", items:["グラフのズレを修正"] },
+    { version:"3.0.0", date:"2026.9", items:[
+      "「Myみっちー」機能を追加（自分の街を登録、全国・県内での順位を表示）",
+      "「公会計」タブを追加（住民一人当たり資産額・負債額など9指標）",
+      "類似団体（同規模の自治体）との比較を追加",
+      "「ふるさと納税」タブを追加"
+    ]}
+  ];
+  var UPDATE_SEEN_KEY = "mitchie-fiscal-seen-version";
+  function hasUnseenUpdate(){
+    try{ return localStorage.getItem(UPDATE_SEEN_KEY) !== APP_UPDATES[0].version; }catch(e){ return false; }
+  }
+  function markUpdateSeen(){
+    try{ localStorage.setItem(UPDATE_SEEN_KEY, APP_UPDATES[0].version); }catch(e){}
+  }
+  function closeUpdatesModal(overlay){
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  }
+  function openUpdatesModal(){
+    markUpdateSeen();
+    var dot = document.getElementById("updateDot");
+    if (dot) dot.style.display = "none";
+    var listHtml = APP_UPDATES.map(function(u){
+      var itemsHtml = u.items.map(function(t){ return "<li>" + escapeHtml(t) + "</li>"; }).join("");
+      return "<div class='update-item'>" +
+        "<div class='update-item-head'><span>Ver " + escapeHtml(u.version) + "</span><span class='update-item-date'>" + escapeHtml(u.date) + "</span></div>" +
+        "<ul>" + itemsHtml + "</ul>" +
+      "</div>";
+    }).join("");
+    var overlay = document.createElement("div");
+    overlay.className = "update-modal-overlay";
+    overlay.innerHTML =
+      "<div class='update-modal-box'>" +
+        "<div class='update-modal-title'>&#127881; アップデート情報</div>" +
+        listHtml +
+        "<button type='button' class='update-modal-close'>とじる</button>" +
+      "</div>";
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", function(e){ if (e.target === overlay) closeUpdatesModal(overlay); });
+    var closeBtnEl = overlay.querySelector(".update-modal-close");
+    if (closeBtnEl) closeBtnEl.addEventListener("click", function(){ closeUpdatesModal(overlay); });
+  }
+  function initUpdatePill(){
+    var btn = document.getElementById("updatePillBtn");
+    if (!btn) return;
+    var verEl = document.getElementById("updatePillVer");
+    if (verEl) verEl.textContent = APP_UPDATES[0].version;
+    var dot = document.getElementById("updateDot");
+    if (dot) dot.style.display = hasUnseenUpdate() ? "" : "none";
+    btn.addEventListener("click", openUpdatesModal);
+  }
+
   function furuGoToCity(name) {
     var ov = document.getElementById("ovEl");
     if (ov) ov.classList.add("hidden");
@@ -1606,4 +1663,5 @@ if (key === "growth" && cur && cur.pop) {
   if (homeTitleEl) homeTitleEl.addEventListener("click", goHome);
   document.querySelectorAll(".chip").forEach(function(el){ el.addEventListener("click", function(){ document.getElementById("cityInput").value=this.getAttribute("data-city"); hideSuggestions(); diagnose(); }); });
   renderHistoryChips();
+  initUpdatePill();
   window.scrollTo(0, 0);
