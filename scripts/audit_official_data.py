@@ -147,14 +147,14 @@ def pick(url, test, many=False, label=""):
     return c if many else c[0]
 
 
-def rows_of(url, sheet_re=None):
-    """全シートの行を返す。sheet_re を指定すると、名前がそれに合うシートだけ（無ければ1枚目だけ）"""
+def rows_of(url, sheet_re=None, strict=False):
+    """全シートの行を返す。sheet_re を指定すると、名前がそれに合うシートだけ（無ければ1枚目だけ。strict なら空）"""
     engine = "xlrd" if url.lower().endswith(".xls") else "openpyxl"
     books = pd.read_excel(io.BytesIO(fetch(url)), header=None, dtype=object, engine=engine, sheet_name=None)
     items = list(books.items())
     if sheet_re:
         hit = [(n, df) for n, df in items if re.search(sheet_re, str(n))]
-        items = hit if hit else items[:1]
+        items = hit if hit else ([] if strict else items[:1])
     return [df.values.tolist() for n, df in items]
 
 
@@ -179,11 +179,11 @@ def to_num(v):
         return None
 
 
-def index(urls, pref_level, sex_total=False, sheet_re=None):
+def index(urls, pref_level, sex_total=False, sheet_re=None, strict=False):
     """市町村：(都道府県, 名前)->行、都道府県：都道府県名->行。シートをまたいだ重複は先に見つかった方。"""
     idx = {}
     for url in urls:
-        for sheet in rows_of(url, sheet_re):
+        for sheet in rows_of(url, sheet_re, strict):
             sidx, cur = {}, None
             for row in sheet:
                 cells = [re.sub(r"[\s　]", "", str(v)) for v in row]
@@ -501,18 +501,46 @@ def main():
             ip = n == p0
             kk_ents.append((n, e, ip, p0 if ip else (p0, norm_name(n))))
         kk_latest = KK_LATEST_YEAR + 1
+        kk_notes = []
         kk_slots = range(1, kk_latest + 1)
+        def kk_sheet_re(y):
+            return r"H\s*30" if y == 0 else (r"R\s*(元|0?1)(?!\d)" if y == 1 else rf"R\s*0?{y}(?!\d)")
+
+        def kk_url(y, ip):
+            return pick(KK_PAGES[y], lambda t: ("都道府県指標一覧" if ip else "市区町村指標一覧") in t,
+                        label=f"{year_lab(y + 1)} 公会計 指標一覧（{grp}）")
+
         for y in KK_PAGES:
-            sheet_re = r"H\s*30" if y == 0 else (r"R\s*(元|0?1)(?!\d)" if y == 1 else rf"R\s*0?{y}(?!\d)")
+            sheet_re = kk_sheet_re(y)
             for ip in (False, True):
                 grp = "都道府県" if ip else "市町村"
                 try:
-                    u = pick(KK_PAGES[y], lambda t: ("都道府県指標一覧" if ip else "市区町村指標一覧") in t,
-                             label=f"{year_lab(y + 1)} 公会計 指標一覧（{grp}）")
+                    u = kk_url(y, ip)
                 except SourceMissing as ex:
                     skipped.append(str(ex))
                     continue
-                idx = index([u], ip, sheet_re=sheet_re)
+                # 公会計の指標一覧は1ファイルに「その年度」と「前年度」の2年分が入っていて、前年度の値は
+                # 翌年に修正されていることがある（2026-09-29の照合で判明）。翌年のファイルに前年度のシートが
+                # あれば、その修正後の値（最新の公表値）と比べ、最初の公表値との違いは参考として件数だけ出す。
+                idx_first = index([u], ip, sheet_re=sheet_re)
+                idx, revised = idx_first, False
+                if y + 1 in KK_PAGES:
+                    try:
+                        idx_rev = index([kk_url(y + 1, ip)], ip, sheet_re=sheet_re, strict=True)
+                        if len(idx_rev) >= 0.9 * len(idx_first):
+                            idx, revised = idx_rev, True
+                    except SourceMissing:
+                        pass
+                if revised:
+                    diff_first = 0
+                    for key, row in idx.items():
+                        r0 = idx_first.get(key)
+                        if row is None or r0 is None:
+                            continue
+                        a = [to_num(v) for v in row if to_num(v) is not None]
+                        b = [to_num(v) for v in r0 if to_num(v) is not None]
+                        diff_first += a != b
+                    kk_notes.append(f"{year_lab(y + 1)}（{grp}）：翌年度のファイルの修正後の値と照合。最初の公表値から修正された団体 {diff_first}件")
                 for i in range(1, 10):
                     p = f"ka{i}"
                     cs = choose_col(idx, p, ip, y + 1, kk_latest, kk_slots, kk_ents)
@@ -524,6 +552,7 @@ def main():
                     check(p, ip, y + 1, kk_latest, off, kk_slots, ents=kk_ents, ylab=year_lab)
     except (SourceMissing, OSError) as ex:
         skipped.append(f"公会計：{ex}")
+        kk_notes = []
 
     # ---------- ふるさと納税：受入額（fuH、8年分）と最新の住民税控除額（fk） ----------
     try:
@@ -591,6 +620,8 @@ def main():
         report += ["### 確認が必要な点", ""] + [f"- {x}" for x in problems] + [""]
     if skipped:
         report += ["### 照合できなかったもの（公式ファイルが見つからない）", ""] + [f"- {x}" for x in skipped] + [""]
+    if kk_notes:
+        report += ["### 公会計の参考情報", ""] + [f"- {x}" for x in kk_notes] + [""]
     report += ["### 年のずれの診断", "", "公式の各年が、アプリのどの年の欄と一番よく一致したか。", ""] + align_rows + [""]
     report += ["### 食い違いの件数", "",
                "端数のずれ＝四捨五入の違い程度（0.1、財政力指数は0.01、人口は1人以内）。それより大きいものは「食い違い」。",
