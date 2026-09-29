@@ -55,6 +55,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.0.3", date:"2026.9", items:["人口データの誤りを修正（同名の自治体との取り違え、年のずれなど）","前年と同じ値で公表された人口に注記を表示"] },
     { version:"3.0.2", date:"2026.9", items:["人口増減率の説明文を、人口の実数の推移に合わせた表現に改善"] },
     { version:"3.0.1", date:"2026.9", items:["グラフのズレを修正"] },
     { version:"3.0.0", date:"2026.9", items:[
@@ -1006,10 +1007,15 @@ if (key === "growth" && cur && cur.pop) {
       var reiwaLabel = function(n) { return "令和" + (n === 1 ? "元" : String(n)) + "年"; };
       var popStr = cur.pop.toLocaleString();
       var gSign = cur.g >= 0 ? "+" : "";
-      var latestLv = gLevel(cur.g);
+      // 最新年の人口が前年とまったく同じで、増減率も0%の場合は、総務省の公表値で前年の値が
+      // そのまま使われている可能性が高い（2026-09-29：西米良村・喜茂別町の令和8年で確認）。
+      // この場合は「ほぼ横ばい」とは判定せず、注記を出して長期の推移で説明する。
+      var prevPopForCarry = cur["pop_r" + countHist("pop", 1)];
+      var popCarry = cur.g === 0 && prevPopForCarry != null && Math.round(prevPopForCarry) === Math.round(cur.pop);
+      var latestLv = popCarry ? null : gLevel(cur.g);
       var isUpLv = function(lv){ return lv === "upSlight" || lv === "up" || lv === "upLarge"; };
       var isDownLv = function(lv){ return lv === "downSlight" || lv === "down" || lv === "downLarge"; };
-      var popColor = latestLv === "flat" ? "#7bb8e8" : isUpLv(latestLv) ? "#6dcfad" : cur.g >= -0.5 ? "#f0c46a" : "#f0876a";
+      var popColor = popCarry ? "#a08be8" : latestLv === "flat" ? "#7bb8e8" : isUpLv(latestLv) ? "#6dcfad" : cur.g >= -0.5 ? "#f0c46a" : "#f0876a";
       // ハードコードした年号ではなく、実際に読み込まれているデータの件数から
       // 現在値の対象年（令和何年か）を動的に算出する（来年以降の更新で年号が取り残されないように）。
       // 人口(pop)の年号なので、g基準ではなく pop 自身の実データ件数(countHist("pop",1))を基準に算出する。
@@ -1018,6 +1024,9 @@ if (key === "growth" && cur && cur.pop) {
       var curPopReiwaLabel = curPopReiwaNum === 1 ? "元" : String(curPopReiwaNum);
       topSummaryHtml += "<div style='background:"+popColor+"14;border:1px solid "+popColor+"55;border-radius:12px;padding:12px 14px;'>" +
         "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+popColor+";font-weight:700;'>"+curName+"</span>の人口は"+popStr+"人（令和"+curPopReiwaLabel+"年1月1日時点）。前年比<span style='color:"+popColor+";font-weight:700;'>"+gSign+cur.g.toFixed(2)+"%</span>"+(latestLv ? "（"+gWord(latestLv)+"）" : "")+"です。</div>";
+      if (popCarry) {
+        topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>ℹ️ 令和"+curPopReiwaLabel+"年の人口は、前年と同じ値で公表されています。前年の値がそのまま使われている可能性があるため、前年比0%は実際の増減を表していない場合があります。</div>";
+      }
 
       // ---- 令和元年からの累計（人口の実数で比べる） ----
       // 人口の実数は年によって欠けている自治体があるため（令和元年・6年・7年だけ等）、
@@ -1071,6 +1080,9 @@ if (key === "growth" && cur && cur.pop) {
       }
       // ---- ひとこと（累計と直近の組み合わせで選ぶ） ----
       var cumUp = cumLv && isUpLv(cumLv), cumDown = cumLv && isDownLv(cumLv);
+      // 前年と同じ値で公表されている場合は、直近1年の代わりに長期の年平均で判定する
+      var gForMsg = cur.g;
+      if (popCarry) { latestLv = cumLv || null; gForMsg = cumAnnual != null ? cumAnnual : 0; }
       var msg;
       if (isUpLv(latestLv) && cumDown) msg = "✨ 直近は増加に転じています→長い目で見ると減少してきたため、この流れが続くかどうかに注目です";
       else if (isUpLv(latestLv) && cur.f >= 0.7) msg = "✨ 人口が増えている＋財政力も安定→人が集まることで税収も増え、好循環が生まれやすい状態です";
@@ -1079,9 +1091,9 @@ if (key === "growth" && cur && cur.pop) {
       else if (latestLv === "flat" && cumUp) msg = "➡️ これまで人口が増えてきた地域で、直近は伸びが一服しています。この先の動きに注目です";
       else if (latestLv === "flat" && cumDown) msg = "➡️ 直近は下げ止まっていますが、長い目で見ると人口は減ってきています。子育て支援・移住促進の効果が続くかどうかに注目です";
       else if (latestLv === "flat") msg = "➡️ 人口はほぼ横ばいで、大きな変化はありません";
-      else if (cur.g < -1.0 && cur.x > 95) msg = "🚨 人口が急減している＋固定費が重い→税収が減るのに支出が固定化、財政悪化が加速しやすい危険な組み合わせです";
-      else if (cur.g < -1.0 && cur.f < 0.5) msg = "⚠️ 人口が急減している＋財政力も弱い→人口減少が税収減を招き、財政がじわじわ悪化するリスクが高い状態です";
-      else if (cur.g < -0.5) msg = "⚠️ 人口の減少が続いている→住民1人あたりの行政コストが上がり、財政を圧迫しやすくなります。定住促進策が急務です";
+      else if (gForMsg < -1.0 && cur.x > 95) msg = "🚨 人口が急減している＋固定費が重い→税収が減るのに支出が固定化、財政悪化が加速しやすい危険な組み合わせです";
+      else if (gForMsg < -1.0 && cur.f < 0.5) msg = "⚠️ 人口が急減している＋財政力も弱い→人口減少が税収減を招き、財政がじわじわ悪化するリスクが高い状態です";
+      else if (gForMsg < -0.5) msg = "⚠️ 人口の減少が続いている→住民1人あたりの行政コストが上がり、財政を圧迫しやすくなります。定住促進策が急務です";
       else if (cumUp) msg = "➡️ 直近は緩やかに減少していますが、長い目で見ると人口が増えてきた地域です。一時的な動きかどうかに注目です";
       else msg = "⚠️ 人口は緩やかな減少傾向→緩やかな減少でも長期的には財政に影響します。子育て支援・移住促進が重要です";
       topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>" + msg + "</div>";
