@@ -325,6 +325,19 @@ def main():
         age = index_rows([pick(AGE_PAGES[k], ["年齢階級別", "市区町村別"], must_not=["日本人", "外国人"],
                                label=f"令和{k + 1}年 年齢階級別人口")], sex_total=True, all_sheets=True)
         print(f"   令和{k + 1}年 年齢階級別人口：{sum(1 for v in age.values() if v is not None)}団体の行を読み込み")
+        # 対象の団体が見つからないときは、その名前を含む元の行をそのまま表示する（書き方の違いを調べるため）
+        age_url = pick(AGE_PAGES[k], ["年齢階級別", "市区町村別"], must_not=["日本人", "外国人"], label="")
+        for (tp, tn) in TARGETS:
+            if "ch" in TARGETS[(tp, tn)] and age.get((tp, tn)) is None:
+                print(f"   ⚠️ 令和{k + 1}年の年齢別人口に{tp}{tn}が見つかりません。名前を含む行：")
+                shown = 0
+                for si, sheet in enumerate(rows_of(age_url, all_sheets=True)):
+                    for ri, row in enumerate(sheet):
+                        if any(tn[:-1] in str(v) for v in row) and shown < 8:
+                            print(f"      シート{si + 1} 行{ri + 1}: {[str(v)[:12] for v in row[:10]]}")
+                            shown += 1
+                if shown == 0:
+                    print("      （名前を含む行がありません）")
         sample = random.sample(refs["ch"], min(300, len(refs["ch"])))
         tally, tried = collections.Counter(), 0
         for n, e, key in sample:
@@ -374,6 +387,7 @@ def main():
 
     # ---------- 対象の団体を書き換え ----------
     lines = ["| 団体 | 項目 | 変更前 | 公式（令和元〜6年度） |", "|---|---|---|---|"]
+    notes = []
     changed = set()
     for f, n, e, key in ents:
         if key not in TARGETS:
@@ -382,12 +396,18 @@ def main():
             o = official.get((key, p), {})
             need = range(HIST_FROM[p], LATEST + 1)
             missing = [k for k in need if k not in o or (o[k] is None and p != "u")]
-            if missing:
+            if missing and (p not in ("edu", "ch") or LATEST in missing):
                 print(f"❌ {key}：{p} の令和{missing}年度が公式データから取れません")
                 sys.exit(1)
+            if missing:
+                # 教育費・子ども投資額の過去の年だけが計算できない場合は、その年を空欄にして続ける
+                # （グラフは空欄の年を飛ばして表示する）
+                notes.append(f"{n} の {p}：令和{missing}年度は公式データから計算できなかったため空欄")
+                for k in missing:
+                    o[k] = None
             olds = [v for kk, v in e.items() if (kk == p or re.fullmatch(p + r"_r\d+", kk)) and v is not None]
             for old in olds:
-                if not any(o[k] is not None and abs(old - o[k]) < TOL[p] for k in need):
+                if not any(o.get(k) is not None and abs(old - o[k]) < TOL[p] for k in need):
                     print(f"❌ {key}：{p} の既存の値{old}が公式データのどの年（{o}）とも合いません")
                     sys.exit(1)
             before = [e.get(f"{p}_r{k}") for k in range(1, LATEST)] + [e.get(p)]
@@ -405,7 +425,7 @@ def main():
     bad = {f"{p}:R{k}": v for (p, k), v in sorted(ref_bad.items())}
     text = "\n".join([f"## 3団体の財政データを作り直しました（preview）", "",
                       f"- 【参考・書き換えなし】データがそろっている団体のうち、公式データと食い違う件数：{bad if bad else 'なし'}",
-                      ""] + lines)
+                      ] + [f"- ⚠️ {x}" for x in notes] + [""] + lines)
     print(text)
     sp = os.environ.get("GITHUB_STEP_SUMMARY")
     if sp:
