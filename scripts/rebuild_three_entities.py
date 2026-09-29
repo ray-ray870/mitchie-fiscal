@@ -200,6 +200,52 @@ def main():
         return all(f"{p}_r{k}" in e for k in range(HIST_FROM[p], LATEST)) and e.get(p) is not None
 
     refs = {p: [(n, e, key) for f, n, e, key in ents if key not in tkeys and full(e, p)] for p in TOL}
+    # ---------- 事前診断：公式の各年度が、アプリのどの年の値と一致するか ----------
+    # （2026-09-29：令和元年度の財政力指数が24%しか一致しなかったため追加。年が1つずれて保存されている
+    #   可能性などを、データを書き換える前に確かめる）
+    def col_rate(idx, p, j, conv):
+        tally, tried = collections.Counter(), 0
+        for n, e, key in refs[p]:
+            row, rv = idx.get(key), hist(e, p, j)
+            if row is None or rv is None:
+                continue
+            tried += 1
+            for ci, v in enumerate(row):
+                x = to_num(v)
+                if x is not None and abs(conv(x) - rv) < TOL[p]:
+                    tally[ci] += 1
+        if not tally or not tried:
+            return 0.0, None
+        ci, h = tally.most_common(1)[0]
+        return h / tried, ci
+    ok = True
+    table = ["| 公式の年度 | 項目 | アプリのR1 | R2 | R3 | R4 | R5 | R6（最新） |", "|---|---|---|---|---|---|---|---|"]
+    for k in range(1, LATEST + 1):
+        fi = index_rows([pick(FISCAL_PAGES[k], ["全市町村の主要財政指標"], label=f"令和{k}年度 主要財政指標")])
+        gai = index_rows(pick(KESSAN_PAGES[k], ["概況"], many=True, label=f"令和{k}年度 概況"))
+        for p, idx, conv in (("f", fi, lambda x: x), ("x", fi, lambda x: x), ("d", fi, lambda x: x), ("u", fi, lambda x: x),
+                             ("eo", gai, lambda x: round(x / 100000, 1)), ("ei", gai, lambda x: round(x / 100000, 1))):
+            rates = []
+            for j in range(1, LATEST + 1):
+                if j < HIST_FROM[p]:
+                    rates.append(None)
+                    continue
+                rates.append(col_rate(idx, p, j, conv)[0])
+            valid = [(r, j) for j, r in enumerate(rates, 1) if r is not None]
+            bj = max(valid)[1]
+            if rates[k - 1] is not None and (bj != k or rates[k - 1] < 0.9):
+                ok = False
+            table.append(f"| 令和{k}年度 | {p} | " + " | ".join("－" if r is None else f"{r:.0%}" for r in rates) + " |")
+    diag_text = "\n".join(["## 事前診断：公式データの各年度と、アプリに保存されている各年の一致率", ""] + table)
+    print(diag_text)
+    sp = os.environ.get("GITHUB_STEP_SUMMARY")
+    if sp:
+        with open(sp, "a", encoding="utf-8") as fp:
+            fp.write(diag_text + "\n\n")
+    if not ok:
+        print("❌ 公式データの年度と、アプリの年がそろっていない項目があります（上の表）。データは書き換えていません")
+        sys.exit(1)
+
     random.seed(0)
     official = collections.defaultdict(dict)  # (key, p) -> {k: 値}
     ref_bad = collections.Counter()
