@@ -98,12 +98,20 @@ def fetch(url):
     return _cache[url]
 
 
-def links(url):
+def page_html(url):
     raw = fetch(url)
     try:
-        html = raw.decode("utf-8")
+        return raw.decode("utf-8")
     except UnicodeDecodeError:
-        html = raw.decode("cp932", errors="ignore")
+        return raw.decode("cp932", errors="ignore")
+
+
+def links(url, after=None):
+    """ページ内のExcelリンクを (URL, リンクの文字) の順に返す。after を指定すると、その文字より後ろにあるリンクだけ"""
+    html = page_html(url)
+    if after:
+        i = html.find(after)
+        html = html[i:] if i >= 0 else ""
     out = []
     for href, text in re.findall(r'<a[^>]+href="([^"]+\.xlsx?)"[^>]*>(.*?)</a>', html, flags=re.S | re.I):
         t = re.sub(r"<[^>]+>|\s", "", text)
@@ -331,10 +339,15 @@ def main():
             try:
                 # 歳出・歳入・教育費・子ども投資額
                 if is_pref:
-                    gai_urls = [pick(KESSAN_PREF[k], lambda t: re.match(r"^1\s*[－\-ー―]\s*1", t) is not None and "決算状況" in t,
-                                     label=f"令和{k}年度 決算状況（都道府県）")]
-                    moku_urls = [pick(KESSAN_PREF[k], lambda t: re.match(r"^5\s*[－\-ー―]\s*2", t) is not None,
-                                      label=f"令和{k}年度 目的別歳出（都道府県）")]
+                    # 都道府県のページは「第1表 決算状況」「第5表 目的別歳出内訳 → 都道府県別内訳」の順に並んでいる。
+                    # リンクの文字だけでは区別できないことがあるため、見出しより後ろにある最初のリンクを使う（2026-09-29）
+                    c = [h for h, t in links(KESSAN_PREF[k]) if "決算状況" in t and "単年度" not in t and "実質収支" not in t]
+                    if not c:
+                        c = [h for h, t in links(KESSAN_PREF[k], after="第1表")]
+                    c5 = [h for h, t in links(KESSAN_PREF[k], after="目的別歳出") if "都道府県別" in t]
+                    if not c or not c5:
+                        raise SourceMissing(f"令和{k}年度 決算状況・目的別歳出（都道府県）：リンクが見つかりません（{KESSAN_PREF[k]}）")
+                    gai_urls, moku_urls = [c[0]], [c5[0]]
                 else:
                     gai_urls = pick(KESSAN_MUNI[k], lambda t: "概況" in t, many=True, label=f"令和{k}年度 概況（市町村）")
                     moku_urls = pick(KESSAN_MUNI[k], lambda t: "目的別歳出" in t, many=True, label=f"令和{k}年度 目的別歳出（市町村）")
