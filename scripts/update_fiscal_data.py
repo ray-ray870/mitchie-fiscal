@@ -80,27 +80,50 @@ def is_northern_territory_row(name):
     return any(str(name).startswith(d) for d in NORTHERN_TERRITORY_DISTRICTS)
 
 
-def slide_and_set(entry, prefix, new_value, start_idx=1, max_total=8, force=False):
-    """履歴フィールドをスライドし、新しい主値をセットする。
-    8データポイント（履歴7+最新1）に達するまでは追加、以降は最古を破棄してローリング。
-    ※ new_value が現在の主値と完全に同じ場合は「新年度データではない」と判断し、
-      スライドせずスキップする（同じ総務省データで誤って再実行した際の重複防止）。
+def reiwa_num(label):
+    """「令和6年度」「令和元年」などの文字列から令和の年の数字を取り出す。"""
+    m = re.search(r"令和(元|\d+)", str(label))
+    if not m:
+        raise ValueError(f"config.json の年の書き方が読めません: {label}")
+    return 1 if m.group(1) == "元" else int(m.group(1))
+
+
+def slide_and_set(entry, prefix, new_value, start_idx=1, max_total=None, force=False, year=None):
+    """履歴フィールドに今の主値を追加し、新しい主値をセットする。
+    キーの「_r」の後ろの数字は令和の年（年度）そのもの（例：pop_r1＝令和元年）。
+    2026-09-29：以前は8データポイントに達すると最古を捨てて値を前にずらしていたが、
+      それだと「キーの数字＝年」が崩れてグラフの年とラベルがずれるため、ずらさず追加し続ける
+      方式に変更。グラフに何年分出すか（直近8点）はアプリ側（ui.js の SHOW_HIST）で決める。
+      max_total は互換のために残しているだけで、使っていない。
+    year（新しいデータの令和の年）を渡すと、今の主値は必ず「year-1」のキーに入る。
+      ・そのキーがすでにある＝同じ年のデータで再実行した → 履歴は増やさず主値だけ更新
+      ・途中の年が抜けている → 抜けた年は空(None)のキーで埋めて、年の位置を合わせる
+      ・すでにyear以降のキーがある → 年の設定(config.json)の間違いとみなして止める
+    year を渡さない場合は従来どおり、並んでいるキーの次に追加する
+    （同じ値なら重複実行とみなしてスキップ。force=True でスキップしない）。
     """
     old_main = entry.get(prefix)
+    if year is not None:
+        target = year - 1
+        existing = [int(k[len(prefix) + 2:]) for k in entry
+                    if k.startswith(prefix + "_r") and k[len(prefix) + 2:].isdigit()]
+        if existing and max(existing) > target:
+            raise ValueError(f"{entry.get('p')} {prefix}: 令和{max(existing)}年分の履歴がすでにあるのに、"
+                             f"新しいデータが令和{year}年として渡されました。config.json の年を確認してください。")
+        if f"{prefix}_r{target}" not in entry:
+            for gap in range(max(existing) + 1 if existing else target, target):
+                entry[f"{prefix}_r{gap}"] = None
+            entry[f"{prefix}_r{target}"] = old_main
+        if new_value is not None:
+            entry[prefix] = new_value
+        return
     # force=True のときは重複チェックをしない（増減率のように、別の年でも偶然同じ値になりうる項目用）
     if not force and new_value is not None and old_main is not None and new_value == old_main:
         return  # 値が変わっていない＝重複実行の可能性が高いのでスライドしない
     n = 0
     while f"{prefix}_r{start_idx + n}" in entry:
         n += 1
-    if n < max_total - 1:
-        if old_main is not None:
-            entry[f"{prefix}_r{start_idx + n}"] = old_main
-    else:
-        for i in range(start_idx, start_idx + n - 1):
-            entry[f"{prefix}_r{i}"] = entry.get(f"{prefix}_r{i + 1}")
-        if old_main is not None:
-            entry[f"{prefix}_r{start_idx + n - 1}"] = old_main
+    entry[f"{prefix}_r{start_idx + n}"] = old_main
     if new_value is not None:
         entry[prefix] = new_value
 
@@ -252,6 +275,9 @@ def parse_age_population(muni_path, pref_path):
 
 def main():
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    # 新しいデータの年（config.json の「令和◯年度」「令和◯年」）。履歴を正しい年のキーに入れるために使う
+    fiscal_year = reiwa_num(config["fiscal_year_label"])
+    pop_year = reiwa_num(config["population_year_label"])
 
     print("① Excelファイルをダウンロード中...")
     fi_muni_p = download(config["fiscal_indicators"]["muni"], "fi_muni")
@@ -293,15 +319,15 @@ def main():
             ap = ap_pref.get(name) if is_pref else lookup_muni(ap_muni, pref, name)
 
             if fi:
-                slide_and_set(entry, "f", fi["f"], start_idx=1)
-                slide_and_set(entry, "x", fi["x"], start_idx=1)
-                slide_and_set(entry, "d", fi["d"], start_idx=1)
-                slide_and_set(entry, "u", fi["u"] if fi["u"] not in (None, "-", "－") else None, start_idx=1)
+                slide_and_set(entry, "f", fi["f"], start_idx=1, year=fiscal_year)
+                slide_and_set(entry, "x", fi["x"], start_idx=1, year=fiscal_year)
+                slide_and_set(entry, "d", fi["d"], start_idx=1, year=fiscal_year)
+                slide_and_set(entry, "u", fi["u"] if fi["u"] not in (None, "-", "－") else None, start_idx=1, year=fiscal_year)
             else:
                 warnings.append(f"{fname}:{name} 財政指標が見つかりません")
 
             if rf is not None:
-                slide_and_set(entry, "r", round(rf / 100, 1), start_idx=2)
+                slide_and_set(entry, "r", round(rf / 100, 1), start_idx=2, year=fiscal_year)
             else:
                 warnings.append(f"{fname}:{name} 財政調整基金が見つかりません")
 
@@ -310,16 +336,16 @@ def main():
                 # g単独で重複判定するとg_r7が記録されずグラフがずれるため（2026-09-29に判明）、
                 # 人口(pop)が変わった＝新しい年のデータなら、gは値が同じでも必ず履歴を送る。
                 pop_is_new = pp["pop"] is not None and pp["pop"] != entry.get("pop")
-                slide_and_set(entry, "pop", pp["pop"], start_idx=2)
-                slide_and_set(entry, "g", pp["g"], start_idx=2, force=pop_is_new)
+                slide_and_set(entry, "pop", pp["pop"], start_idx=2, year=pop_year)
+                slide_and_set(entry, "g", pp["g"], start_idx=2, force=pop_is_new, year=pop_year)
             else:
                 warnings.append(f"{fname}:{name} 人口が見つかりません")
 
             eo_oku = ei_oku = None
             if bg:
                 eo_oku, ei_oku = round(bg[0] / 100000, 1), round(bg[1] / 100000, 1)
-                slide_and_set(entry, "eo", eo_oku, start_idx=1)
-                slide_and_set(entry, "ei", ei_oku, start_idx=1)
+                slide_and_set(entry, "eo", eo_oku, start_idx=1, year=fiscal_year)
+                slide_and_set(entry, "ei", ei_oku, start_idx=1, year=fiscal_year)
                 if not is_pref and len(bg) >= 4:
                     entry["jr"] = bg[2]
                     entry["rjr"] = bg[3]
@@ -329,10 +355,10 @@ def main():
             if pe and eo_oku:
                 minsei, jido, edu_exp = pe[0], pe[1], pe[2]
                 edu_ratio = round(edu_exp / (eo_oku * 100000) * 100, 1) if eo_oku else None
-                slide_and_set(entry, "edu", edu_ratio, start_idx=2)
+                slide_and_set(entry, "edu", edu_ratio, start_idx=2, year=fiscal_year)
                 if ap and ap > 0:
                     ch = round((jido + edu_exp) / ap * 0.1, 1)
-                    slide_and_set(entry, "ch", ch, start_idx=2)
+                    slide_and_set(entry, "ch", ch, start_idx=2, year=fiscal_year)
                 else:
                     warnings.append(f"{fname}:{name} 年齢階級別人口が見つかりません（ch未更新）")
             else:
