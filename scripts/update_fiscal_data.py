@@ -80,14 +80,15 @@ def is_northern_territory_row(name):
     return any(str(name).startswith(d) for d in NORTHERN_TERRITORY_DISTRICTS)
 
 
-def slide_and_set(entry, prefix, new_value, start_idx=1, max_total=8):
+def slide_and_set(entry, prefix, new_value, start_idx=1, max_total=8, force=False):
     """履歴フィールドをスライドし、新しい主値をセットする。
     8データポイント（履歴7+最新1）に達するまでは追加、以降は最古を破棄してローリング。
     ※ new_value が現在の主値と完全に同じ場合は「新年度データではない」と判断し、
       スライドせずスキップする（同じ総務省データで誤って再実行した際の重複防止）。
     """
     old_main = entry.get(prefix)
-    if new_value is not None and old_main is not None and new_value == old_main:
+    # force=True のときは重複チェックをしない（増減率のように、別の年でも偶然同じ値になりうる項目用）
+    if not force and new_value is not None and old_main is not None and new_value == old_main:
         return  # 値が変わっていない＝重複実行の可能性が高いのでスライドしない
     n = 0
     while f"{prefix}_r{start_idx + n}" in entry:
@@ -305,8 +306,12 @@ def main():
                 warnings.append(f"{fname}:{name} 財政調整基金が見つかりません")
 
             if pp:
+                # 増減率(g)は別の年でも偶然同じ値になることがある（例：足立区は令和7年・8年とも0.729%）。
+                # g単独で重複判定するとg_r7が記録されずグラフがずれるため（2026-09-29に判明）、
+                # 人口(pop)が変わった＝新しい年のデータなら、gは値が同じでも必ず履歴を送る。
+                pop_is_new = pp["pop"] is not None and pp["pop"] != entry.get("pop")
                 slide_and_set(entry, "pop", pp["pop"], start_idx=2)
-                slide_and_set(entry, "g", pp["g"], start_idx=2)
+                slide_and_set(entry, "g", pp["g"], start_idx=2, force=pop_is_new)
             else:
                 warnings.append(f"{fname}:{name} 人口が見つかりません")
 
