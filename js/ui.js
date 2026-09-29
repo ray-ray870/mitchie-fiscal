@@ -55,6 +55,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.0.4", date:"2026.9", items:["グラフを直近8年分の表示に変更（年が増えてもラベルと値がずれないように）"] },
     { version:"3.0.3", date:"2026.9", items:["人口データの誤りを修正（同名の自治体との取り違え、年のずれなど）","前年と同じ値で公表された人口に注記を表示"] },
     { version:"3.0.2", date:"2026.9", items:["人口増減率の説明文を、人口の実数の推移に合わせた表現に改善"] },
     { version:"3.0.1", date:"2026.9", items:["グラフのズレを修正"] },
@@ -222,9 +223,9 @@
     // 来年以降データを更新してもこの注記が古いまま残って矛盾する、という事故を防ぐ。
     function reiwaNumToLabel(num) { return num === 1 ? "元" : String(num); }
     var fiscalReiwaNumMain = 1;
-    for (var _fi = 1; _fi < 8; _fi++) { if (Object.prototype.hasOwnProperty.call(d, "f_r" + _fi)) fiscalReiwaNumMain++; else break; }
+    for (var _fi = 1; _fi < 40; _fi++) { if (Object.prototype.hasOwnProperty.call(d, "f_r" + _fi)) fiscalReiwaNumMain++; else break; }
     var popReiwaNumMain = 1;
-    for (var _pi = 1; _pi < 8; _pi++) { if (Object.prototype.hasOwnProperty.call(d, "pop_r" + _pi)) popReiwaNumMain++; else break; }
+    for (var _pi = 1; _pi < 40; _pi++) { if (Object.prototype.hasOwnProperty.call(d, "pop_r" + _pi)) popReiwaNumMain++; else break; }
     var gYearNoteHtml = (popReiwaNumMain !== fiscalReiwaNumMain) ?
       ("<div style='font-size:11px;color:#8a8a9a;margin-top:2px;'>※財政指標は令和" + reiwaNumToLabel(fiscalReiwaNumMain) + "年度、人口は令和" + reiwaNumToLabel(popReiwaNumMain) + "年1月時点（区切り方が異なります）</div>") : "";
     var ul = d.u<=0?"負担なし":d.u>=999?"再建中":d.u.toFixed(1)+"%";
@@ -655,7 +656,11 @@
     // 実質0%（負担なし）を意味するため、以後この値を扱う箇所ではnullを0として扱う。
     var val = key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs):key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?(cur.u==null?0:cur.u):key==="reserve"?cur.r:key==="budget"?(cur.eo||0):key==="education"?(cur.edu||0):key==="childInvest"?(cur.ch||0):cur.g;
     var seed = (Math.abs(val*137) + key.charCodeAt(0)*31) % 100;
-    var MAX_HIST = 7; // 履歴探索の上限（実際のデータは最大5年分＋最新=6ポイント。将来の年数増加にも耐えられるよう余裕を持たせている）
+    // 履歴キーの「_r」の後ろの数字は令和の年（年度）そのもの（pop_r1＝令和元年）。データは毎年
+    // 追加していき、件数は全部数える（MAX_HIST）。グラフには直近の8点（履歴7＋最新1）だけを表示する（SHOW_HIST）。
+    // ラベルは「R」＋キーの数字から作るので、年が増えてもラベルと値がずれない（2026-09-29）。
+    var MAX_HIST = 40;
+    var SHOW_HIST = 7;
     function countHist(prefix, startIdx) {
       var n = 0;
       for (var i = startIdx; i < startIdx + MAX_HIST; i++) {
@@ -696,24 +701,30 @@
       };
       var mainVal = key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?(cur.u==null?0:cur.u):key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs):null;
       var histDecimals = key==="fiscalPower" ? 2 : 1;
-      for (var hi=1; hi<=N; hi++) {
+      var fiscalFrom = Math.max(1, N - SHOW_HIST + 1);
+      for (var hi=fiscalFrom; hi<=N; hi++) {
         var v2 = getVal(hi);
         vals.push(v2!=null ? parseFloat(parseFloat(v2).toFixed(histDecimals)) : null);
       }
       vals.push(mainVal!=null ? parseFloat(parseFloat(mainVal).toFixed(histDecimals)) : null);
-      yrs = ["R1","R2","R3","R4","R5","R6","R7"].slice(0,N).concat(["R"+(N+1)+"（最新）"]);
+      yrs = [];
+      for (var hy=fiscalFrom; hy<=N; hy++) yrs.push("R"+hy);
+      yrs.push("R"+(N+1)+"（最新）");
     } else if (hasGrowthHistory) {
       var N2 = histCountGrowth;
       var fieldPrefix = key==="growth"?"g":key==="reserve"?"r":key==="education"?"edu":"ch";
       var decimals = key==="growth" ? 2 : 1;
       var gMain = key==="growth"?cur.g:key==="reserve"?cur.r:key==="education"?cur.edu:cur.ch;
-      for (var gi=growthStartIdx; gi<growthStartIdx+N2; gi++) {
+      var growthFrom = growthStartIdx + Math.max(0, N2 - SHOW_HIST);
+      for (var gi=growthFrom; gi<growthStartIdx+N2; gi++) {
         var v3 = cur[fieldPrefix+"_r"+gi];
         vals.push(v3!=null ? parseFloat(parseFloat(v3).toFixed(decimals)) : null);
       }
       vals.push(gMain!=null ? parseFloat(gMain.toFixed(decimals)) : null);
-      var growthYrLabels = growthStartIdx===1 ? ["R1","R2","R3","R4","R5","R6","R7"] : ["R2","R3","R4","R5","R6","R7","R8"];
-      yrs = growthYrLabels.slice(0,N2).concat(["R"+(N2+growthStartIdx)+"（最新）"]);
+      var growthYrLabels = [];
+      for (var gy2=growthFrom; gy2<growthStartIdx+N2; gy2++) growthYrLabels.push("R"+gy2);
+      growthYrLabels.push("R"+(N2+growthStartIdx));
+      yrs = growthYrLabels.slice(0, growthYrLabels.length-1).concat(["R"+(N2+growthStartIdx)+"（最新）"]);
     } else {
       // 過去の実績データが1件も無い場合：以前はサインカーブで「それっぽい」架空の推移を
       // 描いていたが、実データではないので誤解を招く。架空データは作らず、
@@ -977,7 +988,7 @@
           "財政調整基金残高", ratio.toFixed(1)+"%", rHigh?"多め":"やや少なめ",
           "純資産比率", ka4v+"%", ka4Judge,
           analysisR,
-          false, (function(){ function ratioAt(sfx){ var rv=sfx?cur["r_r"+sfx]:cur.r; var sv=sfx?cur["sfs_r"+sfx]:cur.sfs; return (rv!=null&&sv)?rv/sv*100:null; } return withTrendMeaning("r", trendSincePhrase([ratioAt(1),ratioAt(2),ratioAt(3),ratioAt(4),ratioAt(5),ratioAt(null)], 6, "%", 1)); })(),
+          false, (function(){ function ratioAt(sfx){ var rv=sfx?cur["r_r"+sfx]:cur.r; var sv=sfx?cur["sfs_r"+sfx]:cur.sfs; return (rv!=null&&sv)?rv/sv*100:null; } var nR=countHist("r",1), arrR=[]; for (var ri=Math.max(1,nR-SHOW_HIST+1); ri<=nR; ri++) arrR.push(ratioAt(ri)); arrR.push(ratioAt(null)); return withTrendMeaning("r", trendSincePhrase(arrR, nR+1, "%", 1)); })(),
           (function(){ var e=KK[curName]; return withTrendMeaning("ka4", trendSincePhrase([e.ka4_r1,e.ka4_r2,e.ka4_r3,e.ka4_r4,e.ka4_r5,e.ka4], 5, "%", 1)); })());
         topSummaryHtml += KK_CROSSCHECK_CAVEAT;
         }
@@ -1033,7 +1044,7 @@ if (key === "growth" && cur && cur.pop) {
       // 実数がある最も古い年と最新を比べる。
       var popAt = function(y){ return y === curPopReiwaNum ? cur.pop : cur["pop_r"+y]; };
       var cumFromY = null;
-      for (var py = 1; py < curPopReiwaNum; py++) { if (popAt(py) != null) { cumFromY = py; break; } }
+      for (var py = Math.max(1, curPopReiwaNum - SHOW_HIST); py < curPopReiwaNum; py++) { if (popAt(py) != null) { cumFromY = py; break; } }
       var cumPpl = null, cumPct = null, cumAnnual = null, cumLv = null;
       if (cumFromY != null) {
         var pFrom = popAt(cumFromY);
@@ -1442,13 +1453,15 @@ if (key === "growth" && cur && cur.pop) {
       var budgetYrs;
       var noBudgetHistory = budgetHistCount <= 0;
       if (!noBudgetHistory) {
-        for (var bi=budgetStartIdx; bi<budgetStartIdx+budgetHistCount; bi++) {
+        var budgetFrom = budgetStartIdx + Math.max(0, budgetHistCount - SHOW_HIST);
+        for (var bi=budgetFrom; bi<budgetStartIdx+budgetHistCount; bi++) {
           eoVals.push(cur["eo_r"+bi] != null ? cur["eo_r"+bi] : null);
           eiVals.push(cur["ei_r"+bi] != null ? cur["ei_r"+bi] : null);
         }
         eoVals.push(eoVal); eiVals.push(eiVal);
-        var budgetYrLabels = ["R1","R2","R3","R4","R5","R6","R7","R8"].slice(budgetStartIdx-1);
-        budgetYrs = budgetYrLabels.slice(0,budgetHistCount).concat(["R"+(budgetHistCount+budgetStartIdx)+"（最新）"]);
+        budgetYrs = [];
+        for (var by=budgetFrom; by<budgetStartIdx+budgetHistCount; by++) budgetYrs.push("R"+by);
+        budgetYrs.push("R"+(budgetHistCount+budgetStartIdx)+"（最新）");
       } else {
         // 過去の歳出入データが無い場合：以前はサインカーブで架空の推移を描いていたが、
         // 実データではないため廃止。現在値のみのグラフにし、「データなし」を明記する。
@@ -1530,7 +1543,8 @@ if (key === "growth" && cur && cur.pop) {
         }
       }
       // 凡例
-      var budgetNoteFrom = budgetStartIdx===1 ? "元" : String(budgetStartIdx);
+      var budgetFromNum = budgetStartIdx + Math.max(0, budgetHistCount - SHOW_HIST);
+      var budgetNoteFrom = budgetFromNum===1 ? "元" : String(budgetFromNum);
       var budgetNote = budgetHistCount>0 ? ("※令和"+budgetNoteFrom+"〜"+(budgetHistCount+budgetStartIdx)+"年の実績値") : "";
       var legend="<text x='"+P+"' y='"+(svgH-2)+"' font-size='10' fill='#a08be8'>■ 歳出</text><text x='"+(P+50)+"' y='"+(svgH-2)+"' font-size='10' fill='#7bb8e8'>■ 歳入</text><text x='"+P+"' y='"+(svgH+9)+"' font-size='8' fill='#aaa'>"+budgetNote+"</text>";
       var spSvg = document.getElementById("spSvg");
