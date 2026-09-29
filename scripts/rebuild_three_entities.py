@@ -135,18 +135,27 @@ def to_num(v):
         return None
 
 
-def rows_of(url):
+def rows_of(url, all_sheets=False):
+    """Excelの行を返す。all_sheets=True のときは全シートを、シートごとのリストで返す。
+    （2026-09-29：古い年度の年齢別人口は複数シートに分かれていて、1枚目だけでは約2割の団体が見つからなかった）"""
     content = fetch(url)
     engine = "xlrd" if url.lower().endswith(".xls") else "openpyxl"
+    if all_sheets:
+        books = pd.read_excel(io.BytesIO(content), header=None, dtype=object, engine=engine, sheet_name=None)
+        return [df.values.tolist() for df in books.values()]
     return pd.read_excel(io.BytesIO(content), header=None, dtype=object, engine=engine).values.tolist()
 
 
-def index_rows(urls, sex_total=False):
+def index_rows(urls, sex_total=False, all_sheets=False):
     """(都道府県, 名前) -> 行。sex_total=True のときは「計」の行だけ（年齢別人口用）。同じキーが2回出たらNone。"""
     idx = {}
+    sheets = []
     for url in urls:
+        sheets.extend(rows_of(url, all_sheets=True) if all_sheets else [rows_of(url)])
+    for sheet in sheets:
+        sheet_idx = {}
         cur_pref = None
-        for row in rows_of(url):
+        for row in sheet:
             cells = [re.sub(r"[\s　]", "", str(v)) for v in row]
             for s in cells:
                 if s in PREFS:
@@ -164,7 +173,10 @@ def index_rows(urls, sex_total=False):
                         names.add(n)
             for n in names:
                 key = (cur_pref, n)
-                idx[key] = None if key in idx else row
+                sheet_idx[key] = None if key in sheet_idx else row
+        for key, row in sheet_idx.items():
+            if key not in idx:  # 同じ団体が別のシートにもある場合は、先に見つかった方を使う
+                idx[key] = row
     return idx
 
 
@@ -311,7 +323,8 @@ def main():
         ce, cm_edu = best(tally, tried, "（歳出総額の列, 教育費の列）")
         # ---------- 子ども投資額（ch）：児童福祉費の列と、年齢別人口の列（0〜4歳の位置）を組で探す ----------
         age = index_rows([pick(AGE_PAGES[k], ["年齢階級別", "市区町村別"], must_not=["日本人", "外国人"],
-                               label=f"令和{k + 1}年 年齢階級別人口")], sex_total=True)
+                               label=f"令和{k + 1}年 年齢階級別人口")], sex_total=True, all_sheets=True)
+        print(f"   令和{k + 1}年 年齢階級別人口：{sum(1 for v in age.values() if v is not None)}団体の行を読み込み")
         sample = random.sample(refs["ch"], min(300, len(refs["ch"])))
         tally, tried = collections.Counter(), 0
         for n, e, key in sample:
