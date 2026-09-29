@@ -21,7 +21,9 @@
     ・食い違いは「端数程度（小さなずれ）」と「大きなずれ」に分けて数え、例を表示する。
   問題が見つかったら最後に赤い×で終わる（データは変更しない）。
 
-  対象外（別の仕組みで作っているため）：標準財政規模 sfs、公会計（kokaikei.json）、ふるさと納税
+    公会計9指標 ka1〜ka9（kokaikei.json）… 統一的な基準による財務書類に関する情報「指標一覧」（年度ごとのページ）
+    ふるさと納税 受入額 fuH・住民税控除額 fk … ふるさと納税に関する現況調査（受入額の推移・最新の控除額）
+  対象外：標準財政規模 sfs（元データが自治体ごとの決算カードのため）
 
 年度が増えたら、下の *_PAGES に新しい年のページを1行ずつ追加する。
 """
@@ -65,18 +67,32 @@ KIKIN_FILES = {  # 基金残高等一覧（令和k年度）：(市区町村, 都
     1: ("000810024", "000810022"), 2: ("000810030", "000810004"), 3: ("000877373", "000877162"),
     4: ("000954018", "000939581"), 5: ("001010452", "001005492"), 6: ("001066238", "001066237"),
 }
+# 公会計（統一的な基準による財務書類に関する情報）：年度 y（0=平成30年度、1=令和元年度…）のページ
+KK_PAGES = {y: f"https://www.soumu.go.jp/iken/kokaikei/{'H30' if y == 0 else 'R%02d' % y}_chihou_zaimusyorui.html"
+            for y in range(0, 6)}
+KK_LATEST_YEAR = max(KK_PAGES)
+# ふるさと納税（現況調査）：受入額の推移（全年度が1ファイル）と、最新の住民税控除額
+FURU_PAGE = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/furusato/archive/"
+FURU_FIRST_YEAR = 0  # アプリの fuH[0] の年度（0=平成30年度）。fuH は8年分
+
 KESSAN_MUNI = {k: f"https://www.soumu.go.jp/iken/zaisei/r0{k}_shichouson.html" for k in range(1, 7)}
 KESSAN_PREF = {k: f"https://www.soumu.go.jp/iken/zaisei/r0{k}_todohuken.html" for k in range(1, 7)}
 
 POP_LATEST, FISCAL_LATEST = max(POP_PAGES), max(FISCAL_PAGES)
 TOL = {"pop": 0.5, "g": 0.06, "f": 0.006, "x": 0.06, "d": 0.06, "u": 0.06,
-       "r": 0.06, "eo": 0.06, "ei": 0.06, "edu": 0.06, "ch": 0.06}
+       "r": 0.06, "eo": 0.06, "ei": 0.06, "edu": 0.06, "ch": 0.06,
+       **{f"ka{i}": 0.06 for i in range(1, 10)}, "fu": 0.06, "fk": 0.06}
 # 端数の範囲：これ以下のずれは四捨五入の違いとみなす。これを超えたら「食い違い」
 # （2026-09-29：割合で判定すると、毎年ほぼ同じ値の団体で年のずれを見逃したため、値の桁で判定する）
 ROUND = {"pop": 1.5, "g": 0.06, "f": 0.011, "x": 0.11, "d": 0.11, "u": 0.11,
-         "r": 0.11, "eo": 0.11, "ei": 0.11, "edu": 0.11, "ch": 0.11}
+         "r": 0.11, "eo": 0.11, "ei": 0.11, "edu": 0.11, "ch": 0.11,
+         **{f"ka{i}": 0.11 for i in range(1, 10)}, "fu": 0.11, "fk": 0.11}
 LABEL = {"pop": "人口", "g": "人口増減率", "f": "財政力指数", "x": "経常収支比率", "d": "実質公債費比率",
-         "u": "将来負担比率", "r": "財政調整基金", "eo": "歳出", "ei": "歳入", "edu": "教育費比率", "ch": "子ども投資額"}
+         "u": "将来負担比率", "r": "財政調整基金", "eo": "歳出", "ei": "歳入", "edu": "教育費比率", "ch": "子ども投資額",
+         "ka1": "公会計 一人当たり資産額", "ka2": "公会計 歳入額対資産比率", "ka3": "公会計 有形固定資産減価償却率",
+         "ka4": "公会計 純資産比率", "ka5": "公会計 将来世代負担比率", "ka6": "公会計 一人当たり行政コスト",
+         "ka7": "公会計 一人当たり負債額", "ka8": "公会計 基礎的財政収支", "ka9": "公会計 受益者負担比率",
+         "fu": "ふるさと納税 受入額", "fk": "ふるさと納税 住民税控除額"}
 MONEY_SCALES = [1 / 100, 1 / 1000, 1 / 10000, 1 / 100000, 1 / 1000000, 1 / 100000000]
 
 PREFS = ["北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県", "茨城県", "栃木県", "群馬県",
@@ -131,10 +147,15 @@ def pick(url, test, many=False, label=""):
     return c if many else c[0]
 
 
-def rows_of(url):
+def rows_of(url, sheet_re=None):
+    """全シートの行を返す。sheet_re を指定すると、名前がそれに合うシートだけ（無ければ1枚目だけ）"""
     engine = "xlrd" if url.lower().endswith(".xls") else "openpyxl"
     books = pd.read_excel(io.BytesIO(fetch(url)), header=None, dtype=object, engine=engine, sheet_name=None)
-    return [df.values.tolist() for df in books.values()]
+    items = list(books.items())
+    if sheet_re:
+        hit = [(n, df) for n, df in items if re.search(sheet_re, str(n))]
+        items = hit if hit else items[:1]
+    return [df.values.tolist() for n, df in items]
 
 
 def norm_name(v):
@@ -158,11 +179,11 @@ def to_num(v):
         return None
 
 
-def index(urls, pref_level, sex_total=False):
+def index(urls, pref_level, sex_total=False, sheet_re=None):
     """市町村：(都道府県, 名前)->行、都道府県：都道府県名->行。シートをまたいだ重複は先に見つかった方。"""
     idx = {}
     for url in urls:
-        for sheet in rows_of(url):
+        for sheet in rows_of(url, sheet_re):
             sidx, cur = {}, None
             for row in sheet:
                 cells = [re.sub(r"[\s　]", "", str(v)) for v in row]
@@ -209,10 +230,10 @@ def main():
     mis_rows = ["| 項目 | 区分 | 年 | 照合した団体 | 端数のずれ | 食い違い | 食い違いの例（アプリ → 公式） |", "|---|---|---|---|---|---|---|"]
     official_cache = {}
 
-    def best_conv(idx, p, is_pref, k_app, latest, money):
+    def best_conv(idx, p, is_pref, k_app, latest, money, ents=None, scales=None):
         """アプリの令和k_app年の値と一番よく一致する（列, 単位）と一致率を返す"""
         tally, tried = collections.Counter(), 0
-        for n, e, ip, key in entities:
+        for n, e, ip, key in (ents or entities):
             if ip != is_pref:
                 continue
             row, av = idx.get(key), app(e, p, k_app, latest)
@@ -223,7 +244,7 @@ def main():
                 x = to_num(v)
                 if x is None:
                     continue
-                for sc in (MONEY_SCALES if money else [1]):
+                for sc in (scales or (MONEY_SCALES if money else [1])):
                     xv = round(x * sc, 1) if money else x
                     if abs(xv - av) < TOL[p]:
                         tally[(ci, sc)] += 1
@@ -232,13 +253,16 @@ def main():
         cs, h = tally.most_common(1)[0]
         return cs, h / tried, tried
 
-    def check(p, is_pref, k, latest, off, app_years):
-        """公式値 off（キー->値）と、アプリの各年を比べて、年のずれ診断と食い違い一覧を作る"""
+    def check(p, is_pref, k, latest, off, app_years, ents=None, ylab=None):
+        """公式値 off（キー->値）と、アプリの各年を比べて、年のずれ診断と食い違い一覧を作る。
+        ents：照合するデータ（省略時は data-*.json）、ylab：年の番号→表示名（省略時は 令和k）"""
         grp = "都道府県" if is_pref else "市町村"
+        ylab = ylab or (lambda y: f"令和{y}")
+        ents = ents or entities
         rates = {}
         for j in app_years:
             h = t = 0
-            for n, e, ip, key in entities:
+            for n, e, ip, key in ents:
                 if ip != is_pref or key not in off or off[key] is None:
                     continue
                 av = app(e, p, j, latest)
@@ -258,13 +282,13 @@ def main():
         else:
             verdict = "✅" if ok else "⚠️ 年のずれ・食い違いの可能性"
             if not ok:
-                problems.append(f"{LABEL[p]}（{grp}）令和{k}年：同じ年の一致率{own:.0%}、一番一致したのはアプリのR{bj}（{rates[bj]:.0%}）")
-        align_rows.append(f"| {LABEL[p]} | {grp} | 令和{k} | R{bj}{'（最新）' if bj == latest else ''} | "
+                problems.append(f"{LABEL[p]}（{grp}）{ylab(k)}：同じ年の一致率{own:.0%}、一番一致したのはアプリの{ylab(bj)}の欄（{rates[bj]:.0%}）")
+        align_rows.append(f"| {LABEL[p]} | {grp} | {ylab(k)} | {ylab(bj)}{'（最新）' if bj == latest else ''} | "
                           f"{(own if own is not None else rates[bj]):.1%} | {verdict} |")
         if own is None:
             return
         small, big, ex, tried = 0, 0, [], 0
-        for n, e, ip, key in entities:
+        for n, e, ip, key in ents:
             if ip != is_pref or key not in off or off[key] is None:
                 continue
             av = app(e, p, k, latest)
@@ -281,8 +305,8 @@ def main():
             else:
                 small += 1
         if big:
-            problems.append(f"{LABEL[p]}（{grp}）令和{k}年：食い違い{big}件（例：{'、'.join(ex[:3])}）")
-        mis_rows.append(f"| {LABEL[p]} | {grp} | 令和{k} | {tried} | {small} | {big} | {'、'.join(ex)} |")
+            problems.append(f"{LABEL[p]}（{grp}）{ylab(k)}：食い違い{big}件（例：{'、'.join(ex[:3])}）")
+        mis_rows.append(f"| {LABEL[p]} | {grp} | {ylab(k)} | {tried} | {small} | {big} | {'、'.join(ex)} |")
 
     # ---------- 人口・人口増減率 ----------
     for k in POP_PAGES:
@@ -446,6 +470,120 @@ def main():
             except SourceMissing as ex:
                 skipped.append(str(ex))
 
+    # ---------- 共通：列の選び方（同じ年で合わなければ、ほかの年の欄とも比べて一番合う列を使う） ----------
+    def choose_col(idx, p, ip, k_app, latest, slots, ents, scales=None):
+        cs, rate, tried = best_conv(idx, p, ip, k_app, latest, bool(scales), ents=ents, scales=scales)
+        if cs is not None and rate >= 0.5:
+            return cs
+        best = (cs, rate)
+        for j in slots:
+            if j == k_app:
+                continue
+            c2, r2, _ = best_conv(idx, p, ip, j, latest, bool(scales), ents=ents, scales=scales)
+            if c2 is not None and r2 > best[1]:
+                best = (c2, r2)
+        return best[0]
+
+    def year_lab(k):  # 公会計・ふるさと納税の欄番号 → 年度（1=平成30年度）
+        return "平成30年度" if k == 1 else ("令和元年度" if k == 2 else f"令和{k - 1}年度")
+
+    pref_of = {n: e.get("p") for n, e, ip, key in entities}
+
+    # ---------- 公会計（9指標）：kokaikei.json ----------
+    # アプリの欄：ka◯_r1 が一番古い年、主値が最新（令和{KK_LATEST_YEAR}年度）。年度 y（0=平成30年度）→ 欄番号 y+1
+    try:
+        kk_raw = json.loads((ROOT / "kokaikei.json").read_text(encoding="utf-8"))
+        kk_ents = []
+        for n, e in kk_raw.items():
+            p0 = pref_of.get(n)
+            if p0 is None:
+                continue
+            ip = n == p0
+            kk_ents.append((n, e, ip, p0 if ip else (p0, norm_name(n))))
+        kk_latest = KK_LATEST_YEAR + 1
+        kk_slots = range(1, kk_latest + 1)
+        for y in KK_PAGES:
+            sheet_re = r"H\s*30" if y == 0 else (r"R\s*(元|0?1)(?!\d)" if y == 1 else rf"R\s*0?{y}(?!\d)")
+            for ip in (False, True):
+                grp = "都道府県" if ip else "市町村"
+                try:
+                    u = pick(KK_PAGES[y], lambda t: ("都道府県指標一覧" if ip else "市区町村指標一覧") in t,
+                             label=f"{year_lab(y + 1)} 公会計 指標一覧（{grp}）")
+                except SourceMissing as ex:
+                    skipped.append(str(ex))
+                    continue
+                idx = index([u], ip, sheet_re=sheet_re)
+                for i in range(1, 10):
+                    p = f"ka{i}"
+                    cs = choose_col(idx, p, ip, y + 1, kk_latest, kk_slots, kk_ents)
+                    if cs is None:
+                        problems.append(f"{LABEL[p]}（{grp}）{year_lab(y + 1)}：公式の列が特定できません")
+                        continue
+                    off = {key: round(to_num(row[cs[0]]), 1) for key, row in idx.items()
+                           if row is not None and to_num(row[cs[0]]) is not None}
+                    check(p, ip, y + 1, kk_latest, off, kk_slots, ents=kk_ents, ylab=year_lab)
+    except (SourceMissing, OSError) as ex:
+        skipped.append(f"公会計：{ex}")
+
+    # ---------- ふるさと納税：受入額（fuH、8年分）と最新の住民税控除額（fk） ----------
+    try:
+        fl = links(FURU_PAGE)
+        uk = [h for h, t in fl if "受入額及び受入件数" in t and "平成20年度" in t]
+        kj = [h for h, t in fl if "住民税控除額" in t and "課税" in t]
+        if not uk:
+            raise SourceMissing(f"ふるさと納税：受入額の推移のExcelが見つかりません（{FURU_PAGE}）")
+        fu_ents, fk_ents = [], []
+        for n, e, ip, key in entities:
+            h = e.get("fuH")
+            if isinstance(h, list) and len(h) == 8:
+                e2 = {f"fu_r{i + 1}": h[i] for i in range(7)}
+                e2["fu"] = h[7]
+                fu_ents.append((n, e2, ip, key))
+            if e.get("fk") is not None:
+                fk_ents.append((n, {"fk": e["fk"]}, ip, key))
+        fu_scales = [0.1, 1, 0.01, 0.001, 0.0001]
+        for ip in (False, True):
+            grp = "都道府県" if ip else "市町村"
+            idx = index([uk[0]], ip)
+            for k in range(1, 9):
+                cs = choose_col(idx, "fu", ip, k, 8, range(1, 9), fu_ents, scales=fu_scales)
+                if cs is None:
+                    problems.append(f"{LABEL['fu']}（{grp}）{year_lab(k)}：公式の列が特定できません")
+                    continue
+                off = {key: round(to_num(row[cs[0]]) * cs[1], 1) for key, row in idx.items()
+                       if row is not None and to_num(row[cs[0]]) is not None}
+                check("fu", ip, k, 8, off, range(1, 9), ents=fu_ents, ylab=year_lab)
+            # 控除額（最新の課税年度）：市町村民税分＋道府県民税分の2列の合計（円→万円）
+            if not kj:
+                skipped.append("ふるさと納税：住民税控除額のExcelが見つかりません")
+                continue
+            idk = index([kj[0]], ip)
+            tally, tried = collections.Counter(), 0
+            for n, e2, eip, key in fk_ents:
+                row = idk.get(key)
+                if eip != ip or row is None:
+                    continue
+                tried += 1
+                nums = [(ci, to_num(v)) for ci, v in enumerate(row) if to_num(v) is not None]
+                for a in range(len(nums)):
+                    for b in range(a + 1, len(nums)):
+                        if abs(round((nums[a][1] + nums[b][1]) / 1e4, 1) - e2["fk"]) < TOL["fk"]:
+                            tally[(nums[a][0], nums[b][0])] += 1
+            if not tally:
+                problems.append(f"{LABEL['fk']}（{grp}）：公式の列が特定できません")
+                continue
+            (ca, cb), _ = tally.most_common(1)[0]
+            off = {}
+            for key, row in idk.items():
+                if row is None:
+                    continue
+                va, vb = to_num(row[ca]), to_num(row[cb])
+                if va is not None and vb is not None:
+                    off[key] = round((va + vb) / 1e4, 1)
+            check("fk", ip, 1, 1, off, range(1, 2), ents=fk_ents, ylab=lambda k: "最新の課税年度")
+    except (SourceMissing, OSError) as ex:
+        skipped.append(str(ex))
+
     # ---------- 報告 ----------
     head = "## ✅ 公式データとの照合：問題なし" if not problems else f"## ⚠️ 公式データとの照合：確認が必要な点が{len(problems)}件"
     report = [head, "", "データは書き換えていません。", ""]
@@ -456,7 +594,7 @@ def main():
     report += ["### 年のずれの診断", "", "公式の各年が、アプリのどの年の欄と一番よく一致したか。", ""] + align_rows + [""]
     report += ["### 食い違いの件数", "",
                "端数のずれ＝四捨五入の違い程度（0.1、財政力指数は0.01、人口は1人以内）。それより大きいものは「食い違い」。",
-               ""] + mis_rows + ["", "対象外：標準財政規模、公会計、ふるさと納税"]
+               ""] + mis_rows + ["", "対象外：標準財政規模（元データが自治体ごとの決算カードのため）"]
     text = "\n".join(report)
     print(text)
     sp = os.environ.get("GITHUB_STEP_SUMMARY")
