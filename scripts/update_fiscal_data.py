@@ -385,6 +385,29 @@ def validate():
             if pop is not None and (not isinstance(pop, (int, float)) or pop <= 0):
                 print(f"  ❌ {fname}:{k} pop異常値 {pop}")
                 ok = False
+            # 人口の実数と増減率の整合チェック（2026-09-29 追加）
+            # 以前、令和6年の人口(pop_r6)に同じ名前の別の自治体の値が入る事故が32件あった
+            # （例：池田町（北海道）に池田町（岐阜）の人口）。前年の人口から計算した増減率と
+            # その年の増減率(g)を比べる。
+            #   ・3ポイント以上ずれている → 取り違えとみなして止める（❌）
+            #   ・0.3〜3ポイントのずれ → 警告だけ出して続行（⚠️）。統計の基準の違いや、
+            #     最新年のデータが欠けた自治体などがあり、これで年次更新全体を止めないため。
+            pop_years = sorted(int(key[5:]) for key in e if key.startswith("pop_r") and key[5:].isdigit())
+            for yr in range(2, 10):
+                if yr - 1 in pop_years and yr in pop_years:
+                    p_prev, p_this, g_this = e.get(f"pop_r{yr - 1}"), e.get(f"pop_r{yr}"), e.get(f"g_r{yr}")
+                elif pop_years and yr - 1 == pop_years[-1]:
+                    p_prev, p_this, g_this = e.get(f"pop_r{yr - 1}"), pop, e.get("g")  # 最新値との比較
+                else:
+                    continue
+                if p_prev and p_this and g_this is not None:
+                    calc = (p_this - p_prev) / p_prev * 100
+                    gap = abs(calc - g_this)
+                    if gap >= 3.0:
+                        print(f"  ❌ {fname}:{k} 令和{yr}年の人口{p_this}と増減率{g_this}%が合いません（計算上{calc:.2f}%）※同名自治体の取り違えの可能性")
+                        ok = False
+                    elif gap > 0.3:
+                        print(f"  ⚠️ {fname}:{k} 令和{yr}年の人口{p_this}と増減率{g_this}%が少しずれています（計算上{calc:.2f}%）")
             r = e.get("r")
             if r is not None and not (0 <= r <= 50000):
                 print(f"  ❌ {fname}:{k} r(財政調整基金)異常値 {r} ※単位換算 miss の可能性")
