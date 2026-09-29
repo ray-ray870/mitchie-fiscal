@@ -1,0 +1,72 @@
+name: 年次更新のリハーサル（確認のみ）
+
+# 3月の「年次データ更新（プレビュー）」と同じスクリプトを、今の公式データで試す。
+#   ・preview/ のデータから最新の1年分を取り除き、作業用のフォルダで年次更新を実行して、
+#     今のデータと同じ結果になるかを確かめる（2回続けて実行しても壊れないかも確かめる）。
+#   ・リポジトリのデータは一切書き換えない（確認専用）。
+#   ・結果は実行画面の Summary に出る。すべて緑のチェックなら、3月も同じ手順で取り込める。
+#
+# スクリプトを直したときや、3月の更新の前に実行する。
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rehearsal:
+    runs-on: ubuntu-latest
+    env:
+      MITCHIE_DATA_DIR: /tmp/rehearsal
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 必要なライブラリをインストール
+        run: pip install pandas openpyxl xlrd
+
+      - name: 作業用のデータを用意（最新の1年分を取り除く）
+        run: python scripts/rehearse_annual_update.py prepare /tmp/rehearsal
+
+      - name: 1. 財政・人口などを更新
+        run: python scripts/update_fiscal_data.py
+
+      - name: 2. 標準財政規模を更新
+        run: python scripts/fetch_sfs.py
+
+      - name: 3. 公会計を更新
+        run: python scripts/build_kokaikei.py
+
+      - name: 4. 自治体の顔ぶれのチェック
+        run: python scripts/check_data_consistency.py
+
+      - name: 結果を今のデータと比べる
+        run: python scripts/rehearse_annual_update.py compare /tmp/rehearsal
+
+      - name: もう一度実行しても変わらないか（うっかり2回実行したとき）
+        run: |
+          set -e
+          mkdir -p /tmp/first && cp /tmp/rehearsal/*.json /tmp/first/
+          python scripts/update_fiscal_data.py > /dev/null
+          python scripts/fetch_sfs.py > /dev/null
+          python scripts/build_kokaikei.py > /dev/null
+          for f in /tmp/first/*.json; do
+            if ! cmp -s "$f" "/tmp/rehearsal/$(basename "$f")"; then
+              echo "- ❌ 2回目の実行で $(basename "$f") が変わりました" | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+          done
+          echo "- ✅ 2回続けて実行しても、データは変わりません" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: 5. 公式データとの照合（最新の年は config.json のURLで読む＝3月と同じ読み方）
+        env:
+          AUDIT_USE_CONFIG_FOR_LATEST: '1'
+        run: python scripts/audit_official_data.py
