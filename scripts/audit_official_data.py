@@ -502,6 +502,7 @@ def main():
             kk_ents.append((n, e, ip, p0 if ip else (p0, norm_name(n))))
         kk_latest = KK_LATEST_YEAR + 1
         kk_notes = []
+        kk_detail = ["| 年度 | 団体 | アプリの値（9指標） | 公式Excelの行（そのまま） | アプリの値と一致する同じ県の団体 |", "|---|---|---|---|---|"]
         kk_slots = range(1, kk_latest + 1)
         def kk_sheet_re(y):
             return r"H\s*30" if y == 0 else (r"R\s*(元|0?1)(?!\d)" if y == 1 else rf"R\s*0?{y}(?!\d)")
@@ -541,18 +542,49 @@ def main():
                         b = [to_num(v) for v in r0 if to_num(v) is not None]
                         diff_first += a != b
                     kk_notes.append(f"{year_lab(y + 1)}（{grp}）：翌年度のファイルの修正後の値と照合。最初の公表値から修正された団体 {diff_first}件")
+                kk_cols = {}
                 for i in range(1, 10):
                     p = f"ka{i}"
                     cs = choose_col(idx, p, ip, y + 1, kk_latest, kk_slots, kk_ents)
                     if cs is None:
                         problems.append(f"{LABEL[p]}（{grp}）{year_lab(y + 1)}：公式の列が特定できません")
                         continue
+                    kk_cols[p] = cs[0]
                     off = {key: round(to_num(row[cs[0]]), 1) for key, row in idx.items()
                            if row is not None and to_num(row[cs[0]]) is not None}
                     check(p, ip, y + 1, kk_latest, off, kk_slots, ents=kk_ents, ylab=year_lab)
+                # ---- 食い違いの詳細（原因を調べるため、例を最大4団体まで表示） ----
+                if "ka1" in kk_cols and "ka6" in kk_cols:
+                    shown = 0
+                    for n, e, eip, key in kk_ents:
+                        if eip != ip or shown >= 4:
+                            continue
+                        row = idx.get(key)
+                        av = [app(e, f"ka{i}", y + 1, kk_latest) for i in range(1, 10)]
+                        if row is None or av[0] is None or to_num(row[kk_cols["ka1"]]) is None:
+                            continue
+                        if abs(to_num(row[kk_cols["ka1"]]) - av[0]) <= ROUND["ka1"]:
+                            continue
+                        shown += 1
+                        # アプリの値（資産額・行政コスト）と一致する、同じ都道府県の別の行を探す
+                        other = []
+                        for k2, r2 in idx.items():
+                            if r2 is None or k2 == key or (k2[0] if isinstance(k2, tuple) else k2) != (key[0] if isinstance(key, tuple) else key):
+                                continue
+                            hit = 0
+                            for i in range(1, 10):
+                                c = kk_cols.get(f"ka{i}")
+                                v2 = to_num(r2[c]) if c is not None else None
+                                if v2 is not None and av[i - 1] is not None and abs(v2 - av[i - 1]) <= 0.11:
+                                    hit += 1
+                            if hit >= 6:
+                                other.append(k2[1] if isinstance(k2, tuple) else k2)
+                        cells = [str(v)[:10] for v in row if str(v) not in ("nan", "None")][:16]
+                        kk_detail.append(f"| {year_lab(y + 1)} | {n} | {av} | {cells} | {'、'.join(other) if other else 'なし'} |")
     except (SourceMissing, OSError) as ex:
         skipped.append(f"公会計：{ex}")
         kk_notes = []
+        kk_detail = []
 
     # ---------- ふるさと納税：受入額（fuH、8年分）と最新の住民税控除額（fk） ----------
     try:
@@ -622,6 +654,9 @@ def main():
         report += ["### 照合できなかったもの（公式ファイルが見つからない）", ""] + [f"- {x}" for x in skipped] + [""]
     if kk_notes:
         report += ["### 公会計の参考情報", ""] + [f"- {x}" for x in kk_notes] + [""]
+    if len(kk_detail) > 2:
+        report += ["### 公会計の食い違いの詳細（例）", "",
+                   "アプリの値と、公式Excelの同じ団体の行を並べています。原因（行のずれ・列のずれ）を調べるためのものです。", ""] + kk_detail + [""]
     report += ["### 年のずれの診断", "", "公式の各年が、アプリのどの年の欄と一番よく一致したか。", ""] + align_rows + [""]
     report += ["### 食い違いの件数", "",
                "端数のずれ＝四捨五入の違い程度（0.1、財政力指数は0.01、人口は1人以内）。それより大きいものは「食い違い」。",
