@@ -14,6 +14,7 @@
 """
 
 import json
+import os
 import re
 import sys
 import urllib.request
@@ -23,6 +24,11 @@ import openpyxl
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "scripts" / "config.json"
+# 書き込み先のフォルダ。年次更新のワークフローは preview/ を指定する（本番には直接書かない）。
+# 未指定なら従来どおりリポジトリ直下（手元での確認用）。
+DATA_DIR = Path(os.environ.get("MITCHIE_DATA_DIR") or ROOT)
+if not DATA_DIR.is_absolute():
+    DATA_DIR = ROOT / DATA_DIR
 DOWNLOAD_DIR = ROOT / "scripts" / "_downloads"
 DOWNLOAD_DIR.mkdir(exist_ok=True)
 
@@ -114,8 +120,9 @@ def slide_and_set(entry, prefix, new_value, start_idx=1, max_total=None, force=F
             for gap in range(max(existing) + 1 if existing else target, target):
                 entry[f"{prefix}_r{gap}"] = None
             entry[f"{prefix}_r{target}"] = old_main
-        if new_value is not None:
-            entry[prefix] = new_value
+        # 新しい年の値が空欄（例：将来負担比率の「－」＝負担なし）のときも、そのまま空欄にする。
+        # （2026-09-30：以前は空欄だと前の年の値が「最新」のまま残り、去年の数字が今年の数字として表示されるところだった）
+        entry[prefix] = new_value
         return
     # force=True のときは重複チェックをしない（増減率のように、別の年でも偶然同じ値になりうる項目用）
     if not force and new_value is not None and old_main is not None and new_value == old_main:
@@ -305,7 +312,7 @@ def main():
     print("③ data-*.json を更新中...")
     warnings = []
     for fname, pref_keys in REGION_FILES.items():
-        path = ROOT / fname
+        path = DATA_DIR / fname
         db = json.loads(path.read_text(encoding="utf-8"))
         for name, entry in db.items():
             is_pref = name in pref_keys
@@ -346,6 +353,11 @@ def main():
                 eo_oku, ei_oku = round(bg[0] / 100000, 1), round(bg[1] / 100000, 1)
                 slide_and_set(entry, "eo", eo_oku, start_idx=1, year=fiscal_year)
                 slide_and_set(entry, "ei", ei_oku, start_idx=1, year=fiscal_year)
+                # 歳出・歳入の前年度からの増減率（%）。個別ページの「歳出／歳入」の横に出る（2026-09-30追加：
+                # 以前はどのスクリプトも更新しておらず、年次更新のあとも前の年の増減率が残るところだった）
+                for fld in ("eo", "ei"):
+                    cur, prev = entry.get(fld), entry.get(f"{fld}_r{fiscal_year - 1}")
+                    entry[fld + "g"] = round((cur - prev) / prev * 100, 1) if cur is not None and prev else None
                 if not is_pref and len(bg) >= 4:
                     entry["jr"] = bg[2]
                     entry["rjr"] = bg[3]
@@ -367,12 +379,31 @@ def main():
         path.write_text(json.dumps(db, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         print(f"  {fname} 更新完了（{len(db)}件）")
 
+    # 見つからない団体が多いときは、Excelの形式が変わった可能性が高いので止める（2026-09-30）
+    # （少しなら、合併や公表の遅れなど。その団体は前回の値のまま＝1年古いまま残る）
+    kinds = {}
+    for w in warnings:
+        k = w.split(" ", 1)[1] if " " in w else w
+        kinds[k] = kinds.get(k, 0) + 1
+    too_many = {k: n for k, n in kinds.items() if n > 20}
     if warnings:
-        print(f"\n⚠️ 警告 {len(warnings)}件（該当自治体は前回値のまま据え置き）:")
+        print(f"\n⚠️ 警告 {len(warnings)}件（該当自治体は前回値のまま据え置き）: {kinds}")
         for w in warnings[:30]:
             print("  -", w)
         if len(warnings) > 30:
             print(f"  ...ほか{len(warnings) - 30}件")
+
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as fp:
+            fp.write("## 年次データ更新\n\n")
+            fp.write(f"- 財政：{config['fiscal_year_label']}　人口：{config['population_year_label']}\n")
+            fp.write(f"- 見つからなかった団体（前回の値のまま）：{kinds if warnings else 'なし'}\n")
+            for w in warnings[:40]:
+                fp.write(f"  - {w}\n")
+    if too_many:
+        print(f"\n❌ 見つからない団体が多すぎます {too_many}。総務省のExcelの形式が変わったか、URLが違う可能性があります。")
+        sys.exit(1)
 
     print("\n④ 整合性チェック中...")
     ok = validate()
@@ -388,7 +419,7 @@ def validate():
     total = 0
     seen_keys = set()
     for fname in REGION_FILES:
-        path = ROOT / fname
+        path = DATA_DIR / fname
         try:
             db = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as e:
@@ -452,9 +483,11 @@ def validate():
     # 重複スライド検知：直近の履歴スロットが主値と一致する割合が異常に高い場合、
     # 「同じデータで誤って再実行し履歴が重複した」可能性が高いため警告する
     growth_fields = {"r": ("財政調整基金", 2), "ch": ("子ども1人当たり投資額", 2),
-                      "g": ("人口増減率", 2), "edu": ("教育費比率", 2)}
+                      "g": ("人口増減率", 2), "edu": ("教育費比率", 2),
+                      # 2026-09-30追加：Excelが去年のままのとき（URLの書き換え忘れ）に気づけるように
+                      "x": ("経常収支比率", 1), "eo": ("歳出", 2)}
     for fname in REGION_FILES:
-        path = ROOT / fname
+        path = DATA_DIR / fname
         db = json.loads(path.read_text(encoding="utf-8"))
         for field, (label, start_idx) in growth_fields.items():
             total_f = 0
@@ -463,13 +496,11 @@ def validate():
                 if field not in e:
                     continue
                 # 直近の履歴スロット（最も大きい_rN）を動的に探す
-                n = start_idx
-                newest_key = None
-                while f"{field}_r{n}" in e:
-                    newest_key = f"{field}_r{n}"
-                    n += 1
-                if newest_key is None:
+                nums = [int(k[len(field) + 2:]) for k in e
+                        if k.startswith(field + "_r") and k[len(field) + 2:].isdigit()]
+                if not nums or e.get(f"{field}_r{max(nums)}") is None or e[field] is None:
                     continue
+                newest_key = f"{field}_r{max(nums)}"
                 total_f += 1
                 if e[field] == e[newest_key]:
                     dup_f += 1

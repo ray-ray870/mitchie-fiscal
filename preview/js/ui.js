@@ -55,6 +55,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.0.8", date:"2026.9", items:["表示の改善"] },
     { version:"3.0.7", date:"2026.9", items:["公会計のグラフに注記を追加"] },
     { version:"3.0.6", date:"2026.9", items:["公会計のグラフの表示を改善"] },
     { version:"3.0.5", date:"2026.9", items:["グラフの過去データを、総務省の公表値に合わせて更新"] },
@@ -174,7 +175,8 @@
     return s;
   }
 
-  function fiscalStatusBadge(d, isPref) {
+  // 区分の判定（バッジと「現在該当」の一覧で同じ判定を使う）
+  function fiscalStatusOf(d, isPref) {
     var dd = d.d, uu = (d.u!=null && d.u!=="-" && d.u!=="－") ? d.u : null;
     var jr = (d.jr!=null && d.jr!=="-" && d.jr!=="－") ? d.jr : null;
     var rjr = (d.rjr!=null && d.rjr!=="-" && d.rjr!=="－") ? d.rjr : null;
@@ -182,8 +184,38 @@
     var recon = isPref ? {jr:5, rjr:15, d:35} : {jr:20, rjr:30, d:35};
     var isRecon = (jr!=null && jr>=recon.jr) || (rjr!=null && rjr>=recon.rjr) || (dd!=null && dd>=recon.d);
     var isEarly = !isRecon && ((jr!=null && jr>=early.jr) || (rjr!=null && rjr>=early.rjr) || (dd!=null && dd>=early.d) || (uu!=null && uu>=early.u));
-    var isBond = dd!=null && dd>=18;
-    var yrLabel = "令和6年度決算時点";
+    return {recon: isRecon, early: isEarly, bond: dd!=null && dd>=18};
+  }
+  // 説明パネルの「現在該当」を、読み込んだデータから作る（2026-09-30：以前は団体名を直接書いていた）
+  function fiscalStatusLists(html) {
+    if (!DB || html.indexOf("{LIST_") < 0) return html;
+    var lists = {bond: [], early: [], recon: []};
+    Object.keys(DB).forEach(function(n){
+      var st = fiscalStatusOf(DB[n], DB[n].p === n);
+      if (st.bond) lists.bond.push(n);
+      if (st.early) lists.early.push(n);
+      if (st.recon) lists.recon.push(n);
+    });
+    // 都道府県を先、市区町村を後に並べる
+    Object.keys(lists).forEach(function(k){
+      lists[k].sort(function(a,b){ return (DB[b].p === b) - (DB[a].p === a); });
+    });
+    var colors = {bond: "#8b7ae8", early: "#f0a860", recon: "#e85060"};
+    function chips(k) {
+      if (!lists[k].length) return "該当団体はありません";
+      return lists[k].map(function(n){
+        return "<span class='peer-chip' data-city='" + escapeHtml(n) + "' style='display:inline-block;background:" + colors[k] + "14;border:1px solid " + colors[k] + "40;border-radius:12px;padding:2px 9px;font-size:12px;margin:2px 3px 0 0;cursor:pointer;'>" + escapeHtml(n) + "</span>";
+      }).join("");
+    }
+    return html.replace("{LIST_BOND}", chips("bond")).replace("{LIST_EARLY}", chips("early")).replace("{LIST_RECON}", chips("recon"));
+  }
+  function fiscalStatusBadge(d, isPref) {
+    var st = fiscalStatusOf(d, isPref);
+    var isRecon = st.recon, isEarly = st.early, isBond = st.bond;
+    var dd = d.d, uu = (d.u!=null && d.u!=="-" && d.u!=="－") ? d.u : null;
+    var jr = (d.jr!=null && d.jr!=="-" && d.jr!=="－") ? d.jr : null;
+    var rjr = (d.rjr!=null && d.rjr!=="-" && d.rjr!=="－") ? d.rjr : null;
+    var yrLabel = fillYears("{FY}決算時点");
     var chips = "";
     if (isRecon) {
       chips += "<span style='display:inline-block;background:#e8506018;color:#c23b3b;border:1px solid #e8506055;border-radius:14px;padding:4px 12px;margin:3px 6px 3px 0;font-size:12px;font-weight:700;white-space:nowrap;'>🚨 財政再生団体</span>";
@@ -284,7 +316,7 @@
       "</div>" +
       "<div class='adv'><strong>みっちーからのひとこと</strong><br>"+advice(nm,d)+"</div>" +
       "<div style='text-align:center;margin:16px 0 4px;'><button id='shareImgBtn' style='background:linear-gradient(135deg,#a08be8,#e060a8);color:white;border:none;border-radius:50px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(140,80,220,0.3);display:inline-flex;align-items:center;gap:8px;'>結果を共有する<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='18' cy='5' r='3'></circle><circle cx='6' cy='12' r='3'></circle><circle cx='18' cy='19' r='3'></circle><line x1='8.59' y1='13.51' x2='15.42' y2='17.49'></line><line x1='15.41' y1='6.51' x2='8.59' y2='10.49'></line></svg></button></div>" +
-      "<div class='src'>📋 総務省「地方財政状況調査関係資料」令和6年度 | <a href='https://www.soumu.go.jp/iken/jokyo_chousa_shiryo.html' target='_blank'>総務省公式</a></div>" +
+      "<div class='src'>📋 総務省「地方財政状況調査関係資料」"+fillYears("{FY}")+" | <a href='https://www.soumu.go.jp/iken/jokyo_chousa_shiryo.html' target='_blank'>総務省公式</a></div>" +
       "</div>" +
       "<div class='card hidden' id='kkContent' style='border-left:5px solid #f0c46a;'></div>";
     el.classList.remove("hidden");
@@ -336,29 +368,29 @@
   };
   var META = {
     health:{icon:"🏥",label:"総合財政健全度スコア",desc:"総務省の公式データから財政力・借金返済・固定費・将来負担・貯金の5指標を用いて算出した、本アプリ独自の参考スコアです（0〜100点）。公式の格付けではありません。\n\n都道府県は高校・国道・河川など大規模な資産を抱えるため、将来負担比率や経常収支比率の水準が市区町村より構造的に高くなります。そのため都道府県には専用の基準を用いており、市区町村の点数とは直接比較できません。\n\n目安\n85点以上 → 絶好調\n70点以上 → 元気\n50点以上 → ちょっとしんどい\n30点以上 → ぐったり\n30点未満 → ひんし状態\n\nスコアの上に出る帯について\n⚠️「ただし、〜は高い水準です」\n総合スコアは高めでも、その指標だけが弱い場合に出ます。たとえば税収などの体力はあるものの、毎年の支出が固まっていて、新しい取り組みに回せるお金は少ない、という状態です。\n\n💡「〜は健全な水準です」\n総合スコアは低めでも、その指標は明確に良い場合に出ます。全体としては厳しくても、その部分の管理はできている、という意味です。\n\nスコアは5つの指標をまとめた参考値です。1つの数字だけで判断せず、各指標もあわせて見てください。",unit:"pt"},
-    debt:{icon:"💳",label:"実質公債費比率",desc:"一般会計等が負担する実質的な公債費の標準財政規模に対する比率。25%以上で早期健全化基準、35%以上で財政再生基準となります。出典：総務省令和6年度\n\n目安\n10%未満 → 健全\n18%超 → 注意\n25%以上 → 早期健全化基準\n35%以上 → 財政再生基準\n\n📈 高くなる理由\n① 過去の大型公共事業・施設建設で地方債を多く発行した\n② 合併特例債など特別な借入が多い\nなど。\n\n📉 低くなる理由\n① 堅実な財政運営で借入を抑制してきた\n② 財政力が高く税収が豊富なため借入が少ない\nなど。",unit:"%"},
-    fiscalPower:{icon:"💪",label:"財政力指数",desc:"基準財政収入額を基準財政需要額で割った値。1.0以上の団体には地方交付税が交付されません（不交付団体）。出典：総務省令和6年度\n\n目安\n🟢 0.70以上 → 税収基盤が強い\n🔵 0.45〜0.70 → 標準的（中央値は市区町村0.44／都道府県0.47）\n🟡 0.25〜0.45 → 交付税への依存が大きい\n🟠 0.25未満 → 税収基盤が特に弱い\n\nこの数値が低いことは、それ自体では財政危機を意味しません。税収が少ない分は地方交付税で補われる仕組みになっているためです。人口が少ない地域や産業基盤の小さい地域では、低い値が出るのが通常です。\n\n📈 高くなる理由\n① 企業・工場が多く法人税・固定資産税が豊富\n② 人口が多く個人住民税が充実している\nなど。\n\n📉 低くなる理由\n① 産業が乏しく税収基盤が弱い\n② 人口減少・高齢化で税収が低下している\nなど。",unit:""},
-    flex:{icon:"📊",label:"経常収支比率",desc:"毎年度の経常的収入のうち人件費・扶助費・公債費など経常的経費に充当された割合。低いほど財政に弾力性があります。出典：総務省令和6年度\n\n目安\nかつて「75〜80%が望ましい」とされてきましたが、これは法令上の基準ではなく慣例的な目安です。社会保障費の増加により全国的に上昇し、2003年度以降は全国平均が90%を超え続けています。\n\n🟢 90%未満 → 全国の中では余裕があるほう\n🔵 90〜95% → 標準的な水準（市区町村の中央値91.5%／都道府県93.8%）\n🟡 95〜98% → 新しい取り組みに回せるお金が少ない\n🟠 98%以上 → 余力がほぼない（全体の約9%）\n\nこの数字だけで良し悪しは判断できません。実質公債費比率や財政力指数と合わせて見てください。\n\n📈 高くなる理由\n① 人件費・社会保障費など固定的な支出が大きい\n② 過去の借金返済（公債費）が重い\nなど。\n\n📉 低くなる理由\n① 税収が豊富で財政に余裕がある\n② 行財政改革で人件費・固定費を削減した\nなど。",unit:"%"},
-    future:{icon:"🏦",label:"将来負担比率",desc:"一般会計等が将来負担すべき実質的な負債総額の標準財政規模に対する比率。350%以上で早期健全化基準。出典：総務省令和6年度\n\n目安（市区町村）\n🟢 負担なし・0%\n🔵 60%未満 → 軽い\n🟡 60〜100% → 一定の負担あり\n🟠 100%以上 → 要注意\n\n目安（都道府県）\n🟢 100%未満\n🔵 100〜160% → 標準的（47都道府県の中央値は159.7%）\n🟡 160〜250% → やや重い\n🟠 250%以上 → 重い\n\n都道府県は高校・国道・河川など大規模な資産を抱えるため、市区町村より水準が高くなります。そのため色の基準を分けています。\n\nなお350%以上は法令上の早期健全化基準です（市区町村は350%、都道府県は400%）。\n\n📈 高くなる理由\n① 過去の借入が多く残債が大きい\n② 公営企業・第三セクターの債務も含まれる\nなど。\n\n📉 低くなる理由\n① 借入を抑制し着実に返済してきた\n② 財政調整基金など充当可能財源が多い\nなど。",unit:"%"},
-    reserve:{icon:"🐧",label:"財政調整基金残高",desc:"年度間の財源不足に備えて積み立てている自治体の貯金です。残高が多いほど不測の事態への備えがあります。出典：総務省基金残高等一覧令和6年度（概算）\n\n目安（標準財政規模に対する割合）\n標準財政規模とは、自治体が使い道を決められるお金（一般財源）の標準的な総額です。財政調整基金の水準は、実務でもこの割合で語られます。\n\n市区町村（中央値24.8%）\n🟢 20%以上 → 一般に適正とされる上限に到達\n🔵 10〜20% → 一般に適正とされる範囲\n🟡 5〜10% → やや少なめ\n🟠 5%未満 → 少ないほう\n\n都道府県（中央値6.4%）\n🟢 10%以上 → 都道府県としては多いほう\n🔵 5〜10% → 総務省調査で最も多い水準\n🟡 2.5〜5% → やや少なめ\n🟠 2.5%未満 → 少ないほう\n\n適正水準に法令上の基準はありません。総務省が平成29年に行った調査では、積立の考え方を「標準財政規模の一定割合」と答えた団体の水準は、都道府県で5%前後、市町村で5〜20%が多いという結果でした。都道府県と市区町村では水準が大きく違うため、基準を分けています。\n\n多いほど良いとは限りません。積立の原資は住民が納めた税金であり、貯め込みすぎは「使うべきところに使えていない」という見方もできます。\n\n📈 多い理由\n① 税収が安定し積立を続けてきた\n② 原発立地など特別な収入がある\nなど。\n\n📉 少ない理由\n① 財政難で取り崩しが続いている\n② 大規模災害・事業で緊急支出があった\nなど。",unit:"億円"},
-    growth:{icon:"👥",label:"人口増減率",desc:"住民基本台帳に基づく前年比人口増減率。人口減少は税収低下や社会保障費増加につながります。出典：総務省令和8年\n\n目安\n0%以上 → 人口増加\n-0.5%以上 → 緩やかな減少\n-1%以下 → 深刻な人口減少\n\n📈 増加の理由\n① 子育て支援・住環境が充実した新興住宅地\n② 企業誘致・雇用創出が成功している\nなど。\n\n📉 減少の理由\n① 若者が都市部へ流出している\n② 少子高齢化が急速に進んでいる\nなど。",unit:"%"},
-    budget:{icon:"💹",label:"歳出／歳入",desc:"一般会計の歳出・歳入総額（億円）。自治体の予算規模を示します。歳出は人件費・扶助費・公債費・投資的経費などの総支出、歳入は地方税・地方交付税・国庫支出金・地方債などの総収入です。出典：総務省令和6年度地方財政状況調査\n\n目安\n歳入＞歳出 → 黒字基調\n歳入＝歳出 → 収支均衡\n歳入＜歳出 → 赤字基調（要注意）",unit:"億円"},
-    education:{icon:"📚",label:"教育費一般財源比率",desc:"歳出総額に占める教育費の割合です（総務省令和6年度データ）。\n\n目安\n中央値は市区町村10.5%、都道府県18.9%です。都道府県は高校・特別支援学校を持つため、市区町村より構造的に高くなります。\n\n⚠️ この数字には良し悪しがありません。そのため色分けをしていません。\n高いのは教育を重視しているからとも、学校施設の老朽化対応や小規模校の維持で費用がかさんでいるからとも読めます。低いのは子どもの人口が多くて相対的に下がっている場合もあります。他の指標と合わせてご覧ください。\n\n📈 比率が高くなる理由\n① 学校施設の老朽化対応（校舎・体育館の改修・建替え）\n② 少子化でも学校を統廃合できず固定費がかかる\n③ 教育・子育てを重点政策と位置づけ積極的に投資している\n④ 過疎地・離島で小規模校を存続させている\nなど。\n\n📉 比率が低くなる理由\n① 子ども人口が多く相対的に比率が下がる\n② 子育て・教育より、他の政策を優先する政策判断のため。（他の政策→インフラ・高齢者福祉などが考えられる）\nなど。",unit:"%"},
-    childInvest:{icon:"👧",label:"子ども1人当たり投資額",desc:"教育費と児童福祉費の合計を18歳未満人口で割った値です（総務省令和6年度データ）。\n\n目安\n中央値は市区町村118.4万円、都道府県87.9万円です。\n\n⚠️ この数字には良し悪しがありません。そのため色分けをしていません。\n18歳未満の人数で割った値なので、子どもが少ない自治体ほど大きく出ます。全国で最も高いのは974万円ですが、これは投資が手厚いのではなく、分母となる子どもの数が極端に少ないためです。逆に子育て世代が多い新興住宅地では、分母が大きくなるため低く出ます。\n\n金額の大小ではなく、同じ規模の自治体との比較や、経年の変化を見るほうが実態をつかめます。\n\n📉 数値が低い理由\n① 子育て世代が多く子ども人口が多い新興住宅地（分母が大きい）\n② 財政が厳しく教育・子育てへの支出が少ない\n③ 子育て・教育より、他の政策を優先する政策判断のため。（他の政策→インフラ・高齢者福祉などが考えられる）\nなど。\n\n📈 数値が高い理由\n① 過疎地で子ども数が極少なため1人当たりコストが膨らむ\n② 教育・子育てを重点政策と位置づけ積極的に投資している\nなど。",unit:"万円"},
+    debt:{icon:"💳",label:"実質公債費比率",desc:"一般会計等が負担する実質的な公債費の標準財政規模に対する比率。25%以上で早期健全化基準、35%以上で財政再生基準となります。出典：総務省{FY}\n\n目安\n10%未満 → 健全\n18%超 → 注意\n25%以上 → 早期健全化基準\n35%以上 → 財政再生基準\n\n📈 高くなる理由\n① 過去の大型公共事業・施設建設で地方債を多く発行した\n② 合併特例債など特別な借入が多い\nなど。\n\n📉 低くなる理由\n① 堅実な財政運営で借入を抑制してきた\n② 財政力が高く税収が豊富なため借入が少ない\nなど。",unit:"%"},
+    fiscalPower:{icon:"💪",label:"財政力指数",desc:"基準財政収入額を基準財政需要額で割った値。1.0以上の団体には地方交付税が交付されません（不交付団体）。出典：総務省{FY}\n\n目安\n🟢 0.70以上 → 税収基盤が強い\n🔵 0.45〜0.70 → 標準的（中央値は市区町村{MED:f:muni:2}／都道府県{MED:f:pref:2}）\n🟡 0.25〜0.45 → 交付税への依存が大きい\n🟠 0.25未満 → 税収基盤が特に弱い\n\nこの数値が低いことは、それ自体では財政危機を意味しません。税収が少ない分は地方交付税で補われる仕組みになっているためです。人口が少ない地域や産業基盤の小さい地域では、低い値が出るのが通常です。\n\n📈 高くなる理由\n① 企業・工場が多く法人税・固定資産税が豊富\n② 人口が多く個人住民税が充実している\nなど。\n\n📉 低くなる理由\n① 産業が乏しく税収基盤が弱い\n② 人口減少・高齢化で税収が低下している\nなど。",unit:""},
+    flex:{icon:"📊",label:"経常収支比率",desc:"毎年度の経常的収入のうち人件費・扶助費・公債費など経常的経費に充当された割合。低いほど財政に弾力性があります。出典：総務省{FY}\n\n目安\nかつて「75〜80%が望ましい」とされてきましたが、これは法令上の基準ではなく慣例的な目安です。社会保障費の増加により全国的に上昇し、2003年度以降は全国平均が90%を超え続けています。\n\n🟢 90%未満 → 全国の中では余裕があるほう\n🔵 90〜95% → 標準的な水準（市区町村の中央値{MED:x:muni:1}%／都道府県{MED:x:pref:1}%）\n🟡 95〜98% → 新しい取り組みに回せるお金が少ない\n🟠 98%以上 → 余力がほぼない（全体の約9%）\n\nこの数字だけで良し悪しは判断できません。実質公債費比率や財政力指数と合わせて見てください。\n\n📈 高くなる理由\n① 人件費・社会保障費など固定的な支出が大きい\n② 過去の借金返済（公債費）が重い\nなど。\n\n📉 低くなる理由\n① 税収が豊富で財政に余裕がある\n② 行財政改革で人件費・固定費を削減した\nなど。",unit:"%"},
+    future:{icon:"🏦",label:"将来負担比率",desc:"一般会計等が将来負担すべき実質的な負債総額の標準財政規模に対する比率。350%以上で早期健全化基準。出典：総務省{FY}\n\n目安（市区町村）\n🟢 負担なし・0%\n🔵 60%未満 → 軽い\n🟡 60〜100% → 一定の負担あり\n🟠 100%以上 → 要注意\n\n目安（都道府県）\n🟢 100%未満\n🔵 100〜160% → 標準的（47都道府県の中央値は{MED:u:pref:1}%）\n🟡 160〜250% → やや重い\n🟠 250%以上 → 重い\n\n都道府県は高校・国道・河川など大規模な資産を抱えるため、市区町村より水準が高くなります。そのため色の基準を分けています。\n\nなお350%以上は法令上の早期健全化基準です（市区町村は350%、都道府県は400%）。\n\n📈 高くなる理由\n① 過去の借入が多く残債が大きい\n② 公営企業・第三セクターの債務も含まれる\nなど。\n\n📉 低くなる理由\n① 借入を抑制し着実に返済してきた\n② 財政調整基金など充当可能財源が多い\nなど。",unit:"%"},
+    reserve:{icon:"🐧",label:"財政調整基金残高",desc:"年度間の財源不足に備えて積み立てている自治体の貯金です。残高が多いほど不測の事態への備えがあります。出典：総務省基金残高等一覧令和6年度（概算）\n\n目安（標準財政規模に対する割合）\n標準財政規模とは、自治体が使い道を決められるお金（一般財源）の標準的な総額です。財政調整基金の水準は、実務でもこの割合で語られます。\n\n市区町村（中央値{MED:rr:muni:1}%）\n🟢 20%以上 → 一般に適正とされる上限に到達\n🔵 10〜20% → 一般に適正とされる範囲\n🟡 5〜10% → やや少なめ\n🟠 5%未満 → 少ないほう\n\n都道府県（中央値{MED:rr:pref:1}%）\n🟢 10%以上 → 都道府県としては多いほう\n🔵 5〜10% → 総務省調査で最も多い水準\n🟡 2.5〜5% → やや少なめ\n🟠 2.5%未満 → 少ないほう\n\n適正水準に法令上の基準はありません。総務省が平成29年に行った調査では、積立の考え方を「標準財政規模の一定割合」と答えた団体の水準は、都道府県で5%前後、市町村で5〜20%が多いという結果でした。都道府県と市区町村では水準が大きく違うため、基準を分けています。\n\n多いほど良いとは限りません。積立の原資は住民が納めた税金であり、貯め込みすぎは「使うべきところに使えていない」という見方もできます。\n\n📈 多い理由\n① 税収が安定し積立を続けてきた\n② 原発立地など特別な収入がある\nなど。\n\n📉 少ない理由\n① 財政難で取り崩しが続いている\n② 大規模災害・事業で緊急支出があった\nなど。",unit:"億円"},
+    growth:{icon:"👥",label:"人口増減率",desc:"住民基本台帳に基づく前年比人口増減率。人口減少は税収低下や社会保障費増加につながります。出典：総務省{PY}\n\n目安\n0%以上 → 人口増加\n-0.5%以上 → 緩やかな減少\n-1%以下 → 深刻な人口減少\n\n📈 増加の理由\n① 子育て支援・住環境が充実した新興住宅地\n② 企業誘致・雇用創出が成功している\nなど。\n\n📉 減少の理由\n① 若者が都市部へ流出している\n② 少子高齢化が急速に進んでいる\nなど。",unit:"%"},
+    budget:{icon:"💹",label:"歳出／歳入",desc:"一般会計の歳出・歳入総額（億円）。自治体の予算規模を示します。歳出は人件費・扶助費・公債費・投資的経費などの総支出、歳入は地方税・地方交付税・国庫支出金・地方債などの総収入です。出典：総務省{FY}地方財政状況調査\n\n目安\n歳入＞歳出 → 黒字基調\n歳入＝歳出 → 収支均衡\n歳入＜歳出 → 赤字基調（要注意）",unit:"億円"},
+    education:{icon:"📚",label:"教育費一般財源比率",desc:"歳出総額に占める教育費の割合です（総務省{FY}データ）。\n\n目安\n中央値は市区町村{MED:edu:muni:1}%、都道府県{MED:edu:pref:1}%です。都道府県は高校・特別支援学校を持つため、市区町村より構造的に高くなります。\n\n⚠️ この数字には良し悪しがありません。そのため色分けをしていません。\n高いのは教育を重視しているからとも、学校施設の老朽化対応や小規模校の維持で費用がかさんでいるからとも読めます。低いのは子どもの人口が多くて相対的に下がっている場合もあります。他の指標と合わせてご覧ください。\n\n📈 比率が高くなる理由\n① 学校施設の老朽化対応（校舎・体育館の改修・建替え）\n② 少子化でも学校を統廃合できず固定費がかかる\n③ 教育・子育てを重点政策と位置づけ積極的に投資している\n④ 過疎地・離島で小規模校を存続させている\nなど。\n\n📉 比率が低くなる理由\n① 子ども人口が多く相対的に比率が下がる\n② 子育て・教育より、他の政策を優先する政策判断のため。（他の政策→インフラ・高齢者福祉などが考えられる）\nなど。",unit:"%"},
+    childInvest:{icon:"👧",label:"子ども1人当たり投資額",desc:"教育費と児童福祉費の合計を18歳未満人口で割った値です（総務省{FY}データ）。\n\n目安\n中央値は市区町村{MED:ch:muni:1}万円、都道府県{MED:ch:pref:1}万円です。\n\n⚠️ この数字には良し悪しがありません。そのため色分けをしていません。\n18歳未満の人数で割った値なので、子どもが少ない自治体ほど大きく出ます。全国で最も高いのは{MAX:ch:0}万円ですが、これは投資が手厚いのではなく、分母となる子どもの数が極端に少ないためです。逆に子育て世代が多い新興住宅地では、分母が大きくなるため低く出ます。\n\n金額の大小ではなく、同じ規模の自治体との比較や、経年の変化を見るほうが実態をつかめます。\n\n📉 数値が低い理由\n① 子育て世代が多く子ども人口が多い新興住宅地（分母が大きい）\n② 財政が厳しく教育・子育てへの支出が少ない\n③ 子育て・教育より、他の政策を優先する政策判断のため。（他の政策→インフラ・高齢者福祉などが考えられる）\nなど。\n\n📈 数値が高い理由\n① 過疎地で子ども数が極少なため1人当たりコストが膨らむ\n② 教育・子育てを重点政策と位置づけ積極的に投資している\nなど。",unit:"万円"},
     fiscalStatus:{icon:"📋",label:"起債許可団体・早期健全化団体・財政再生団体とは",desc:"",htmlDesc:
       "財政状況を示す3つの区分です。実は2つの別々の制度に基づいています。<br>" +
       "・起債許可団体 → 地方財政法（地方債協議・許可制度）<br>" +
       "・早期健全化団体／財政再生団体 → 地方公共団体の財政の健全化に関する法律（財政健全化法）<br><br>" +
-      "いずれも令和6年度決算に基づく判定です。<br><br>" +
+      "いずれも{FY}決算に基づく判定です。<br><br>" +
       "<span style='display:inline-block;background:#8b7ae818;color:#6b5b95;border:1px solid #8b7ae844;border-radius:14px;padding:3px 11px;font-size:12px;font-weight:700;'>📋 起債許可団体</span><br>" +
       "実質公債費比率が18%以上になると、地方債（借金）を新しく発行する際に総務大臣・知事の許可が必要になります。<br>" +
-      "現在該当：<span class='peer-chip' data-city='北海道' style='display:inline-block;background:#8b7ae814;border:1px solid #8b7ae840;border-radius:12px;padding:2px 9px;font-size:12px;margin:2px 3px 0 0;cursor:pointer;'>北海道</span><span class='peer-chip' data-city='新潟県' style='display:inline-block;background:#8b7ae814;border:1px solid #8b7ae840;border-radius:12px;padding:2px 9px;font-size:12px;margin:2px 3px 0 0;cursor:pointer;'>新潟県</span><span class='peer-chip' data-city='夕張市' style='display:inline-block;background:#8b7ae814;border:1px solid #8b7ae840;border-radius:12px;padding:2px 9px;font-size:12px;margin:2px 3px 0 0;cursor:pointer;'>夕張市</span><br><br>" +
+      "現在該当：{LIST_BOND}<br><br>" +
       "<span style='display:inline-block;background:#f0a86018;color:#c07a1f;border:1px solid #f0a86044;border-radius:14px;padding:3px 11px;font-size:12px;font-weight:700;'>⚠️ 早期健全化団体</span><br>" +
       "実質赤字比率（都道府県3.75% / 市町村11.25〜15%）・連結実質赤字比率（都道府県8.75% / 市町村16.25〜20%）・実質公債費比率（25%）・将来負担比率（都道府県400% / 市町村350%）のいずれか1つでも基準を超えると、自主的な改善計画（財政健全化計画）を作ることが義務付けられます。<br>" +
-      "現在該当：該当団体はありません<br><br>" +
+      "現在該当：{LIST_EARLY}<br><br>" +
       "<span style='display:inline-block;background:#e8506018;color:#c23b3b;border:1px solid #e8506044;border-radius:14px;padding:3px 11px;font-size:12px;font-weight:700;'>🚨 財政再生団体</span><br>" +
       "実質赤字比率（都道府県5% / 市町村20%）・連結実質赤字比率（都道府県15% / 市町村30%）・実質公債費比率（35%）のいずれか1つでも基準を超えると、国の関与のもとで確実な再生に取り組む「財政再生計画」の策定が義務付けられます（将来負担比率にはこの基準はありません）。<br>" +
-      "現在該当：<span class='peer-chip' data-city='夕張市' style='display:inline-block;background:#e8506014;border:1px solid #e8506040;border-radius:12px;padding:2px 9px;font-size:12px;margin:2px 3px 0 0;cursor:pointer;'>夕張市</span>",
+      "現在該当：{LIST_RECON}",
     unit:""},
     furusato:{icon:"🎁",label:"ふるさと納税受入額",desc:"",htmlDesc:"",unit:"万円"}
   };
@@ -383,7 +415,7 @@
     if (key === "fiscalStatus") {
       document.getElementById("shTitle").textContent = m.icon+" "+m.label;
       document.getElementById("shTop").innerHTML = "";
-      document.getElementById("shDesc").innerHTML = m.htmlDesc || chipifyHeaders(m.desc).replace(/\n/g,"<br>");
+      document.getElementById("shDesc").innerHTML = m.htmlDesc ? fiscalStatusLists(fillYears(m.htmlDesc)) : chipifyHeaders(fillYears(m.desc)).replace(/\n/g,"<br>");
       document.getElementById("spSvg").innerHTML = "";
       document.getElementById("spSvg").style.height = "0px";
       document.getElementById("spLabels").innerHTML = "";
@@ -627,7 +659,7 @@
         "</div>";
       }).join("");
       var furuRankBoxHtml = "<div id='furuRankBox' style='display:"+(furuRankOpen?"block":"none")+";margin-top:10px;'>" +
-        "<div style='font-size:12px;color:#9090a8;margin-bottom:8px;'>受入額 TOP10（R7年度・総務省公表データ）</div>" +
+        "<div style='font-size:12px;color:#9090a8;margin-bottom:8px;'>受入額 TOP10（"+FURU_YEARS[FURU_YEARS.length-1]+"年度・総務省公表データ）</div>" +
         topFuRowsHtml +
       "</div>";
 
@@ -635,7 +667,7 @@
         "生まれ故郷や応援したい自治体に寄附をすると、返礼品がもらえ、翌年の住民税・所得税が控除される制度です。寄附する自治体は自由に選べます。" +
         "</div>" +
         "<div style='background:#eeecf8;border:1px solid #dcd8ee;border-radius:14px;padding:14px 16px;margin-bottom:16px;'>" +
-        "<div style='font-size:15px;color:#3a3a4a;line-height:1.8;'><strong><span style='color:#3a6ee8;'>R7年度</span> 全国のふるさと納税受入額は約<span style='color:#3a6ee8;font-size:16px;'>" + natTotalOkuF + "億円</span>です。</strong></div>" +
+        "<div style='font-size:15px;color:#3a3a4a;line-height:1.8;'><strong><span style='color:#3a6ee8;'>"+FURU_YEARS[FURU_YEARS.length-1]+"年度</span> 全国のふるさと納税受入額は約<span style='color:#3a6ee8;font-size:16px;'>" + natTotalOkuF + "億円</span>です。</strong></div>" +
         "<div style='text-align:center;margin-top:10px;'><button type='button' onclick=\"furuToggleRank()\" style='display:inline-flex;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#f7b955,#f0876a);color:#fff;font-weight:700;font-size:13px;border:none;border-radius:999px;padding:9px 16px;box-shadow:0 3px 8px rgba(240,135,106,0.35);cursor:pointer;font-family:inherit;'><span id='furuRankBtnLabel'>"+(furuRankOpen?"🏆 全国ランキングTOP10 ▲":"🏆 全国ランキングTOP10 ▶")+"</span></button></div>" +
         furuRankBoxHtml +
         "</div>" +
@@ -898,7 +930,7 @@
     var pmrTagHtml = function(){
       return isPrefView ? "<span style='background:#f0876a18;color:#f0876a;border:1px solid #f0876a44;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:700;'>都道府県</span>" : "<span style='background:#7bb8e818;color:#7bb8e8;border:1px solid #7bb8e844;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:700;'>市区町村</span>";
     };
-    var descSrc = m.desc;
+    var descSrc = fillYears(m.desc);
     if (PREF_MUNI_REASONS[key] && cur) {
       var pmr = PREF_MUNI_REASONS[key];
       var highText = isPrefView ? pmr.prefHigh : pmr.muniHigh;
@@ -1262,7 +1294,7 @@ if (key === "growth" && cur && cur.pop) {
       if (kkCrossBoxShownF) { topSummaryHtml += KK_CROSSCHECK_CAVEAT; }
     }
     if (key === "education" && cur && cur.edu!=null) {
-      var eduMed = isPrefView ? 18.9 : 10.5;
+      var eduMed = +(isPrefView ? DATA_STATS.edu.pref : DATA_STATS.edu.muni).toFixed(1);
       var eduUnit = isPrefView ? "47都道府県" : "全国の市区町村";
       var ej = cur.edu >= eduMed ? "中央値より高めです" : "中央値より低めです";
       topSummaryHtml += "<div style='background:#a08be814;border:1px solid #a08be855;border-radius:12px;padding:12px 14px;'>" +
@@ -1289,12 +1321,12 @@ if (key === "growth" && cur && cur.pop) {
           topSummaryHtml += "</div>";
     }
     if (key === "childInvest" && cur && cur.ch!=null) {
-      var chMed = isPrefView ? 87.9 : 118.4;
+      var chMed = +(isPrefView ? DATA_STATS.ch.pref : DATA_STATS.ch.muni).toFixed(1);
       var chUnit = isPrefView ? "47都道府県" : "全国の市区町村";
       var cj2 = cur.ch >= chMed ? "中央値より高めです" : "中央値より低めです";
       topSummaryHtml += "<div style='background:#a08be814;border:1px solid #a08be855;border-radius:12px;padding:12px 14px;'>" +
         "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:#a08be8;font-weight:700;'>"+curName+"</span>の子ども1人当たり投資額は<span style='color:#a08be8;font-weight:700;'>"+cur.ch.toFixed(1)+"万円</span>で、"+chUnit+"の"+cj2+"（中央値"+chMed+"万円）。</div>";
-      topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2139\uFE0F この数字は高い・低いが、そのまま良い・悪いを意味しません。子どもの人数で割った値なので、子どもが少ない自治体ほど大きく出ます。全国で最も高いのは974万円ですが、これは手厚いのではなく分母が小さいためです。</div>";
+      topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2139\uFE0F この数字は高い・低いが、そのまま良い・悪いを意味しません。子どもの人数で割った値なので、子どもが少ない自治体ほど大きく出ます。全国で最も高いのは"+fillYears("{MAX:ch:0}")+"万円ですが、これは手厚いのではなく分母が小さいためです。</div>";
       var chCaveatFired = false;
       if (cur.pop && cur.pop < 3000 && cur.ch > 250) {
         topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ "+curName+"は人口が少ない（"+cur.pop.toLocaleString()+"人）ため、子どもの人数自体が少なく、1人当たりで計算すると数値が実態以上に大きくなります。</div>";

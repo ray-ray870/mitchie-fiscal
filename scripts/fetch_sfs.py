@@ -46,7 +46,12 @@ import openpyxl
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+# 書き込み先のフォルダ（年次更新のワークフローは preview/ を指定する。未指定ならリポジトリ直下）
+DATA_DIR = os.environ.get("MITCHIE_DATA_DIR") or ROOT
+if not os.path.isabs(DATA_DIR):
+    DATA_DIR = os.path.join(ROOT, DATA_DIR)
 
+FISCAL_YEAR = None
 SUFFIX = sys.argv[1] if len(sys.argv) > 1 else ""
 if SUFFIX and not re.fullmatch(r"r[0-9]+", SUFFIX):
     print("NG: 引数は空欄か r1, r2... の形式で指定してください")
@@ -87,32 +92,11 @@ def norm(name):
                 .replace("\u3000", "").strip())
 
 
-def slide_and_set(entry, prefix, new_value, start_idx=1, max_total=8):
-    """履歴フィールドをスライドし、新しい主値をセットする。
-
-    update_fiscal_data.py の同名関数と同じロジック（8データポイント＝履歴7+最新1
-    に達するまでは追加、以降は最古を破棄してローリング）。sfs は他の指標と別スクリプト
-    で取得しているため、ここにも同じ処理を持たせて挙動を揃えている。
-
-    ※ new_value が現在の主値と完全に同じ場合は「新年度データではない」と判断し、
-      スライドせずスキップする（同じ総務省データで誤って再実行した際の重複防止）。
-    """
-    old_main = entry.get(prefix)
-    if new_value is not None and old_main is not None and new_value == old_main:
-        return
-    n = 0
-    while f"{prefix}_r{start_idx + n}" in entry:
-        n += 1
-    if n < max_total - 1:
-        if old_main is not None:
-            entry[f"{prefix}_r{start_idx + n}"] = old_main
-    else:
-        for i in range(start_idx, start_idx + n - 1):
-            entry[f"{prefix}_r{i}"] = entry.get(f"{prefix}_r{i + 1}")
-        if old_main is not None:
-            entry[f"{prefix}_r{start_idx + n - 1}"] = old_main
-    if new_value is not None:
-        entry[prefix] = new_value
+# 履歴の書き込みは update_fiscal_data.py と同じ関数を使う（2026-09-30）。
+# 以前はこのファイルに「空いている次の欄に入れる」古い仕組みが別にあり、sfs_r1（令和元年度）しか
+# 無い今のデータで実行すると、令和6年度の値が sfs_r2（令和2年度の欄）に入ってしまうところだった。
+sys.path.insert(0, HERE)
+from update_fiscal_data import slide_and_set, reiwa_num  # noqa: E402
 
 
 def fail(msg):
@@ -179,6 +163,8 @@ def main():
     if not os.path.exists(cfg_path):
         fail("config.json が見つかりません")
     cfg = json.load(open(cfg_path, encoding="utf-8"))
+    global FISCAL_YEAR
+    FISCAL_YEAR = reiwa_num(cfg["fiscal_year_label"])  # 新しいデータの年度（sfs_r◯ の番号＝令和の年度）
 
     sfs_cfg = cfg.get("sfs")
     if not sfs_cfg or not sfs_cfg.get(CFG_BASE_KEY):
@@ -192,7 +178,7 @@ def main():
     expected_by_pref = {}
     expected_prefs = set()
     for fn in DATA_FILES:
-        path = os.path.join(ROOT, fn)
+        path = os.path.join(DATA_DIR, fn)
         if not os.path.exists(path):
             fail(fn + " が見つかりません")
         db = json.load(open(path, encoding="utf-8"))
@@ -271,6 +257,8 @@ def main():
     print("■ data-*.json に反映")
     total = matched = 0
     missing = []
+    same_as_before = compared = 0
+    counts = {}
     for fn in DATA_FILES:
         db = dbs[fn]
         n = 0
@@ -284,23 +272,40 @@ def main():
                     # 過去分の一括登録（バックフィル）: 直接そのキーに書き込む
                     v[FIELD] = all_sfs[look]
                 else:
-                    # 今年度分の通常更新: 他の指標と同じくスライドしてからセット
-                    slide_and_set(v, "sfs", all_sfs[look])
+                    # 今年度分の通常更新：今の値を「前の年度の欄」に移してから、新しい値をセット
+                    new_year = "sfs_r%d" % (FISCAL_YEAR - 1) not in v
+                    if new_year and v.get("sfs") is not None:
+                        compared += 1
+                        same_as_before += v.get("sfs") == all_sfs[look]
+                    slide_and_set(v, "sfs", all_sfs[look], year=FISCAL_YEAR)
                 n += 1
                 matched += 1
             else:
                 missing.append(k)
-        path = os.path.join(ROOT, fn)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(db, f, ensure_ascii=False, separators=(",", ":"))
-        print("  %-30s %d件に付与" % (fn, n))
+        counts[fn] = n
 
     print("")
     print("突合結果: %d / %d 件 (%.1f%%)" % (matched, total, matched / total * 100))
     if missing:
         print("未取得（先頭20件）: %s" % ", ".join(missing[:20]))
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as sf:
+            sf.write("## 標準財政規模（sfs）の更新\n\n- 年度：%s\n- 取得できた団体：%d / %d\n- 取得できなかった団体：%s\n\n"
+                     % (cfg["fiscal_year_label"] + ("" if not SUFFIX else "（" + SUFFIX + "）"), matched, total, "、".join(missing[:20]) or "なし"))
     if matched / total < 0.95:
-        fail("突合率が95%を下回りました。名称の対応を確認してください。")
+        fail("突合率が95%を下回りました。名称の対応を確認してください。（データは書き換えていません）")
+    # 前の年度と同じ値ばかり＝config.json の sfs（base_muni・pref_card）が去年のままの可能性（2026-09-30）
+    if compared > 100 and same_as_before / compared > 0.3:
+        fail("新しい年度の値が、前の年度とほとんど同じです（%d / %d 団体）。config.json の sfs の base_muni・pref_card が"
+             "新しい年度のものか確認してください。（データは書き換えていません）" % (same_as_before, compared))
+
+    # チェックに通ってから書き込む
+    for fn in DATA_FILES:
+        path = os.path.join(DATA_DIR, fn)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(dbs[fn], f, ensure_ascii=False, separators=(",", ":"))
+        print("  %-30s %d件に付与" % (fn, counts[fn]))
 
     print("")
     print("完了しました。")

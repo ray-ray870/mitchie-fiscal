@@ -1,7 +1,7 @@
 {
   "_readme": "年に1回、新年度のデータが公開されたら、このファイルのURLだけを書き換えてください。書き換え方は scripts/README.md を参照。",
   "fiscal_year_label": "令和6年度",
-  "population_year_label": "令和7年",
+  "population_year_label": "令和8年",
 
   "fiscal_indicators": {
     "muni": "https://www.soumu.go.jp/main_content/001044529.xlsx",
@@ -12,8 +12,8 @@
     "pref": "https://www.soumu.go.jp/main_content/001066237.xlsx"
   },
   "population": {
-    "muni": "https://www.soumu.go.jp/main_content/001023714.xlsx",
-    "_note": "この1ファイルに市町村・都道府県データが両方含まれます"
+    "muni": "https://www.soumu.go.jp/main_content/000892952.xlsx",
+    "_note": "【総計】令和◯年住民基本台帳人口・世帯数（市区町村別）。population_year_label と同じ年のファイル。この1ファイルに市町村・都道府県データが両方含まれます。人口は毎年7〜8月に公表されるため、3月の時点では前の年のままでよい（同じ年のまま実行しても壊れない）"
   },
   "budget": {
     "city": "https://www.soumu.go.jp/main_content/001061669.xlsx",
@@ -26,6 +26,7 @@
     "pref": "https://www.soumu.go.jp/main_content/001056128.xlsx"
   },
   "age_population": {
+    "_note": "【総計】令和◯年住民基本台帳年齢階級別人口。子ども投資額の計算に使う。fiscal_year_label の『次の年』のファイル（令和6年度の財政なら令和7年の年齢別人口）",
     "muni": "https://www.soumu.go.jp/main_content/001023715.xlsx",
     "pref": "https://www.soumu.go.jp/main_content/001023713.xlsx"
   },"sfs": {

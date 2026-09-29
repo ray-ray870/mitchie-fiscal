@@ -361,7 +361,7 @@
       // ただし中央値はアプリが算出したもので、総務省が直接公表した数値ではない。
       // また類似団体の所属数は総務省の資料・年度によって異なることがある
       // （区分は数年おきに見直されるため。例：財政指標系の資料は令和4年度区分、当データは令和5年度区分）。
-      line += "<div style='font-size:11px;color:#999;margin-top:4px;'>※区分は総務省の類似団体区分（令和5年度公会計データに同梱）を使用。中央値は当アプリで算出しています。区分の対象自治体数は総務省の資料・年度により異なる場合があります。</div>";
+      line += "<div style='font-size:11px;color:#999;margin-top:4px;'>※区分は総務省の類似団体区分（"+fillYears("{KY}")+"公会計データに同梱）を使用。中央値は当アプリで算出しています。区分の対象自治体数は総務省の資料・年度により異なる場合があります。</div>";
     }
 
     // 財政データの裏付けがある場合、断定しすぎない一言を追加
@@ -406,7 +406,7 @@
     }
     document.getElementById("shTitle").innerHTML = escapeHtml(meta.icon + " " + meta.label) + (KK_ONELINE[code] ? "<div style='font-size:15px;font-weight:400;color:#222;margin-top:4px;'>"+escapeHtml(KK_ONELINE[code])+"</div>" : "");
     var cmpLine = kkCompareLine(code, nm, entry, isPref);
-    var descHtml = meta.desc
+    var descHtml = fillYears(meta.desc)
       .replace(/【([^】]+)】/g, "<strong style='color:#6a3de8;'>$1</strong>")
       .replace(/。/g, "。\n")
       .replace(/\n{2,}/g, "\n\n")
@@ -419,7 +419,7 @@
 
     // 過去分（_r1, _r2, _r3…）が集まったので、他の財政指標と同じ形式で推移グラフを描く
     // _r1が一番古い年、番号が大きいほど新しい年（財政側と統一済み）
-    var KK_CURRENT_YEAR = 5; // 令和5年度（総務省の最新公表年度。次回データ更新時に見直す）
+    var KK_CURRENT_YEAR = DATA_YEAR.kokaikei; // 最新の年度（データから自動で決まる。js/data.js の computeDataYears）
     // 履歴は _r1（最も古い年）から順に並び、番号がそのまま年を表す（主値＝KK_CURRENT_YEAR）。
     // 公式に値が無い年は空欄(null)のまま位置を保っているので、空欄は飛ばし、ラベルは各値の年から作る
     // （2026-09-29：以前は最初の空欄で止まり、最新から数えてラベルを付けていたため、空欄のある団体で年がずれた）
@@ -702,7 +702,7 @@
       body.innerHTML = "<p style='text-align:center;color:#a090c8;padding:24px 0;'>\u3053\u306e\u81ea\u6cbb\u4f53\u306e\u516c\u4f1a\u8a08\u30c7\u30fc\u30bf\u306f\u672a\u516c\u8868\u3067\u3059\u3002</p>";
       return;
     }
-    var html = "<div style='font-size:12px;color:#a08b64;text-align:center;margin:2px 0 12px;'>📊 公会計データ：令和5年度（総務省公表最新データ）</div>";
+    var html = "<div style='font-size:12px;color:#a08b64;text-align:center;margin:2px 0 12px;'>📊 公会計データ："+fillYears("{KY}")+"（総務省公表最新データ）</div>";
     html += kkRadarSvg(nm, entry, isPref, d.p);
     html += "<div class='tap-hint' style='margin-top:20px;'>\ud83d\udcca \u5404\u9805\u76ee\u3092\u30bf\u30c3\u30d7\u3059\u308b\u3068\u8aac\u660e\u304c\u8868\u793a\u3055\u308c\u307e\u3059</div><div class='grid'>";
     KK_ORDER.forEach(function(code){ html += kkBoxHtml(code, entry, isPref); });

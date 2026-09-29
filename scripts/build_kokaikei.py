@@ -1,239 +1,224 @@
 # -*- coding: utf-8 -*-
 """
-総務省「統一的な基準による財務書類に関する調」の指標一覧Excel（市町村・都道府県）から
-9つの公会計指標を読み取り、kokaikei.json を作る/更新する。
+公会計（kokaikei.json）の年次更新。総務省「統一的な基準による財務書類に関する情報」の指標一覧から、
+9つの公会計指標（ka1〜ka9）の新しい年度を取り込む。（2026-09-30 作り直し）
 
-財政データ（data-*.json）とは完全に別ファイルで管理する。
+使い方（年次更新のワークフローから自動で実行される）:
+    python scripts/build_kokaikei.py            … 次の年度が公表されていれば取り込む。まだなら何もしない
+    python scripts/build_kokaikei.py --year 5   … 指定した年度（5＝令和5年度）で取り込み直す（リハーサル用）
 
-使い方（ローカルまたは GitHub Actions から）:
-    python scripts/build_kokaikei.py <市町村指標一覧.xlsx> <都道府県指標一覧.xlsx>
+データの持ち方（アプリの js/kokaikei.js と同じ）
+  ka◯_r1＝平成30年度、ka◯_r2＝令和元年度 … と、番号がそのまま年度を表す。主値（ka◯）が最新の年度。
+  値が無い年は空欄(null)のまま位置を保つ（前に詰めない）。
 
-シートは "R{当年}指標" "R{当年-1}指標" の2枚が1つのExcelに入っている想定
-（総務省の配布形式がそうなっているため）。
+以前のこのスクリプトの問題（2026-09-30に判明）
+  ・毎回空のファイルから作り直していて、実行すると過去の履歴が消えるところだった
+  ・「空いている次の欄に入れる」仕組みで、年の位置がずれることがあった
+  ・手元にダウンロードしたExcelが必要だった
 
-_r1が一番古い年、番号が大きいほど新しい年、主値(接尾辞なし)が最新（財政側の
-data-*.json / update_fiscal_data.py と統一）。8データポイント（履歴7+最新1）
-に達するまでは追加、以降は最古(_r1)を破棄してローリングする（slide_and_set）。
-
-次回以降、新しい年度のExcelを総務省サイトからダウンロードして同じ2引数で
-再実行すれば、既存の主値が一番大きい番号の_rに送られ、新しい主値がセットされる
-形で自動的に履歴が積み上がる（update_fiscal_data.py / fetch_sfs.py と同じ考え方）。
+取り込み方
+  ・総務省の指標一覧のExcelには「その年度」と「前年度」の2年分が入っている。
+    その年度の値を最新値に、前年度の値（翌年に修正されていることがある）を前年度の欄に入れる。
+  ・列の位置は、前年度のシートの値と今のアプリの値が9割以上一致する列を使う（一致しなければ止まる）。
+  ・類似団体の区分（grp）と、区分ごとの中央値（_groupMedians）も更新する。
+  ・書き込み先は環境変数 MITCHIE_DATA_DIR（年次更新のワークフローは preview/）。
 """
+import collections
 import json
 import os
-import re
 import sys
+from pathlib import Path
 
-import openpyxl
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from audit_official_data import (DATA_FILES, pick, index, to_num, norm_name, SourceMissing,  # noqa: E402
+                                 fetch)
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
-
-DATA_FILES = [
-    "data-hokkaido-tohoku.json", "data-kanto.json", "data-chubu.json",
-    "data-kinki.json", "data-chugoku-shikoku.json", "data-kyushu.json",
-]
-
-# 指標コード: (説明, 市町村シートの「当該値」列, 都道府県シートの「当該値」列)
-# 列番号は1始まり（openpyxl準拠）
-INDICATORS = [
-    ("ka1", "住民一人当たり資産額（万円）", 7, 6),
-    ("ka2", "歳入額対資産比率（年）", 10, 9),
-    ("ka3", "有形固定資産減価償却率（％）", 13, 12),
-    ("ka4", "純資産比率（％）", 16, 15),
-    ("ka5", "将来世代負担比率（％）", 19, 18),
-    ("ka6", "住民一人当たり行政コスト（万円）", 22, 21),
-    ("ka7", "住民一人当たり負債額（万円）", 25, 24),
-    ("ka8", "業務・投資活動収支（百万円）", 28, 27),
-    ("ka9", "受益者負担比率（％）", 31, 30),
-]
+ROOT = HERE.parent
+DATA_DIR = Path(os.environ.get("MITCHIE_DATA_DIR") or ROOT)
+if not DATA_DIR.is_absolute():
+    DATA_DIR = ROOT / DATA_DIR
+CODES = [f"ka{i}" for i in range(1, 10)]
+GROUP_CODES = ["ka1", "ka6", "ka7", "ka8"]
 
 
-def norm(name):
-    """自治体名の表記ゆれを吸収する（他のスクリプトと共通のルール）。"""
-    if name is None:
-        return ""
-    return (str(name).replace("ヶ", "ケ").replace("ヵ", "カ")
-                      .replace("\u3000", "").strip())
+def page_url(y):
+    return f"https://www.soumu.go.jp/iken/kokaikei/{'H30' if y == 0 else 'R%02d' % y}_chihou_zaimusyorui.html"
+
+
+def ylab(y):
+    return "平成30年度" if y == 0 else ("令和元年度" if y == 1 else f"令和{y}年度")
+
+
+def sheet_re(y):
+    return r"H\s*30" if y == 0 else (r"R\s*(元|0?1)(?!\d)" if y == 1 else rf"R\s*0?{y}(?!\d)")
+
+
+def fmt(v):
+    v = round(v, 1)
+    return int(v) if float(v).is_integer() else v
+
+
+def summary(text):
+    print(text)
+    sp = os.environ.get("GITHUB_STEP_SUMMARY")
+    if sp:
+        with open(sp, "a", encoding="utf-8") as fp:
+            fp.write(text + "\n")
 
 
 def fail(msg):
-    print("NG: " + msg)
+    summary(f"❌ 公会計：{msg}（公会計のデータは書き換えていません）")
     sys.exit(1)
 
 
-def find_sheets(wb):
-    """"R5指標" "R4指標" のように並んでいる2枚を、新しい方・古い方の順で返す。"""
-    sheets = [s for s in wb.sheetnames if re.match(r"^R\d+指標$", s)]
-    if len(sheets) < 2:
-        fail("シート名が想定と違います（R◯指標が2枚見つかりません）: %s" % wb.sheetnames)
-    sheets.sort(key=lambda s: -int(re.search(r"\d+", s).group()))
-    return sheets[0], sheets[1]  # 新しい方, 古い方
-
-
-def read_muni_sheet(ws):
-    """市町村シートを {(都道府県, 自治体名): {code: 値, "grp": 類団区分}} にする。"""
-    out = {}
-    for row in ws.iter_rows(min_row=5, values_only=True):
-        if not row or row[1] is None or row[2] is None:
-            continue
-        pref = norm(row[1])
-        name = norm(row[2])
-        vals = {}
-        for code, _label, muni_col, _pref_col in INDICATORS:
-            v = row[muni_col - 1]
-            if isinstance(v, (int, float)):
-                vals[code] = round(v, 1)
-        grp = row[3]
-        if grp:
-            vals["grp"] = str(grp).strip()
-        out[(pref, name)] = vals
-    return out
-
-
-def read_pref_sheet(ws):
-    """都道府県シートを {都道府県名: {code: 値, "grp": 類団区分}} にする。"""
-    out = {}
-    for row in ws.iter_rows(min_row=5, values_only=True):
-        if not row or row[1] is None:
-            continue
-        pref = norm(row[1])
-        vals = {}
-        for code, _label, _muni_col, pref_col in INDICATORS:
-            v = row[pref_col - 1]
-            if isinstance(v, (int, float)):
-                vals[code] = round(v, 1)
-        grp = row[2]
-        if grp:
-            vals["grp"] = str(grp).strip()
-        out[pref] = vals
-    return out
-
-
-def slide_and_set(entry, code, new_value, max_total=8):
-    """他の履歴フィールドと同じ考え方でスライドする。"""
-    old_main = entry.get(code)
-    if new_value is not None and old_main is not None and new_value == old_main:
-        return
-    n = 0
-    while (code + "_r" + str(1 + n)) in entry:
-        n += 1
-    if n < max_total - 1:
-        if old_main is not None:
-            entry[code + "_r" + str(1 + n)] = old_main
-    else:
-        for i in range(1, n):
-            entry[code + "_r" + str(i)] = entry.get(code + "_r" + str(i + 1))
-        if old_main is not None:
-            entry[code + "_r" + str(n)] = old_main
-    if new_value is not None:
-        entry[code] = new_value
+def median(vals):
+    s = sorted(vals)
+    if not s:
+        return None
+    m = len(s) // 2
+    return round(s[m] if len(s) % 2 else (s[m - 1] + s[m]) / 2, 1)
 
 
 def main():
-    if len(sys.argv) < 3:
-        fail("使い方: python scripts/build_kokaikei.py <市町村指標一覧.xlsx> <都道府県指標一覧.xlsx>")
-    muni_path, pref_path = sys.argv[1], sys.argv[2]
+    kk_path = DATA_DIR / "kokaikei.json"
+    kk = json.loads(kk_path.read_text(encoding="utf-8"))
+    pref_of = {}
+    for f in DATA_FILES:
+        for n, e in json.loads((DATA_DIR / f).read_text(encoding="utf-8")).items():
+            pref_of[n] = e.get("p")
+    ents = []
+    for n, e in kk.items():
+        if n.startswith("_") or not isinstance(e, dict) or n not in pref_of:
+            continue
+        ip = n == pref_of[n]
+        ents.append((n, e, ip, pref_of[n] if ip else (pref_of[n], norm_name(n))))
 
-    print("■ 市町村指標一覧を読み込み中")
-    wb_m = openpyxl.load_workbook(muni_path, data_only=True)
-    new_sheet_m, old_sheet_m = find_sheets(wb_m)
-    print("  新しい方のシート: %s / 古い方のシート: %s" % (new_sheet_m, old_sheet_m))
-    muni_new = read_muni_sheet(wb_m[new_sheet_m])
-    muni_old = read_muni_sheet(wb_m[old_sheet_m])
-    print("  %d件（新）/ %d件（旧）" % (len(muni_new), len(muni_old)))
+    # 今のデータの最新年度（ka1_r1＝平成30年度から並ぶ欄の数）
+    cur_y = max(sum(1 for k in range(1, 30) if f"ka1_r{k}" in e) for n, e, ip, key in ents)
+    if "--year" in sys.argv:
+        new_y = int(sys.argv[sys.argv.index("--year") + 1])
+        if new_y not in (cur_y, cur_y + 1):
+            fail(f"--year {new_y} は指定できません（今のデータの最新は{ylab(cur_y)}。同じ年度か次の年度だけ）")
+    else:
+        new_y = cur_y + 1
+    print(f"今の公会計データ：{ylab(cur_y)}まで／取り込む年度：{ylab(new_y)}")
 
-    print("■ 都道府県指標一覧を読み込み中")
-    wb_p = openpyxl.load_workbook(pref_path, data_only=True)
-    new_sheet_p, old_sheet_p = find_sheets(wb_p)
-    pref_new = read_pref_sheet(wb_p[new_sheet_p])
-    pref_old = read_pref_sheet(wb_p[old_sheet_p])
-    print("  %d件（新）/ %d件（旧）" % (len(pref_new), len(pref_old)))
+    # 公表されているか（ページとExcelがあるか）
+    try:
+        fetch(page_url(new_y))
+    except Exception:
+        summary(f"ℹ️ 公会計：{ylab(new_y)}はまだ総務省から公表されていません。公会計は今のまま（{ylab(cur_y)}まで）です。")
+        return
+    urls = {}
+    for ip in (False, True):
+        try:
+            urls[ip] = pick(page_url(new_y), lambda t: ("都道府県指標一覧" if ip else "市区町村指標一覧") in t,
+                            label=f"{ylab(new_y)} 公会計 指標一覧")
+        except SourceMissing as ex:
+            fail(str(ex))
 
-    # --- アプリ側の自治体名リストを読み込み、突き合わせながら kokaikei.json を組み立てる ---
-    kokaikei = {}
-    total = matched = 0
-    missing = []
-    for fn in DATA_FILES:
-        path = os.path.join(ROOT, fn)
-        if not os.path.exists(path):
-            fail(fn + " が見つかりません")
-        db = json.load(open(path, encoding="utf-8"))
-        for k, v in db.items():
-            total += 1
-            p = v.get("p")
-            base_name = norm(re.sub(r"（[^）]*）$", "", k))
-            is_pref = (p == k)
-            if is_pref:
-                new_vals = pref_new.get(base_name)
-                old_vals = pref_old.get(base_name)
+    new_slot = lambda code: code                     # 新しい年度＝主値
+    prev_key = lambda code: f"{code}_r{new_y}"      # 前年度（new_y-1）の欄＝ _r{new_y}
+    # （_r◯ の番号＝年度＋1。前年度 new_y-1 の番号は new_y）
+
+    lines = ["| 区分 | 読めた団体（新／前年度） | 列（指標1〜9） | 前年度の値とアプリの一致率 |", "|---|---|---|---|"]
+    rows_new, rows_prev, cols_of = {}, {}, {}
+    for ip in (False, True):
+        grp = "都道府県" if ip else "市町村"
+        idx_new = index([urls[ip]], ip, sheet_re=sheet_re(new_y), strict=True)
+        idx_prev = index([urls[ip]], ip, sheet_re=sheet_re(new_y - 1), strict=True)
+        if not idx_new or not idx_prev:
+            fail(f"{grp}のExcelに{ylab(new_y)}・{ylab(new_y - 1)}のシートが見つかりません")
+        # 前年度のシートと、アプリの前年度の値（今の主値 or _r{new_y}）を比べて列を決める
+        cols, worst = {}, 1.0
+        for code in CODES:
+            tally, tried = collections.Counter(), 0
+            for n, e, eip, key in ents:
+                if eip != ip:
+                    continue
+                av = e.get(code) if new_y == cur_y + 1 else e.get(prev_key(code))
+                row = idx_prev.get(key)
+                if row is None or av is None:
+                    continue
+                tried += 1
+                for ci, v in enumerate(row):
+                    x = to_num(v)
+                    if x is not None and abs(round(x, 1) - av) < 0.11:
+                        tally[ci] += 1
+            if not tally:
+                fail(f"{grp} {code}：列が特定できません")
+            ci, h = tally.most_common(1)[0]
+            cols[code] = ci
+            worst = min(worst, h / tried)
+        if len(set(cols.values())) != len(cols):
+            fail(f"{grp}：同じ列が複数の指標に選ばれました {cols}")
+        if worst < 0.9:
+            fail(f"{grp}：前年度の値とアプリの値の一致率が低すぎます（{worst:.0%}）。Excelの形式が変わった可能性があります")
+        # 区分（grp）の列：今のアプリの区分と一致する列（区分は数年おきに見直されるので、半分以上一致すれば採用）
+        gt, gtried = collections.Counter(), 0
+        for n, e, eip, key in ents:
+            row = idx_new.get(key)
+            if eip != ip or row is None or not e.get("grp"):
+                continue
+            gtried += 1
+            for ci, v in enumerate(row):
+                if isinstance(v, str) and v.strip() == e["grp"]:
+                    gt[ci] += 1
+        grp_col = None
+        if gt and gt.most_common(1)[0][1] >= 0.5 * gtried:
+            grp_col = gt.most_common(1)[0][0]
+        rows_new[ip], rows_prev[ip], cols_of[ip] = idx_new, idx_prev, (cols, grp_col)
+        lines.append(f"| {grp} | {sum(1 for r in idx_new.values() if r is not None)}／{sum(1 for r in idx_prev.values() if r is not None)} | "
+                     f"{[cols[c] for c in CODES]} | {worst:.1%} |")
+
+    # 書き込み
+    missing, changed_prev = [], 0
+    for n, e, ip, key in ents:
+        cols, grp_col = cols_of[ip]
+        rn, rp = rows_new[ip].get(key), rows_prev[ip].get(key)
+        if rn is None:
+            missing.append(n)
+        for code in CODES:
+            ci = cols[code]
+            vn = to_num(rn[ci]) if rn is not None else None
+            vp = to_num(rp[ci]) if rp is not None else None
+            if new_y == cur_y + 1:
+                # 今の最新値を前年度の欄へ（修正後の値があればそれを使う）
+                old = e.get(code)
+                e[prev_key(code)] = fmt(vp) if vp is not None else old
             else:
-                new_vals = muni_new.get((p, base_name))
-                old_vals = muni_old.get((p, base_name))
-            has_any = new_vals and any(
-                new_vals.get(code) is not None for code, _l, _mc, _pc in INDICATORS
-            )
-            if not has_any:
-                missing.append(k)
-                continue
-            entry = kokaikei.setdefault(k, {})
-            for code, _label, _mc, _pc in INDICATORS:
-                nv = new_vals.get(code)
-                ov = old_vals.get(code) if old_vals else None
-                # 初回のみ：entryにまだこの指標がなければ、前年値(ov)を先に流し込んでおく
-                # （総務省のExcelは「当年」「前年」の2年分が1ファイルに入っているため）
-                if code not in entry and ov is not None:
-                    slide_and_set(entry, code, ov)
-                if nv is not None:
-                    slide_and_set(entry, code, nv)
-            if new_vals.get("grp"):
-                entry["grp"] = new_vals["grp"]
-            matched += 1
+                before = e.get(prev_key(code))
+                if vp is not None:
+                    e[prev_key(code)] = fmt(vp)
+                if e.get(prev_key(code)) != before:
+                    changed_prev += 1
+            e[new_slot(code)] = fmt(vn) if vn is not None else None
+        if rn is not None and grp_col is not None and isinstance(rn[grp_col], str) and rn[grp_col].strip():
+            e["grp"] = rn[grp_col].strip()
 
-    # --- 類団区分ごとの中央値（規模で変わりやすい①⑥⑦⑧向け） ---
-    GROUP_CODES = ["ka1", "ka6", "ka7", "ka8"]
+    if len(missing) > max(20, 0.05 * len(ents)):
+        fail(f"{ylab(new_y)}のExcelに見つからない団体が多すぎます（{len(missing)}団体）")
 
-    def median(vals):
-        s = sorted(vals)
-        n = len(s)
-        if n == 0:
-            return None
-        mid = n // 2
-        return round((s[mid] if n % 2 else (s[mid - 1] + s[mid]) / 2), 1)
+    # 類似団体の区分ごとの中央値（最新の年度の値で）
+    gm = {"muni": {}, "pref": {}}
+    for n, e, ip, key in ents:
+        if not e.get("grp"):
+            continue
+        g = gm["pref" if ip else "muni"].setdefault(e["grp"], {c: [] for c in GROUP_CODES})
+        for c in GROUP_CODES:
+            if e.get(c) is not None:
+                g[c].append(e[c])
+    for b in gm:
+        for grp_name, vals in gm[b].items():
+            out = {c: median(v) for c, v in vals.items() if v}
+            out["_n"] = max((len(v) for v in vals.values()), default=0)
+            gm[b][grp_name] = out
+    kk["_groupMedians"] = gm
 
-    group_medians = {"muni": {}, "pref": {}}
-    for fn in DATA_FILES:
-        db = json.load(open(os.path.join(ROOT, fn), encoding="utf-8"))
-        for k, v in db.items():
-            entry = kokaikei.get(k)
-            if not entry or "grp" not in entry:
-                continue
-            bucket = "pref" if v.get("p") == k else "muni"
-            grp = entry["grp"]
-            g = group_medians[bucket].setdefault(grp, {c: [] for c in GROUP_CODES})
-            for c in GROUP_CODES:
-                if c in entry:
-                    g[c].append(entry[c])
-    for bucket in group_medians:
-        for grp, vals in group_medians[bucket].items():
-            group_medians[bucket][grp] = {
-                c: median(v) for c, v in vals.items() if v
-            }
-            group_medians[bucket][grp]["_n"] = max(
-                (len(v) for v in vals.values()), default=0
-            )
-
-    kokaikei["_groupMedians"] = group_medians
-
-    out_path = os.path.join(ROOT, "kokaikei.json")
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(kokaikei, f, ensure_ascii=False, separators=(",", ":"))
-
-    print("")
-    print("突合結果: %d / %d 件 (%.1f%%)" % (matched, total, matched / total * 100))
-    if missing:
-        print("未取得（先頭20件）: %s" % ", ".join(missing[:20]))
-    print("kokaikei.json に %d件 書き込みました（類団区分ごとの中央値を含む）" % len(kokaikei))
+    kk_path.write_text(json.dumps(kk, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    summary("\n".join(["## 公会計の更新", "", f"- 取り込んだ年度：{ylab(new_y)}（前年度 {ylab(new_y - 1)} は修正後の値に更新）",
+                       f"- {ylab(new_y)}の値が無かった団体（空欄）：{len(missing)}団体 {missing[:15]}", ""] + lines))
 
 
 if __name__ == "__main__":

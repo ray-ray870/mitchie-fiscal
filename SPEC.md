@@ -15,8 +15,8 @@ Pages の公開元を GitHub Actions に切り替えたため、**ファイル�
 |---|---|
 | Rayさんが手でファイルを編集・アップロード | ✅ 自動で公開される |
 | `preview` / `apply` を実行 | ❌ **手動実行が必要** |
-| `update-data.yml`（年次更新）を実行 | ❌ **手動実行が必要** |
-| `fetch_sfs.py`（標準財政規模の取込）を実行 | ❌ **手動実行が必要** |
+| 「年次データ更新（プレビュー）」`annual-update.yml` を実行 | ✅ プレビューを自動で公開（2026-09-30〜） |
+| 「プレビューのデータを本番に反映」を実行 | ✅ 自動で公開 |
 
 **手動実行の手順**
 1. **行動（Actions）** → **「構文チェック後にデプロイ」**
@@ -166,7 +166,8 @@ preview で確認するときも、apply で本番に出すときも、**その�
 
 ### 実行方法
 
-常設の `.github/workflows/fetch-sfs.yml` から実行する（2026年9月に常設化済み。以前は毎年一時的に作り直していた）。
+3月の「年次データ更新（プレビュー）」`.github/workflows/annual-update.yml` の中で自動で実行される（2026-09-30〜。以前の `fetch-sfs.yml` は廃止）。
+新しい値のほとんどが前の年度と同じ（config.json の sfs が去年のまま）ときは止まる。
 
 ```yaml
 - run: pip install openpyxl
@@ -399,7 +400,7 @@ preview で確認するときも、apply で本番に出すときも、**その�
 - `scripts/mymitchie_html.txt` / `mymitchie_css.txt` / `mymitchie_js.txt`
 - `.github/workflows/mymitchie.yml`
 
-これらは公会計機能側の同種スクリプト（`refactor_kokaikei.py`等）も含めて、今後も使う予定がなければ削除してよい（削除するかどうかは別途判断）。
+これらは公会計機能側の同種スクリプト（`refactor_kokaikei.py`等）も含めて、2026-09-30に削除した（3月の更新で誤って実行すると画面を壊すおそれがあるため）。
 
 ---
 

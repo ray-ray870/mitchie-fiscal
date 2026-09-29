@@ -25,7 +25,12 @@
     ふるさと納税 受入額 fuH・住民税控除額 fk … ふるさと納税に関する現況調査（受入額の推移・最新の控除額）
   対象外：標準財政規模 sfs（元データが自治体ごとの決算カードのため）
 
-年度が増えたら、下の *_PAGES に新しい年のページを1行ずつ追加する。
+年度が増えても、このファイルを書き換える必要はない（2026-09-30〜）。
+  ・最新の年は、アプリのデータ（欄の数）から自動で決まる。
+  ・下の *_PAGES に無い年は、scripts/audit_sources.json（年次更新のワークフローが、照合に成功したときに
+    その年の config.json のURLを記録するファイル）と、最新の年なら scripts/config.json のURLを使う。
+  ・照合するデータの場所は環境変数 MITCHIE_DATA_DIR（年次更新のワークフローは preview/）。
+  ・--record を付けて実行すると、照合に成功したときに今の config.json のURLを audit_sources.json に記録する。
 """
 import collections
 import io
@@ -40,6 +45,11 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = Path(os.environ.get("MITCHIE_DATA_DIR") or ROOT)
+if not DATA_DIR.is_absolute():
+    DATA_DIR = ROOT / DATA_DIR
+CONFIG_PATH = ROOT / "scripts" / "config.json"
+SOURCES_PATH = ROOT / "scripts" / "audit_sources.json"
 DATA_FILES = ["data-hokkaido-tohoku.json", "data-kanto.json", "data-chubu.json",
               "data-kinki.json", "data-chugoku-shikoku.json", "data-kyushu.json"]
 
@@ -68,9 +78,8 @@ KIKIN_FILES = {  # 基金残高等一覧（令和k年度）：(市区町村, 都
     4: ("000954018", "000939581"), 5: ("001010452", "001005492"), 6: ("001066238", "001066237"),
 }
 # 公会計（統一的な基準による財務書類に関する情報）：年度 y（0=平成30年度、1=令和元年度…）のページ
-KK_PAGES = {y: f"https://www.soumu.go.jp/iken/kokaikei/{'H30' if y == 0 else 'R%02d' % y}_chihou_zaimusyorui.html"
-            for y in range(0, 6)}
-KK_LATEST_YEAR = max(KK_PAGES)
+def kk_page(y):
+    return f"https://www.soumu.go.jp/iken/kokaikei/{'H30' if y == 0 else 'R%02d' % y}_chihou_zaimusyorui.html"
 # ふるさと納税（現況調査）：受入額の推移（全年度が1ファイル）と、最新の住民税控除額
 FURU_PAGE = "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/furusato/archive/"
 FURU_FIRST_YEAR = 0  # アプリの fuH[0] の年度（0=平成30年度）。fuH は8年分
@@ -78,7 +87,6 @@ FURU_FIRST_YEAR = 0  # アプリの fuH[0] の年度（0=平成30年度）。fuH
 KESSAN_MUNI = {k: f"https://www.soumu.go.jp/iken/zaisei/r0{k}_shichouson.html" for k in range(1, 7)}
 KESSAN_PREF = {k: f"https://www.soumu.go.jp/iken/zaisei/r0{k}_todohuken.html" for k in range(1, 7)}
 
-POP_LATEST, FISCAL_LATEST = max(POP_PAGES), max(FISCAL_PAGES)
 TOL = {"pop": 0.5, "g": 0.06, "f": 0.006, "x": 0.06, "d": 0.06, "u": 0.06,
        "r": 0.06, "eo": 0.06, "ei": 0.06, "edu": 0.06, "ch": 0.06,
        **{f"ka{i}": 0.06 for i in range(1, 10)}, "fu": 0.06, "fk": 0.06}
@@ -215,12 +223,73 @@ def index(urls, pref_level, sex_total=False, sheet_re=None, strict=False):
 
 
 # ---------------------------------------------------------------- 照合
+def reiwa_num(label):
+    m = re.search(r"令和\s*(元|\d+)", label or "")
+    if not m:
+        raise ValueError(f"年の書き方が読めません：{label}")
+    return 1 if m.group(1) == "元" else int(m.group(1))
+
+
+def slots(ents, prefix):
+    """データの中で一番多い「_r番号」の欄の数"""
+    return max((sum(1 for k in range(1, 40) if f"{prefix}_r{k}" in e) for e in ents), default=0)
+
+
+def load_sources():
+    """年ごとの直接のURL（audit_sources.json と、最新の年は config.json）"""
+    rec = json.loads(SOURCES_PATH.read_text(encoding="utf-8")) if SOURCES_PATH.exists() else {}
+    return rec, json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+
+
+def config_sources(cfg):
+    fis = {k: {kk: v for kk, v in cfg[k].items() if not kk.startswith("_")}
+           for k in ("fiscal_indicators", "reserve_fund", "budget", "purpose_expenditure", "age_population")}
+    pop = {"muni": cfg["population"]["muni"]}
+    return fis, pop
+
+
+def record_sources(fiscal_latest, pop_latest):
+    """照合に成功したとき、今の config.json のURLを、その年の分として audit_sources.json に残す"""
+    rec, cfg = load_sources()
+    fis, pop = config_sources(cfg)
+    changed = []
+    if fiscal_latest not in FISCAL_PAGES and rec.get("fiscal", {}).get(str(fiscal_latest)) != fis:
+        rec.setdefault("fiscal", {})[str(fiscal_latest)] = fis
+        changed.append(f"令和{fiscal_latest}年度の財政データ")
+    if pop_latest not in POP_PAGES and rec.get("population", {}).get(str(pop_latest)) != pop:
+        rec.setdefault("population", {})[str(pop_latest)] = pop
+        changed.append(f"令和{pop_latest}年の人口")
+    if changed:
+        rec["_readme"] = ("年次更新のワークフローが自動で書くファイル（手で書き換えない）。"
+                          "照合に成功した年の config.json のURLを残し、翌年以降も過去の年として照合できるようにする。")
+        SOURCES_PATH.write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return changed
+
+
 def main():
     entities = []  # (名前, データ, 都道府県か, 公式側のキー)
     for f in DATA_FILES:
-        for n, e in json.loads((ROOT / f).read_text(encoding="utf-8")).items():
+        for n, e in json.loads((DATA_DIR / f).read_text(encoding="utf-8")).items():
             is_pref = n == e.get("p")
             entities.append((n, e, is_pref, e["p"] if is_pref else (e["p"], norm_name(n))))
+
+    # 最新の年はデータから決める（f_r1〜f_r5 があれば 令和6年度 が最新）
+    all_e = [e for n, e, ip, key in entities]
+    FISCAL_LATEST = slots(all_e, "f") + 1
+    POP_LATEST = slots(all_e, "pop") + 1
+    rec, cfg = load_sources()
+    cfg_fis, cfg_pop = config_sources(cfg)
+    fis_src = {int(k): v for k, v in rec.get("fiscal", {}).items()}
+    pop_src = {int(k): v for k, v in rec.get("population", {}).items()}
+    # リハーサル用：最新の年は、ページからではなく config.json のURLで照合する（3月の本番と同じ読み方を試すため）
+    force_cfg = os.environ.get("AUDIT_USE_CONFIG_FOR_LATEST") == "1"
+    fis_pages = {k: v for k, v in FISCAL_PAGES.items() if not (force_cfg and k == FISCAL_LATEST)}
+    pop_pages = {k: v for k, v in POP_PAGES.items() if not (force_cfg and k == POP_LATEST)}
+    if FISCAL_LATEST not in fis_pages:
+        fis_src.setdefault(FISCAL_LATEST, cfg_fis)  # 最新の年で記録がまだ無ければ config.json のURL
+    if POP_LATEST not in pop_pages:
+        pop_src.setdefault(POP_LATEST, cfg_pop)
+    print(f"照合するデータ：{DATA_DIR}（財政：令和{FISCAL_LATEST}年度まで／人口：令和{POP_LATEST}年まで）")
 
     def app(e, p, k, latest):
         return e.get(p) if k == latest else e.get(f"{p}_r{k}")
@@ -308,12 +377,27 @@ def main():
             problems.append(f"{LABEL[p]}（{grp}）{ylab(k)}：食い違い{big}件（例：{'、'.join(ex[:3])}）")
         mis_rows.append(f"| {LABEL[p]} | {grp} | {ylab(k)} | {tried} | {small} | {big} | {'、'.join(ex)} |")
 
-    # ---------- 人口・人口増減率 ----------
-    for k in POP_PAGES:
+    # config.json の年とデータの最新の年が合っているか
+    for lab, key, latest in (("財政", "fiscal_year_label", FISCAL_LATEST), ("人口", "population_year_label", POP_LATEST)):
         try:
-            url = pick(POP_PAGES[k], lambda t: "市区町村別" in t and "人口" in t and "世帯数" in t and "年齢" not in t
-                       and "日本人" not in t and "外国人" not in t, many=True, label=f"令和{k}年 住民基本台帳")
-            url = url[0]  # 日本人・外国人のファイルは除外済み。残りは総計
+            cy = reiwa_num(cfg.get(key))
+        except ValueError as ex:
+            problems.append(f"config.json の {key}：{ex}")
+            continue
+        if cy != latest:
+            problems.append(f"config.json の {key}（令和{cy}）と、データの最新の年（令和{latest}）が合っていません")
+
+    # ---------- 人口・人口増減率 ----------
+    for k in range(1, POP_LATEST + 1):
+        try:
+            if k in pop_pages:
+                url = pick(POP_PAGES[k], lambda t: "市区町村別" in t and "人口" in t and "世帯数" in t and "年齢" not in t
+                           and "日本人" not in t and "外国人" not in t, many=True, label=f"令和{k}年 住民基本台帳")
+                url = url[0]  # 日本人・外国人のファイルは除外済み。残りは総計
+            elif k in pop_src:
+                url = pop_src[k]["muni"]
+            else:
+                raise SourceMissing(f"令和{k}年 住民基本台帳：ファイルの記録がありません（audit_sources.json）")
             for is_pref in (False, True):
                 idx = index([url], is_pref)
                 for p in ("pop", "g"):
@@ -328,13 +412,21 @@ def main():
 
     # ---------- 財政指標・財政調整基金・歳出歳入・教育費・子ども投資額（令和k年度） ----------
     kikin_page = fetch(KIKIN_PAGE).decode("utf-8", errors="ignore")
-    for k in FISCAL_PAGES:
+    for k in range(1, FISCAL_LATEST + 1):
+        src = fis_src.get(k) if k not in fis_pages else None
         for is_pref in (False, True):
             grp = "都道府県" if is_pref else "市町村"
+            if k not in fis_pages and src is None:
+                skipped.append(f"令和{k}年度（{grp}）：ファイルの記録がありません（audit_sources.json）")
+                continue
+            side = "pref" if is_pref else "muni"
             try:
                 # 財政指標4項目
-                u = pick(FISCAL_PAGES[k], lambda t: ("全都道府県の主要財政指標" if is_pref else "全市町村の主要財政指標") in t,
-                         label=f"令和{k}年度 主要財政指標（{grp}）")
+                if src:
+                    u = src["fiscal_indicators"][side]
+                else:
+                    u = pick(FISCAL_PAGES[k], lambda t: ("全都道府県の主要財政指標" if is_pref else "全市町村の主要財政指標") in t,
+                             label=f"令和{k}年度 主要財政指標（{grp}）")
                 idx = index([u], is_pref)
                 for p in ("f", "x", "d", "u"):
                     cs, rate, _ = best_conv(idx, p, is_pref, k, FISCAL_LATEST, False)
@@ -347,10 +439,13 @@ def main():
                 skipped.append(str(ex))
             try:
                 # 財政調整基金
-                fid = KIKIN_FILES[k][1 if is_pref else 0]
-                if fid not in kikin_page:
-                    raise SourceMissing(f"令和{k}年度 基金残高（{grp}）：一覧ページにファイル{fid}が見つかりません")
-                idx = index([f"https://www.soumu.go.jp/main_content/{fid}.xlsx"], is_pref)
+                if src:
+                    idx = index([src["reserve_fund"][side]], is_pref)
+                else:
+                    fid = KIKIN_FILES[k][1 if is_pref else 0]
+                    if fid not in kikin_page:
+                        raise SourceMissing(f"令和{k}年度 基金残高（{grp}）：一覧ページにファイル{fid}が見つかりません")
+                    idx = index([f"https://www.soumu.go.jp/main_content/{fid}.xlsx"], is_pref)
                 cs, rate, _ = best_conv(idx, "r", is_pref, k, FISCAL_LATEST, True)
                 if cs is None:
                     problems.append(f"財政調整基金（{grp}）令和{k}年度：公式の列が特定できません")
@@ -362,7 +457,11 @@ def main():
                 skipped.append(str(ex))
             try:
                 # 歳出・歳入・教育費・子ども投資額
-                if is_pref:
+                if src:
+                    gai_urls = [src["budget"]["pref"]] if is_pref else [src["budget"]["city"], src["budget"]["town"]]
+                    moku_urls = ([src["purpose_expenditure"]["pref"]] if is_pref
+                                 else [src["purpose_expenditure"]["city"], src["purpose_expenditure"]["town"]])
+                elif is_pref:
                     # 都道府県のページは「第1表 決算状況」「第5表 目的別歳出内訳 → 都道府県別内訳」の順に並んでいる。
                     # リンクの文字だけでは区別できないことがあるため、見出しより後ろにある最初のリンクを使う（2026-09-29）
                     c = [h for h, t in links(KESSAN_PREF[k]) if "決算状況" in t and "単年度" not in t and "実質収支" not in t]
@@ -426,10 +525,13 @@ def main():
                         off_edu[key] = round(ed / (round(eo * ce[1], 1) * 100000) * 100, 1)
                 check("edu", is_pref, k, FISCAL_LATEST, off_edu, range(1, FISCAL_LATEST + 1))
                 # 子ども投資額：年齢別人口（令和k+1年）と児童福祉費の列
-                if k + 1 not in POP_PAGES:
+                if src:
+                    age_url = src["age_population"][side]
+                elif k + 1 in POP_PAGES:
+                    age_url = pick(POP_PAGES[k + 1], lambda t: "年齢階級別" in t and ("都道府県別" if is_pref else "市区町村別") in t
+                                   and "日本人" not in t and "外国人" not in t, label=f"令和{k + 1}年 年齢別人口（{grp}）")
+                else:
                     continue
-                age_url = pick(POP_PAGES[k + 1], lambda t: "年齢階級別" in t and ("都道府県別" if is_pref else "市区町村別") in t
-                               and "日本人" not in t and "外国人" not in t, label=f"令和{k + 1}年 年齢別人口（{grp}）")
                 age = index([age_url], is_pref, sex_total=True)
                 pool = [(n, e, key) for n, e, ip, key in entities if ip == is_pref and app(e, "ch", k, FISCAL_LATEST) is not None]
                 sample = random.sample(pool, min(300, len(pool)))
@@ -492,7 +594,7 @@ def main():
     # ---------- 公会計（9指標）：kokaikei.json ----------
     # アプリの欄：ka◯_r1 が一番古い年、主値が最新（令和{KK_LATEST_YEAR}年度）。年度 y（0=平成30年度）→ 欄番号 y+1
     try:
-        kk_raw = json.loads((ROOT / "kokaikei.json").read_text(encoding="utf-8"))
+        kk_raw = json.loads((DATA_DIR / "kokaikei.json").read_text(encoding="utf-8"))
         kk_ents = []
         for n, e in kk_raw.items():
             p0 = pref_of.get(n)
@@ -500,6 +602,8 @@ def main():
                 continue
             ip = n == p0
             kk_ents.append((n, e, ip, p0 if ip else (p0, norm_name(n))))
+        KK_LATEST_YEAR = slots([e for n, e, ip, key in kk_ents], "ka1")  # ka1_r1〜r5 があれば 令和5年度 が最新
+        KK_PAGES = {y: kk_page(y) for y in range(0, KK_LATEST_YEAR + 1)}
         kk_latest = KK_LATEST_YEAR + 1
         kk_notes = []
         kk_detail = ["| 年度 | 団体 | アプリの値（9指標） | 公式Excelの行（そのまま） | アプリの値と一致する同じ県の団体 |", "|---|---|---|---|---|"]
@@ -667,8 +771,17 @@ def main():
     if sp:
         with open(sp, "a", encoding="utf-8") as fp:
             fp.write(text + "\n")
-    if problems or skipped:
+    # 年次更新（--record）のときは、古い年の公式ファイルが見つからないだけなら止めない（最新の年は必ず照合される）
+    if problems or (skipped and "--record" not in sys.argv):
         sys.exit(1)
+    if "--record" in sys.argv:
+        changed = record_sources(FISCAL_LATEST, POP_LATEST)
+        msg = (f"\n照合に使ったURLを記録しました：{'、'.join(changed)}（scripts/audit_sources.json）" if changed
+               else "\n記録するURLはありません（すべて記録済み）")
+        print(msg)
+        if sp:
+            with open(sp, "a", encoding="utf-8") as fp:
+                fp.write(msg + "\n")
 
 
 if __name__ == "__main__":

@@ -21,6 +21,10 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+# 調べるデータの場所（年次更新のワークフローは preview/。省略時はリポジトリのルート＝本番）
+DATA_DIR = os.environ.get("MITCHIE_DATA_DIR") or ROOT
+if not os.path.isabs(DATA_DIR):
+    DATA_DIR = os.path.join(ROOT, DATA_DIR)
 
 DATA_FILES = [
     "data-hokkaido-tohoku.json", "data-kanto.json", "data-chubu.json",
@@ -35,7 +39,7 @@ notes = []      # 参考情報（正常にありうるもの。例：公会計�
 
 
 def load_json(rel_path):
-    path = os.path.join(ROOT, rel_path)
+    path = os.path.join(DATA_DIR, rel_path)
     if not os.path.exists(path):
         return None
     with open(path, encoding="utf-8") as f:
