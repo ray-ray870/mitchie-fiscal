@@ -129,7 +129,11 @@ def main():
     def ref_val(e, k):
         return e.get("r") if k == LATEST else e.get(f"r_r{k}")
 
-    official = {}  # (都道府県, 名前) -> {k: 億円}
+    official = {}  # (都道府県, 名前) -> {k: 億円（小数1桁に丸めた値）}
+    raw = {}       # (都道府県, 名前) -> {k: 億円（丸める前の値）}。照合は丸める前の値で行う
+    # 照合の許容幅：アプリの値は小数1桁に丸めてあり、4.85億円が4.8にも4.9にもなりうるため、
+    # 丸める前の値と比べて0.1億円未満のずれは同じ値とみなす（2026-09-29：北竜町で判明）
+    TOL = 0.1
     mismatch_full = collections.Counter()
     for k in range(1, LATEST + 1):
         idx = index_rows(MUNI_FILES[k])
@@ -163,10 +167,11 @@ def main():
             x = to_num(row[col])
             if x is not None:
                 official.setdefault(key, {})[k] = round(x * sc, 1)
+                raw.setdefault(key, {})[k] = x * sc
         for f, n, e in refs:
-            o = official.get((e["p"], norm_name(n)), {}).get(k)
+            o = raw.get((e["p"], norm_name(n)), {}).get(k)
             rv = ref_val(e, k)
-            if o is not None and rv is not None and abs(o - rv) >= 0.051:
+            if o is not None and rv is not None and abs(o - rv) >= TOL:
                 mismatch_full[k] += 1
 
     # --- 対象の団体を作り直す ---
@@ -175,16 +180,17 @@ def main():
     main_diff = []
     for f, n, e in targets:
         o = official.get((e["p"], norm_name(n)))
+        ro = raw.get((e["p"], norm_name(n)), {})
         if not o or any(o.get(k) is None for k in range(1, LATEST + 1)):
             print(f"❌ {e['p']}{n}：公式データに6年分そろっていません（{o}）")
             sys.exit(1)
         olds = [v for key, v in e.items() if (key == "r" or re.fullmatch(r"r_r\d+", key)) and v is not None]
         for old in olds:
-            if not any(abs(old - o[k]) < 0.051 for k in range(1, LATEST + 1)):
+            if not any(abs(old - ro[k]) < TOL for k in range(1, LATEST + 1)):
                 print(f"❌ {e['p']}{n}：既存の値{old}が公式データのどの年（{o}）とも合いません。別の行を読んだ可能性があります")
                 sys.exit(1)
         before = [e.get(f"r_r{k}") for k in range(1, 6)] + [e.get("r")]
-        if e.get("r") is not None and abs(e["r"] - o[LATEST]) >= 0.051:
+        if e.get("r") is not None and abs(e["r"] - ro[LATEST]) >= TOL:
             main_diff.append(n)
         for key in [x for x in e if re.fullmatch(r"r_r\d+", x)]:
             del e[key]
