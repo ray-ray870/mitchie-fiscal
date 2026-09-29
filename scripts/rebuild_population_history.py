@@ -214,13 +214,17 @@ def main():
     if bad:
         sys.exit(1)
 
-    # --- 既存の正しい値との照合（令和6年の人口が入っている町村は、その値と一致するはず） ---
+    # --- 既存データとの照合（正しい町村の行を読んだかの確認） ---
+    # 既存データは年の位置が1年ずれて入っていることがある（例：梼原町の pop_r6 が実は令和7年の値）。
+    # そのため「同じ年」ではなく、既存の人口の値それぞれが、公式データのどこかの年と一致するかで確かめる。
     for name, _ in TARGETS:
-        old = all_entries[name][1].get("pop_r6")
-        new = results[name][6][0]
-        if old and abs(new - old) / old > 0.01:
-            print(f"❌ {name}：令和6年の人口が既存データ({old})と合いません（公式Excel：{new}）。別の行を読んだ可能性があります")
-            sys.exit(1)
+        e = all_entries[name][1]
+        official = [results[name][k][0] for k in range(1, LATEST + 1)]
+        olds = [v for key, v in e.items() if (key == "pop" or re.fullmatch(r"pop_r\d+", key)) and v]
+        for old in olds:
+            if not any(abs(o - old) / old <= 0.005 for o in official):
+                print(f"❌ {name}：既存の人口{old}が公式データのどの年（{official}）とも合いません。別の行を読んだ可能性があります")
+                sys.exit(1)
 
     # --- 書き換え ---
     summary = ["| 町村 | 令和元年 | 令和7年 | 令和8年 | 前年比 | 変更前の最新 |", "|---|---|---|---|---|---|"]
