@@ -157,7 +157,8 @@
     var r = buildFutureComboBody(code, kkVal, med, uHigh, entry);
     var uValsArr = [curObj.u_r1, curObj.u_r2, curObj.u_r3, curObj.u_r4, curObj.u_r5, curObj.u];
     var uTrendPhrase = withTrendMeaning("u", trendSincePhrase(uValsArr, 6));
-    var kkValsArr = entry ? [entry[code+"_r1"], entry[code+"_r2"], entry[code+"_r3"], entry[code+"_r4"], entry[code]] : [];
+    // _r1＝平成30年度 … _r5＝令和4年度、主値＝令和5年度（2026-09-29：以前は _r5 が抜けていて、年が1つずれていた）
+    var kkValsArr = entry ? [entry[code+"_r1"], entry[code+"_r2"], entry[code+"_r3"], entry[code+"_r4"], entry[code+"_r5"], entry[code]] : [];
     var kkTrendPhrase = entry ? withTrendMeaning(code, trendSincePhrase(kkValsArr, 5)) : null;
     var numMark = boxNumber ? ["①","②","③","④","⑤"][boxNumber-1] || "" : "";
     var heading = reverseOrder ? ("🔗 財政と比べてみると" + numMark) : ("🔗 公会計と比べてみると" + numMark);
@@ -372,8 +373,12 @@
             (code === "ka4" ? "積極的な投資による可能性もあります。" : "将来世代への投資という側面もあると考えられます。");
         }
       }
-      if ((code === "ka3" || code === "ka8") && cur.eo != null && cur.eo_r1 != null && cur.eo_r1 > 0) {
-        var eoGrowth = (cur.eo - cur.eo_r1) / cur.eo_r1;
+      // 前年の歳出＝履歴の一番新しい欄（歳出の履歴は eo_r2 から始まるため、eo_r1 は存在しない。2026-09-29修正）
+      var eoPrevK = 0;
+      while (Object.prototype.hasOwnProperty.call(cur, "eo_r" + (eoPrevK + 2))) { eoPrevK++; }
+      var eoPrev = eoPrevK > 0 ? cur["eo_r" + (eoPrevK + 1)] : null;
+      if ((code === "ka3" || code === "ka8") && cur.eo != null && eoPrev != null && eoPrev > 0) {
+        var eoGrowth = (cur.eo - eoPrev) / eoPrev;
         var expandMatch = code === "ka3" ? diff < 0 : val < 0;
         if (eoGrowth > 0.05 && expandMatch) {
           line += "<br><br>" + nm + "は歳出が前年より増えており、" +
@@ -415,19 +420,21 @@
     // 過去分（_r1, _r2, _r3…）が集まったので、他の財政指標と同じ形式で推移グラフを描く
     // _r1が一番古い年、番号が大きいほど新しい年（財政側と統一済み）
     var KK_CURRENT_YEAR = 5; // 令和5年度（総務省の最新公表年度。次回データ更新時に見直す）
-    var kkMaxR = 1;
-    while (entry[code + "_r" + kkMaxR] != null) { kkMaxR++; }
-    kkMaxR--;
-    var kkVals = [];
-    for (var kri = 1; kri <= kkMaxR; kri++) { kkVals.push(entry[code + "_r" + kri]); }
-    kkVals.push(entry[code]);
+    // 履歴は _r1（最も古い年）から順に並び、番号がそのまま年を表す（主値＝KK_CURRENT_YEAR）。
+    // 公式に値が無い年は空欄(null)のまま位置を保っているので、空欄は飛ばし、ラベルは各値の年から作る
+    // （2026-09-29：以前は最初の空欄で止まり、最新から数えてラベルを付けていたため、空欄のある団体で年がずれた）
+    var kkMaxR = 0;
+    while (Object.prototype.hasOwnProperty.call(entry, code + "_r" + (kkMaxR + 1))) { kkMaxR++; }
+    var kkVals = [], kkYrLabels = [];
+    for (var kri = 1; kri <= kkMaxR + 1; kri++) {
+      var kkV = kri <= kkMaxR ? entry[code + "_r" + kri] : entry[code];
+      if (kkV == null) continue;
+      var yrNum = KK_CURRENT_YEAR - (kkMaxR + 1 - kri);
+      kkVals.push(kkV);
+      kkYrLabels.push(yrNum <= 0 ? ("H" + (30 + yrNum)) : ("R" + yrNum));
+    }
     var kkCovidNote = "";
-    if (kkVals.length >= 2 && kkVals.every(function(v){ return v != null; })) {
-      var kkYrLabels = [];
-      for (var yi = kkVals.length - 1; yi >= 0; yi--) {
-        var yrNum = KK_CURRENT_YEAR - yi;
-        kkYrLabels.push(yrNum <= 0 ? ("H" + (30 + yrNum)) : ("R" + yrNum));
-      }
+    if (kkVals.length >= 2) {
       var kkPeakI = 0, kkTroughI = 0;
       for (var kpi=1; kpi<kkVals.length; kpi++){ if (kkVals[kpi]>kkVals[kkPeakI]) kkPeakI=kpi; if (kkVals[kpi]<kkVals[kkTroughI]) kkTroughI=kpi; }
       var kkLastI = kkVals.length-1;
