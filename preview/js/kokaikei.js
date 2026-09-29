@@ -425,15 +425,26 @@
     // （2026-09-29：以前は最初の空欄で止まり、最新から数えてラベルを付けていたため、空欄のある団体で年がずれた）
     var kkMaxR = 0;
     while (Object.prototype.hasOwnProperty.call(entry, code + "_r" + (kkMaxR + 1))) { kkMaxR++; }
-    var kkVals = [], kkYrLabels = [];
+    var kkVals = [], kkYrLabels = [], kkMissingYrs = [], kkMissingNums = [];
     for (var kri = 1; kri <= kkMaxR + 1; kri++) {
       var kkV = kri <= kkMaxR ? entry[code + "_r" + kri] : entry[code];
-      if (kkV == null) continue;
       var yrNum = KK_CURRENT_YEAR - (kkMaxR + 1 - kri);
+      if (kkV == null) {
+        // 公式データにこの年の値が無い（2026-09-30：グラフの下に注記を出すため記録する）
+        kkMissingYrs.push(yrNum <= 0 ? ("平成" + (30 + yrNum) + "年度") : (yrNum === 1 ? "令和元年度" : ("令和" + yrNum + "年度")));
+        kkMissingNums.push(yrNum);
+        continue;
+      }
       kkVals.push(kkV);
       kkYrLabels.push(yrNum <= 0 ? ("H" + (30 + yrNum)) : ("R" + yrNum));
     }
     var kkCovidNote = "";
+    // 3年以上続けて無い場合は「平成30年度〜令和4年度」のようにまとめる
+    var kkMissingContig = kkMissingNums.length >= 3 && kkMissingNums[kkMissingNums.length - 1] - kkMissingNums[0] === kkMissingNums.length - 1;
+    var kkMissingText = kkMissingContig ? (kkMissingYrs[0] + "〜" + kkMissingYrs[kkMissingYrs.length - 1]) : kkMissingYrs.join("・");
+    var kkMissingNote = kkMissingYrs.length ?
+      ("<div style='font-size:12px;color:#7a7a90;line-height:1.6;margin-top:8px;'>ℹ️ " + kkMissingText +
+       "は、総務省の公表データに" + escapeHtml(nm) + "の値が無いため、グラフに表示していません。</div>") : "";
     if (kkVals.length >= 2) {
       var kkPeakI = 0, kkTroughI = 0;
       for (var kpi=1; kpi<kkVals.length; kpi++){ if (kkVals[kpi]>kkVals[kkPeakI]) kkPeakI=kpi; if (kkVals[kpi]<kkVals[kkTroughI]) kkTroughI=kpi; }
@@ -497,8 +508,10 @@
         return "<span style='left:"+pct+"%;'>"+y+"</span>";
       }).join("");
       document.getElementById("spLabels").innerHTML = "<div style='position:relative;height:100%;'>"+kkYrLabelsHtml+"</div><div style='font-size:9px;color:#aaa;margin-top:6px;'>"+kkNoteText+"</div>";
+      // グラフの枠のすぐ下（説明文の先頭）に、公式データが無い年の注記を出す
+      if (kkMissingNote) document.getElementById("shDesc").insertAdjacentHTML("afterbegin", kkMissingNote.replace("margin-top:8px;", "margin:-4px 0 12px;"));
     } else {
-      document.getElementById("shTop").innerHTML = cmpHtml + kkReciprocalCross(code, entry[code], isPref, entry);
+      document.getElementById("shTop").innerHTML = cmpHtml + kkReciprocalCross(code, entry[code], isPref, entry) + kkMissingNote;
       document.getElementById("spSvg").innerHTML = "";
       document.getElementById("spSvg").style.height = "0px";
       document.getElementById("spLabels").innerHTML = "";
