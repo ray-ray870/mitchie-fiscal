@@ -1,0 +1,62 @@
+name: 人口履歴の作り直し（全団体）
+
+# 使い捨てのワークフロー（2026-09-29）。
+# 全市町村・全都道府県の人口と人口増減率（約840市町村で1年ずれていた）を、総務省の
+# 公式Excel（令和元年〜最新年）から作り直し、preview/ のデータに書き込む。
+#   ・手動実行のみ（Actions タブ →「人口履歴の作り直し（全団体）」→「Run workflow」）
+#   ・チェックに1つでも引っかかったら、何も書き換えずに赤い×で止まる
+#   ・本番への反映は、いつもどおり「プレビューのデータを本番に反映」で行う
+# 実行して問題がなければ、このファイルと scripts/rebuild_population_all.py は削除してよい。
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリを取得（最新の状態）
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 必要なライブラリをインストール
+        run: pip install pandas openpyxl xlrd
+
+      - name: 公式Excelから全団体の人口・人口増減率を作り直す
+        run: python scripts/rebuild_population_all.py
+
+      - name: 差分がある場合のみコミット
+        id: commit
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add preview/data-*.json
+          if git diff --cached --quiet; then
+            echo "変更なし。コミットをスキップします。"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git diff --cached --stat
+            git commit -m "全団体の人口・人口増減率を総務省の公式データから作り直し（preview）"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 公開処理(deploy-with-check)を自動実行
+        if: steps.commit.outputs.changed == 'true'
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy-with-check.yml/dispatches" \
+            -d '{"ref":"main"}'
