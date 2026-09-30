@@ -288,7 +288,7 @@
     ka7: {icon:"💳", label:"住民一人当たり負債額", unit:"万円", group:true,
       desc:"【何を指すか】\n・町の借金の合計を、住民の数で割った金額。町の借金を住民みんなで分けたら一人いくら、というイメージです\n\n【含まれるもの】\n📜地方債（借金の残高）\n💼退職手当引当金（将来払う退職金の積立不足分）\n🧾未払金など\n\n📈高い理由\n・借入や引当金が多い\n・人口が少なく一人当たりに換算すると大きくなる\n\n📉低い理由\n・借入を抑制してきた\n・人口が多く一人当たりに薄まる"},
     ka8: {icon:"⚖️", label:"業務・投資活動収支", unit:"百万円", group:true,
-      desc:"【何を指すか】\n・自治体の「業務活動」と「投資活動」を合わせた収支を表す指標です。プラスなら、通常の行政活動や公共施設などへの投資に必要な収支が黒字、マイナスなら赤字になっています。\n\n📈プラスが大きい理由\n・税収等に対して支出を抑えている\n・必要な投資を先送りしている可能性もあります\n\n📉マイナスの理由\n・大型投資を行った年度だった（学校の建て替えなど、計画的な投資であれば悪いことではありません）\n・収入が支出に追いついていない"},
+      desc:"【何を指すか】\n・自治体の「業務活動」と「投資活動」を合わせた収支を表す指標です。プラスなら、通常の行政活動や公共施設などへの投資に必要な収支が黒字、マイナスなら赤字になっています。\n・投資活動には、公共施設などの整備のほか、基金（貯金）への積み立ても含まれます。赤字の差額は、借入金や前年度からの手元の資金で補われます。\n\n📈プラスが大きい理由\n・税収等に対して支出を抑えている\n・必要な投資を先送りしている可能性もあります\n\n📉マイナスの理由\n・大型投資を行った年度だった（学校の建て替えなど、計画的な投資であれば悪いことではありません）\n・収入が支出に追いついていない"},
     ka9: {icon:"🙋", label:"受益者負担比率", unit:"%", group:false,
       desc:"【何を指すか】\n・行政サービスにかかった費用のうち、利用者が使用料や手数料として直接払っている割合。数字が大きいほど、利用者自身が費用を負担していることになります\n\n📈高い理由\n・受益者負担の原則を重視した料金設定\n\n📉低い理由\n・サービスの多くを税金でまかなっている"}
   };
@@ -701,6 +701,115 @@
     return Math.max(0, Math.min(100, v));
   }
 
+  /* --- 公会計の「みっちーからのひとこと」（2026-09-30）---
+     数字の上下はグラフとカードで見られるので、ここでは「それが何を意味するか」だけを書く。
+     ・使うのは向き（良い・悪い）がはっきりした4指標（老朽化率・純資産比率・将来世代負担比率・業務・投資活動収支）と、
+       財政タブの判定（カードの色と同じ基準）だけ。
+     ・一文ずつ、指標の定義から必ず言えることだけを書く（自治体の事情の推測や、先の見通しは書かない）。
+         純資産比率      ＝資産のうち、負債（借金＝地方債のほか退職手当引当金なども含む）でまかなっていない部分の割合
+         将来世代負担比率 ＝資産のうち、将来返す借金（地方債）でまかなっている部分の割合
+         有形固定資産減価償却率＝施設などが耐用年数のうちどれだけ過ぎたか（平均）
+         業務・投資活動収支＝行政サービス（業務活動）と、施設整備・基金への積み立てなど（投資活動）を合わせた収支。
+                           赤字の差額は、借入金（財務活動）や前年度からの手元の資金で補われる
+     ・全国の中央値との差が5%以内は「全国並み」（詳細画面の「ほぼ同水準」と同じ基準）
+     ・最後に、もとにした指標と年度（出典）を必ず書く */
+  function kkAdviceHtml(nm, entry, d, isPref) {
+    if (!entry) return "";
+    function cmp(code) {
+      var v = entry[code], mm = KK_MEDIANS[code];
+      var med = mm ? (isPref ? mm.pref : mm.muni) : null;
+      if (v == null || med == null || med === 0) return 0;
+      if (v > med * 1.05) return 1;
+      if (v < med * 0.95) return -1;
+      return 0;
+    }
+    var a3 = cmp("ka3"), a4 = cmp("ka4"), a5 = cmp("ka5");
+    var ka3 = entry.ka3, ka4 = entry.ka4, ka8 = entry.ka8;
+    var than = isPref ? "他の都道府県より" : "全国より";
+    var debtBig = (a4 < 0 || a5 > 0), debtSmall = (a4 > 0 || a5 < 0) && !debtBig;
+    var dLight = d && d.d != null && d.d < 10;           // 財政タブ：実質公債費比率が緑（軽い）
+    var dHeavy = d && d.d != null && d.d >= 18;          // 財政タブ：黄・オレンジ（重い）
+    var xHeavy = d && d.x != null && d.x >= 95;          // 財政タブ：経常収支比率が黄・オレンジ
+    var kkSrc = {}, finSrc = {};
+    var bullets = [];
+
+    // 借金などでまかなった資産の割合（純資産比率・将来世代負担比率）
+    var debtLine = "";
+    if (a4 < 0 && a5 > 0) debtLine = "資産のうち借金などでまかなった割合と、将来の住民が返済を受け持つ割合は、" + than + "大きめです";
+    else if (a4 < 0 && a5 < 0) debtLine = "資産のうち借金などでまかなった割合は" + than + "大きめですが、将来の住民が返済を受け持つ地方債の割合は小さめです";
+    else if (a4 < 0) debtLine = "資産のうち借金などでまかなった割合が、" + than + "大きめです";
+    else if (a5 > 0) debtLine = "資産のうち、将来の住民が返済を受け持つ地方債でまかなった割合が、" + than + "大きめです";
+    else if (a4 > 0 && ka4 >= 80) debtLine = "資産の" + Math.floor(ka4 / 10) + "割以上を、借金などに頼らずまかなっています";
+    else if (a4 > 0 || a5 < 0) debtLine = "資産のうち借金などでまかなった割合" + (a5 < 0 ? "も、将来の住民が返済を受け持つ割合も" : "は") + "、" + than + "小さめです" +
+      ((isPref && ka4 != null && ka4 < 50) ? "（都道府県は全体に負債の割合が大きく、" + nm + "も資産の半分以上は負債です）" : "");
+    if (debtLine) { bullets.push({icon:"🏦", t:debtLine, p:1}); if (a4 !== 0) kkSrc["純資産比率"]=1; if (a5 !== 0) kkSrc["将来世代負担比率"]=1; }
+
+    // 施設の古さ（有形固定資産減価償却率）
+    if (a3 !== 0 && ka3 != null) {
+      var wari = "約" + Math.round(ka3 / 10) + "割";
+      bullets.push({icon:"🏚️", t: a3 > 0 ? "施設は平均して耐用年数の" + wari + "が過ぎていて、" + than + "古くなっています"
+                                           : "施設は" + than + "新しめです（平均して耐用年数の" + wari + "が経過）", p:2});
+      kkSrc["有形固定資産減価償却率"]=1;
+    }
+
+    // 財政タブとの組み合わせ（両方から言えることがはっきりある場合だけ）
+    var finLine = null;
+    // 並び順：借金の割合（1）→ それを受けた財政タブの一言（1.5）→ 施設の古さ（2）→ その年の収支（3）
+    if (debtBig && dLight) finLine = {icon:"💳", t:"ただし、毎年の借金返済の重さ（実質公債費比率）は軽い水準です", p:1.5};
+    else if (debtBig && dHeavy) finLine = {icon:"💳", t:"毎年の借金返済の重さ（実質公債費比率）も重い水準です", p:1.5};
+    else if (debtSmall && xHeavy) finLine = {icon:"📊", t:"一方、毎年の収入の約" + Math.round(d.x) + "%が決まった支出に回っています（経常収支比率）", p:1.5};
+    if (finLine) { bullets.push(finLine); finSrc[finLine.icon === "📊" ? "経常収支比率" : "実質公債費比率"]=1; }
+
+    // その年の収支（業務・投資活動収支）
+    if (ka8 != null) {
+      bullets.push({icon:"⚖️", t: ka8 < 0
+        ? fillYears("{KY}") + "は、行政サービス・施設整備・基金への積み立てなどの支出が収入を上回り、差を借入金や手元の資金で補いました"
+        : fillYears("{KY}") + "は、行政サービス・施設整備・基金への積み立てなどを、その年の収入でまかなえています", p:3});
+      kkSrc["業務・投資活動収支"]=1;
+    }
+
+    // 見出し（いちばん大事な「だから何？」）
+    var head;
+    // 見出しは、要点で実際に言っていることだけを使う（2026-09-30）
+    var bigNoun = a4 < 0 ? "借金などでまかなった資産の割合" : "将来の住民が返済を受け持つ地方債の割合";
+    var xTail = (d && d.x != null && d.x >= 98) ? "毎年のやりくりには余力がほとんどありません" : "毎年のやりくりには余裕が少ない状態です";
+    if (a3 > 0 && debtBig) head = "古くなった施設の更新と、今ある借金などの返済の両方を抱えている状態です";
+    else if (debtBig && dLight) head = bigNoun + "は大きめですが、毎年の返済は軽い状態です";
+    else if (debtBig && dHeavy) head = bigNoun + "が大きく、毎年の返済も重い状態です";
+    else if (debtBig) head = bigNoun + "が、" + than + "大きめの状態です";
+    else if (debtSmall && xHeavy) head = "これまでの資産と負債のバランスは" + (isPref ? "都道府県の中では" : "") + "良いほうですが、" + xTail;
+    else if (debtSmall && a3 > 0) head = "借金などへの頼り方は小さめですが、施設の老朽化は" + than + "進んでいます";
+    else if (debtSmall && a4 > 0 && ka4 >= 50) head = a5 < 0 ? "資産の多くを借金などに頼らずまかなっていて、将来の住民に回る負担も小さめの状態です" : "資産の多くを借金などに頼らずまかなっている状態です";
+    else if (debtSmall && a4 > 0) head = (isPref ? "都道府県の中では、" : "") + (a5 < 0 ? "借金などに頼った資産の割合が小さめで、将来の住民に回る負担も小さめの状態です" : "借金などに頼った資産の割合が小さめの状態です");
+    else if (debtSmall) head = "将来の住民が返済を受け持つ地方債の割合が、" + than + "小さめの状態です";
+    else if (a3 > 0) head = "施設全体として、建て替えや修繕の時期に" + than + "近づいている状態です";
+    else if (a3 < 0) head = "施設は" + than + "新しめで、資産と負債のバランスは" + (isPref ? "他の都道府県" : "全国") + "並みの状態です";
+    else head = "資産と負債のバランスや施設の古さは、" + (isPref ? "他の都道府県" : "全国") + "並みの状態です";
+
+    bullets.sort(function(a, b){ return a.p - b.p; });
+    // 見出しに関係する要点を優先して最大3つ（財政タブとの組み合わせは見出しの根拠なので必ず残す）
+    var shown = bullets.slice(0, 3);
+    // 出典は表示した要点に使った指標だけ
+    kkSrc = {}; finSrc = {};
+    shown.forEach(function(b){
+      if (b.icon === "🏦") { if (a4 !== 0) kkSrc["純資産比率"]=1; if (a5 !== 0) kkSrc["将来世代負担比率"]=1; }
+      if (b.icon === "🏚️") kkSrc["有形固定資産減価償却率"]=1;
+      if (b.icon === "⚖️") kkSrc["業務・投資活動収支"]=1;
+      if (b.icon === "💳") finSrc["実質公債費比率"]=1;
+      if (b.icon === "📊") finSrc["経常収支比率"]=1;
+    });
+    var src = [];
+    if (Object.keys(kkSrc).length) src.push(Object.keys(kkSrc).join("・") + "（総務省 公会計 " + fillYears("{KY}") + "）");
+    if (Object.keys(finSrc).length) src.push(Object.keys(finSrc).join("・") + "（総務省 " + fillYears("{FY}") + "）");
+
+    return "<div class='adv' style='margin-top:18px;'><strong>みっちーからのひとこと</strong>" +
+      "<div style='font-weight:700;color:#3a2a6e;margin:6px 0 8px;line-height:1.6;'>" + head + "</div>" +
+      shown.map(function(b){ return "<div style='display:flex;gap:6px;align-items:flex-start;margin-top:4px;line-height:1.6;'><span aria-hidden='true'>" + b.icon + "</span><span>" + b.t + "</span></div>"; }).join("") +
+      (src.length ? "<div style='font-size:12px;color:#7a7a90;margin-top:10px;line-height:1.5;'>もとにした指標：" + src.join("、") + "</div>" : "") +
+      "<div style='font-size:12px;color:#7a7a90;margin-top:4px;line-height:1.5;'>※公会計は、これまで積み上げてきた資産と負債のバランスを見る指標で、毎年のやりくり（財政タブ）とは見ているものが違います。</div>" +
+      "</div>";
+  }
+
   function kkRender(nm, d){
     var body = document.getElementById("kkContent");
     if (!body) return;
@@ -714,7 +823,8 @@
     html += kkRadarSvg(nm, entry, isPref, d.p);
     html += "<div class='tap-hint' style='margin-top:20px;'>\ud83d\udcca \u5404\u9805\u76ee\u3092\u30bf\u30c3\u30d7\u3059\u308b\u3068\u8aac\u660e\u304c\u8868\u793a\u3055\u308c\u307e\u3059</div><div class='grid'>";
     KK_ORDER.forEach(function(code){ html += kkBoxHtml(code, entry, isPref); });
-    html += "</div><div class='src'>\ud83d\udccb \u7dcf\u52d9\u7701\u300c\u7d71\u4e00\u7684\u306a\u57fa\u6e96\u306b\u3088\u308b\u8ca1\u52d9\u66f8\u985e\u306b\u95a2\u3059\u308b\u8abf\u300d\u4ee4\u548c5\u5e74\u5ea6</div>";
+    html += "</div>" + kkAdviceHtml(nm, entry, d, isPref);
+    html += "<div class='src'>📋 総務省「統一的な基準による財務書類に関する情報」" + fillYears("{KY}") + "</div>";
     body.innerHTML = html;
     body.querySelectorAll(".kk-stat, .kk-axis-lbl").forEach(function(el){
       el.addEventListener("click", function(){ kkOpenDetail(this.getAttribute("data-kkcode")); });
