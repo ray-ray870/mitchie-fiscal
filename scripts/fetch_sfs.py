@@ -117,6 +117,22 @@ def build_urls(base_muni):
 
 
 def download(url, tries=3):
+    # 同じ実行環境で2回目に呼ばれたときは、保存しておいたファイルを使う（リハーサルの2回目の実行を速くするため）
+    cache = os.path.join("/tmp", "fetch_sfs_cache", url.rsplit("/", 1)[-1])
+    if os.path.exists(cache):
+        with open(cache, "rb") as fp:
+            return fp.read()
+    data = _download(url, tries)
+    try:
+        os.makedirs(os.path.dirname(cache), exist_ok=True)
+        with open(cache, "wb") as fp:
+            fp.write(data)
+    except OSError:
+        pass
+    return data
+
+
+def _download(url, tries=3):
     for t in range(tries):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -136,18 +152,31 @@ def read_card(data, pref, pos):
     （例：金山町は山形県と福島県にある）
     そのため都道府県とのペアで持つ。
     """
+    out, skipped = _read_card(data, pref, pos, fast=True)
+    if not out:  # 速い読み方で読めなかったときだけ、従来の読み方で読み直す
+        out, skipped = _read_card(data, pref, pos, fast=False)
+    return out, skipped
+
+
+def _read_card(data, pref, pos, fast):
+    # fast=True：必要な1行だけを読む（2026-09-30。以前は全シートを丸ごと読んでいて、48ファイルで10分近くかかった）
     row, label_col, value_col = pos
-    wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
+    wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True, read_only=fast)
     out = {}
     skipped = 0
     for sh in wb.sheetnames:
         if sh == "目次":
             continue
         ws = wb[sh]
-        if ws.cell(row, label_col).value != "標準財政規模":
+        if fast:
+            vals = next(ws.iter_rows(min_row=row, max_row=row, max_col=max(label_col, value_col), values_only=True), ())
+            vals = list(vals) + [None] * (max(label_col, value_col) - len(vals))
+            label, v = vals[label_col - 1], vals[value_col - 1]
+        else:
+            label, v = ws.cell(row, label_col).value, ws.cell(row, value_col).value
+        if label != "標準財政規模":
             skipped += 1
             continue
-        v = ws.cell(row, value_col).value
         if not isinstance(v, (int, float)):
             skipped += 1
             continue

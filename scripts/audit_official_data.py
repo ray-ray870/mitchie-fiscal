@@ -358,10 +358,16 @@ def main():
             return
         small, big, ex, tried = 0, 0, [], 0
         for n, e, ip, key in ents:
-            if ip != is_pref or key not in off or off[key] is None:
+            if ip != is_pref or key not in off:
                 continue
             av = app(e, p, k, latest)
             if av is None:
+                continue
+            if off[key] is None:
+                # 公式は空欄（「－」など）なのに、アプリに値がある＝前の年の値が残っている可能性（2026-09-30 追加）
+                big += 1
+                if len(ex) < 8:
+                    ex.append(f"{n} {av}→空欄")
                 continue
             tried += 1
             dv = abs(av - off[key])

@@ -15,6 +15,7 @@
 
 import json
 import os
+from decimal import Decimal, ROUND_HALF_UP
 import re
 import sys
 import urllib.request
@@ -53,6 +54,11 @@ def download(url, name):
 
 def normalize(name):
     return re.sub(r"（.*?）", "", str(name))
+
+
+def round_half_up(v, nd=1):
+    """ふつうの四捨五入（7.85 → 7.9）。Pythonの round() は 7.85 → 7.8 になることがあるため（2026-09-30 リハーサルで判明）"""
+    return float(Decimal(str(v)).quantize(Decimal(1).scaleb(-nd), rounding=ROUND_HALF_UP))
 
 
 def lookup_muni(idx, pref, name):
@@ -334,7 +340,7 @@ def main():
                 warnings.append(f"{fname}:{name} 財政指標が見つかりません")
 
             if rf is not None:
-                slide_and_set(entry, "r", round(rf / 100, 1), start_idx=2, year=fiscal_year)
+                slide_and_set(entry, "r", round_half_up(Decimal(str(rf)) / 100), start_idx=2, year=fiscal_year)
             else:
                 warnings.append(f"{fname}:{name} 財政調整基金が見つかりません")
 
