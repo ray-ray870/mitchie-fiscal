@@ -23,8 +23,47 @@
   // ===== 全国の中央値・最大値 =====
   // 説明文に出てくる中央値なども、読み込んだデータから計算する（2026-09-30。以前は数字を直接書いていた）。
   // 下の数字は、データを読み込むまでの仮の値。
+  /* --- 推移を、途中の動きも見て一文にする（2026-09-30）---
+     以前は「最初の年と最新の年」の2点だけを比べていたため、最初の年だけ飛び抜けていると
+     「大きく減少」と出てしまっていた（例：姶良市の教育費比率。令和元年度だけ11.6%で、その後は6〜8%台）。
+     pts：[{y:年の番号, v:値}]（古い順。0以下の年は平成30年度など）
+     opt：tol（これ以下の変化は「横ばい」とみなす差）, rel（割合で判定するとき true）, fmt（値の表示関数）, times（「約◯倍」を添える）
+     返すのは「令和◯年度から増えています（A→B）」のような文。3年分以上ないときは空文字 */
+  function trendJP(pts, opt) {
+    pts = (pts || []).filter(function(p){ return p.v != null && !isNaN(p.v); });
+    if (pts.length < 3) return "";
+    var fmt = opt.fmt || function(v){ return String(v); };
+    var pre = opt.label ? opt.label + "は、" : "";
+    var yl = function(y){ return reiwaText(y) + "度"; };
+    var flat = function(a, b){ return opt.rel ? Math.abs(b - a) <= Math.abs(a) * opt.tol : Math.abs(b - a) <= opt.tol; };
+    var small = function(a, b){ return opt.rel ? Math.abs(b - a) <= Math.abs(a) * opt.tol * 3 : Math.abs(b - a) <= opt.tol * 3; };
+    var sg = [];
+    for (var i = 1; i < pts.length; i++) sg.push(flat(pts[i-1].v, pts[i].v) ? 0 : (pts[i].v > pts[i-1].v ? 1 : -1));
+    var first = pts[0], last = pts[pts.length - 1], n = sg.length;
+    var mn = Math.min.apply(null, pts.map(function(p){ return p.v; })), mx = Math.max.apply(null, pts.map(function(p){ return p.v; }));
+    var word = function(d){ return d > 0 ? "増え" : "減っ"; };
+    var times = function(a, b){ return (opt.times && a > 0 && (b / a >= 1.15 || b / a <= 0.87)) ? "、約" + (Math.round(b / a * 10) / 10) + "倍" : ""; };
+    if (flat(mn, mx)) return pre + yl(first.y) + "から、ほぼ横ばいです（" + fmt(mn) + "〜" + fmt(mx) + "）";
+    var lastDir = sg[n - 1];
+    if (lastDir === 0) {
+      return pre + yl(last.y) + "に、前の年度からほぼ変わりませんでした（" + fmt(pts[n - 1].v) + "→" + fmt(last.v) + "）";
+    }
+    var k = n - 1;
+    while (k - 1 >= 0 && sg[k - 1] === lastDir) k--;
+    var runStart = pts[k];
+    if (k === 0) return pre + yl(first.y) + "から" + (lastDir > 0 ? "増え" : "減り") + "続けています（" + fmt(first.v) + "→" + fmt(last.v) + times(first.v, last.v) + "）";
+    if (n - k >= 2) return pre + yl(runStart.y) + "から" + word(lastDir) + "ています（" + fmt(runStart.v) + "→" + fmt(last.v) + times(runStart.v, last.v) + "）";
+    // 最新の1年だけ向きが変わった（または前の年度まで横ばいだった）
+    var prevDir = sg[k - 1];
+    var j = k - 1;
+    while (j - 1 >= 0 && sg[j - 1] === prevDir) j--;
+    var turn = yl(last.y) + (pre ? "に" : "は") + (small(pts[n - 1].v, last.v) ? "少し" : "") + (lastDir > 0 ? "増えました" : "減りました") + "（" + fmt(pts[n - 1].v) + "→" + fmt(last.v) + "）";
+    if (prevDir !== 0 && k - j >= 2) return pre + yl(pts[j].y) + "から" + word(prevDir) + "てきましたが、" + turn;
+    return pre + turn;
+  }
+
   var DATA_STATS = {
-    f: {muni: 0.44, pref: 0.47}, x: {muni: 91.5, pref: 93.8}, u: {muni: 35.5, pref: 159.7},
+    d: {muni: 7.6, pref: 11}, f: {muni: 0.44, pref: 0.47}, x: {muni: 91.5, pref: 93.8}, u: {muni: 35.5, pref: 159.7},
     rr: {muni: 24.8, pref: 6.4}, edu: {muni: 10.5, pref: 18.9}, ch: {muni: 118.4, pref: 87.9},
     chMax: {muni: 974.1, pref: 0}
   };
@@ -36,7 +75,7 @@
   }
   function computeDataStats() {
     var get = {
-      f: function(e){ return e.f; }, x: function(e){ return e.x; },
+      f: function(e){ return e.f; }, x: function(e){ return e.x; }, d: function(e){ return e.d; },
       u: function(e){ return (e.u == null || e.u === "-" || e.u === "－") ? null : e.u; },
       rr: function(e){ return (e.sfs && e.sfs > 0 && e.r != null) ? e.r / e.sfs * 100 : null; },
       edu: function(e){ return e.edu; }, ch: function(e){ return e.ch; }
