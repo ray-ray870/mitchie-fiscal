@@ -203,6 +203,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.1.1", date:"2026.9", items:["財政と公会計を比べる欄で、組み合わせから分かることを表示"] },
     { version:"3.1.0", date:"2026.9", items:["各項目の説明を、自治体の今の状況が分かる形に改善"] },
     { version:"3.0.9", date:"2026.9", items:["説明文をより分かりやすく改善","公会計タブに「みっちーからのひとこと」を追加"] },
     { version:"3.0.8", date:"2026.9", items:["表示の改善"] },
@@ -1145,24 +1146,12 @@
         var ka4Near = Math.abs(ka4v - ka4Med) <= ka4Med * 0.1;
         var ka4High = ka4v > ka4Med;
         var analysisR, ka4Judge;
-        if (!ka4Near) {
-        if (!rHigh && !ka4High) {
-          ka4Judge = "全国の中央値より低め";
-          analysisR = "";
-        } else if (rHigh && ka4High) {
-          ka4Judge = "全国の中央値より高め";
-          analysisR = "";
-        } else if (rHigh && !ka4High) {
-          ka4Judge = "全国の中央値より低め";
-          analysisR = "貯金と長期的な財産形成は別物です。";
-        } else {
-          ka4Judge = "全国の中央値より高め";
-          analysisR = "日々の備えと長期的な財産形成は別物です。";
-        }
+        if (true) {   // 2026-09-30：全国並みのときも出す（「クロスチェックで分かること」は全国並みの場合の文もある）
+        ka4Judge = ka4Near ? "全国の中央値とほぼ同水準" : ka4High ? "全国の中央値より高め" : "全国の中央値より低め";
         topSummaryHtml += kkCrossBox("🔗 公会計と比べてみると",
           "財政調整基金残高", ratio.toFixed(1)+"%", reserveLevelLabel(ratio, isPrefView),
           "純資産比率", ka4v+"%", ka4Judge,
-          analysisR,
+          crossInsight("ka4", cur, KK[curName], isPrefView),
           false, (function(){ function ratioAt(sfx){ var rv=sfx?cur["r_r"+sfx]:cur.r; var sv=sfx?cur["sfs_r"+sfx]:cur.sfs; return (rv!=null&&sv)?rv/sv*100:null; } var nR=countHist("r",1), arrR=[]; for (var ri=Math.max(1,nR-SHOW_HIST+1); ri<=nR; ri++) arrR.push(ratioAt(ri)); arrR.push(ratioAt(null)); return withTrendMeaning("r", trendSincePhrase(arrR, nR+1, "%", 1)); })(),
           (function(){ var e=KK[curName]; return withTrendMeaning("ka4", trendSincePhrase(histArr(e, "ka4", "kk"), DATA_YEAR.kokaikei, "%", 1)); })());
         topSummaryHtml += KK_CROSSCHECK_CAVEAT;
@@ -1361,7 +1350,7 @@ if (key === "growth" && cur && cur.pop) {
         topSummaryHtml += kkCrossBox("🔗 公会計と比べてみると",
           "実質公債費比率", cur.d+"%", debtLevelLabel(cur.d, isPrefView),
           "住民一人当たり負債額", ka7v+"万円", ka7Judge,
-          analysisD,
+          crossInsight("ka7", cur, KK[curName], isPrefView),
           false, dTrendPhraseF, ka7TrendPhraseF);
         topSummaryHtml += KK_CROSSCHECK_CAVEAT;
       }
