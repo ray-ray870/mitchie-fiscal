@@ -158,8 +158,94 @@
     }
     return {judge:judge, analysis:analysis};
   }
+  /* --- クロスチェックで分かること（2026-09-30）---
+     財政の指標（毎年のやりくり・借金などの残り）と、公会計の指標（施設の古さ・量・資産と負債のバランス）は
+     見ているものが違う。2つを組み合わせて、片方だけでは分からないことを書く。
+     ・書くのは、2つの指標の定義から言えることと、その組み合わせが起きる仕組みだけ（町の事情の推測はしない）
+     ・公会計の指標は全国（都道府県は都道府県）の中央値と比べ、差が10%以内なら「全国並み」として、その場合の文を出す
+     ・財政側の「軽め・重め」などは、画面の判定（カードの色・目安）と同じ基準 */
+  var KK_DEBT_NOTE = "※ここでの「借金など」には、国の交付税の代わりに借りる「臨時財政対策債」も含まれます";
+  function crossInsight(code, cur, entry, isPref) {
+    if (!cur || !entry || entry[code] == null) return "";
+    var mm = KK_MEDIANS[code], med = mm ? (isPref ? mm.pref : mm.muni) : null;
+    if (med == null || med === 0) return "";
+    var v = entry[code], ratio = v / med;
+    var kkHi = ratio > 1.1, kkLo = ratio < 0.9;
+    var kkNear = !kkHi && !kkLo;   // 全国並み（差が10%以内）
+    var than = isPref ? "他の都道府県より" : "全国より";
+    var times = function(){ return ratio >= 1.5 ? (isPref ? "都道府県の中央値の" : "全国の") + "約" + (Math.round(ratio * 10) / 10) + "倍と" : than; };
+    // 財政側の状態
+    var uZero = (cur.u == null || cur.u <= 0), uHeavy = !uZero && futureBurdenHigh(cur.u, isPref);
+    var uWord = uZero ? "実質ゼロ" : uHeavy ? "重め" : "軽め";
+    if (code === "ka3") {
+      var wari = Math.round(v / 10);
+      if (kkNear) return uHeavy
+        ? "施設の古さは全国並み（平均して耐用年数の約" + wari + "割）ですが、将来に残る負担は重めです。これから全国と同じように建て替えの時期を迎えるなかで、すでに借金などの負担を多く抱えている状態です。"
+        : "施設の古さは全国並み（平均して耐用年数の約" + wari + "割）で、将来に残る負担は" + uWord + "です。全国と同じくらい古くなってきた施設を抱えながら、将来への負担は重くない状態です。";
+      if (kkHi) return uHeavy
+        ? "施設は" + than + "古く（平均して耐用年数の約" + wari + "割）、将来に残る負担もすでに重めです。これからの建て替えを借金でまかなうと、将来負担はさらに増えます。"
+        : "将来に残る負担は" + uWord + "ですが、施設は" + than + "古くなっています（平均して耐用年数の約" + wari + "割）。建て替えの多くはまだこれからで、その費用を借金でまかなうと、将来負担はこれから増えていきます。";
+      return uHeavy
+        ? "施設は" + than + "新しい一方で、将来に残る負担は重めです。当面の建て替えの必要は小さいものの、借金などの返済が続きます。"
+        : "施設は" + than + "新しく、将来に残る負担も" + uWord + "です。比較的新しい施設が、将来への重い負担としては残っていない状態です。";
+    }
+    if (code === "ka1") {
+      if (kkNear) return uHeavy
+        ? "住民1人あたりの資産は全国並みですが、将来に残る負担は重めです。資産の量が同じくらいの自治体と比べて、借金などの負担が大きい状態です。"
+        : "住民1人あたりの資産は全国並みで、将来に残る負担は" + uWord + "です。持っている資産の量に見合わない、重い負担は残っていない状態です。";
+      if (kkHi) return uHeavy
+        ? "住民1人あたりの資産は" + times() + "多く、将来に残る負担も重めです。施設の維持・更新の費用と、借金などの返済の両方を、住民1人あたりで見ると多く抱えている状態です。"
+        : "住民1人あたりの資産は" + times() + "多い一方、将来に残る負担は" + uWord + "です。多くの資産を、将来への重い負担を残さずに持てています。ただし、資産が多いほど、その維持・更新の費用は大きくなります。";
+      return uHeavy
+        ? "住民1人あたりの資産は" + than + "少ないのに、将来に残る負担は重めです。持っている資産に比べて、借金などの負担が大きい状態です。"
+        : "住民1人あたりの資産は" + than + "少なく、将来に残る負担も" + uWord + "です。施設の維持・更新の費用も、借金などの返済も、住民1人あたりで見ると小さい状態です。";
+    }
+    if (code === "ka6") {
+      var smallPop = !isPref && cur.pop != null && cur.pop < 10000 ? "人口が少ないと、1人あたりの費用は大きく出ます。" : "";
+      if (kkNear) return uHeavy
+        ? "住民1人あたりの行政サービスの費用は全国並みですが、将来に残る負担は重めです。将来負担の重さは、毎年のサービスの費用ではなく、これまでの借金などの残高によるものです。"
+        : "住民1人あたりの行政サービスの費用は全国並みで、将来に残る負担は" + uWord + "です。標準的な費用で行政サービスを行いながら、将来への重い負担は残っていない状態です。";
+      if (kkHi) return uHeavy
+        ? "住民1人あたりの行政サービスの費用が" + times() + "多く、将来に残る負担も重めです。今の費用と、将来への負担の両方が大きい状態です。" + smallPop
+        : "住民1人あたりの行政サービスの費用は" + times() + "多いですが、将来に残る負担は" + uWord + "です。費用の多さは、将来への借金などとしては残っていません。" + smallPop;
+      return uHeavy
+        ? "住民1人あたりの行政サービスの費用は" + than + "少ないのに、将来に残る負担は重めです。将来負担の重さは、毎年のサービスの費用ではなく、これまでの借金などの残高によるものです。"
+        : "住民1人あたりの行政サービスの費用は" + than + "少なく、将来に残る負担も" + uWord + "です。毎年のサービスの費用も、将来への負担も、住民1人あたりで見ると小さい状態です。";
+    }
+    if (code === "ka7" && cur.d != null) {
+      var dl = debtLevelLabel(cur.d, isPref);   // 軽め／標準的／やや重め／重め
+      var dLight = (dl === "軽め" || dl === "標準的");
+      if (kkNear) return dLight
+        ? "住民1人あたりの負債は全国並みで、毎年の返済は" + (dl === "軽め" ? "軽い" : "標準的な") + "状態です。負債の量も、返済の重さも、全国と比べて特に目立つところはありません。"
+        : "住民1人あたりの負債は全国並みですが、毎年の返済は" + dl + "です。負債の残高に比べて毎年の返済が大きいということで、返済期間が短い借金が多いと、こうなります。";
+      if (kkHi) return dLight
+        ? "住民1人あたりの負債は" + times() + "多いのに、毎年の返済は" + (dl === "軽め" ? "軽い" : "標準的な") + "状態です。負債の残高に比べて毎年の返済が" + (dl === "軽め" ? "小さい" : "大きくない") + "ということで、返済期間が長い借金や、返済の一部が国の交付税で補われる借金が多いと、こうなります。"
+        : "住民1人あたりの負債が" + times() + "多く、毎年の返済も" + dl + "です。返済にあてるお金が多い分、ほかの事業に回せるお金は少なくなります。";
+      return dLight
+        ? "住民1人あたりの負債は" + than + "少なく、毎年の返済も" + (dl === "軽め" ? "軽い" : "標準的な") + "状態です。返済にあてるお金が少ない分、ほかの事業にお金を回しやすくなっています。"
+        : "住民1人あたりの負債は" + than + "少ないのに、毎年の返済は" + dl + "です。負債の残高に比べて毎年の返済が大きいということで、返済期間が短い借金が多いと、こうなります。";
+    }
+    if (code === "ka4" && cur.sfs && cur.sfs > 0 && cur.r != null) {
+      var rl = reserveLevelLabel(cur.r / cur.sfs * 100, isPref);   // 多め／標準的／やや少なめ／少なめ
+      var rOk = (rl === "多め" || rl === "標準的");
+      var rWord = rl === "多め" ? "多めに" : "標準的に";
+      var out;
+      if (kkNear) out = rOk
+        ? "資産と負債のバランスは全国並みで、手元の貯金（急な出費への備え）も" + rWord + "あります。長い目で見ても、短い目で見ても、全国と比べて特に目立つ弱点はありません。"
+        : "資産と負債のバランスは全国並みですが、手元の貯金（急な出費への備え）は" + rl + "です。長い目で見たバランスは標準的な一方、急な出費への備えは小さい状態です。";
+      else if (kkLo) out = rOk
+        ? "手元の貯金（急な出費への備え）は" + rWord + "ありますが、施設などの資産は、" + than + "借金などに頼ってつくった割合が大きい状態です。短い目で見た備えと、長い目で見た資産と負債のバランスは、分けて見る必要があります。"
+        : "施設などの資産を" + than + "借金などに頼ってつくっていて、手元の貯金（急な出費への備え）も" + rl + "です。長い目で見ても、短い目で見ても、余裕が小さい状態です。";
+      else out = rOk
+        ? "資産の多くを借金などに頼らずまかなっていて、手元の貯金（急な出費への備え）も" + rWord + "あります。長い目で見た資産と負債のバランスも、急な出費への備えもある状態です。"
+        : "資産は" + than + "借金などに頼らずまかなえていますが、手元の貯金（急な出費への備え）は" + rl + "です。長い目で見たバランスは良い一方、急な出費への備えは小さい状態です。";
+      return out + "<div style='font-size:12px;color:#8a7a5a;margin-top:4px;'>" + KK_DEBT_NOTE + "</div>";
+    }
+    return "";
+  }
+
   function buildFutureComboBox(code, kkVal, isPrefView, curObj, curNameStr, entry, reverseOrder, boxNumber) {
-    if (kkVal == null || curObj.u == null) return "";
+    if (kkVal == null) return "";   // 将来負担比率が「－」（負担なし）の団体も表示する（2026-09-30）
     var m = FUTURE_COMBO_META[code];
     var med = isPrefView ? KK_MEDIANS[code].pref : KK_MEDIANS[code].muni;
     var uHigh = futureBurdenHigh(curObj.u, isPrefView);
@@ -173,9 +259,9 @@
     var numMark = boxNumber ? ["①","②","③","④","⑤"][boxNumber-1] || "" : "";
     var heading = reverseOrder ? ("🔗 財政と比べてみると" + numMark) : ("🔗 公会計と比べてみると" + numMark);
     return kkCrossBox(heading,
-      "将来負担比率", curObj.u+"%", uLabel,
+      "将来負担比率", (curObj.u == null || curObj.u <= 0) ? "0%（負担なし）" : curObj.u+"%", uLabel,
       m.label, kkVal+m.unit, r.judge,
-      r.analysis,
+      crossInsight(code, curObj, entry, isPrefView),
       reverseOrder, uTrendPhrase, kkTrendPhrase);
   }
   function kkCrossBox(heading, zaiLabel, zaiVal, zaiJudge, kkLabel, kkVal, kkJudge, analysisText, reverse, zaiTrendPhrase, kkTrendPhrase) {
@@ -199,7 +285,7 @@
     }
     var analysisHtml = analysisText ? (
       "<div style='background:#fdf8ec;border-radius:10px;padding:10px 12px;'>" +
-        "<div style='font-size:13px;font-weight:700;color:#c08a1a;margin-bottom:4px;'>💡 ここから考えられること</div>" +
+        "<div style='font-size:13px;font-weight:700;color:#c08a1a;margin-bottom:4px;'>🔍 クロスチェックで分かること</div>" +
         "<div style='font-size:14px;color:#5a4a30;line-height:1.7;'>" + analysisText + "</div>" +
       "</div>"
     ) : "";
@@ -222,7 +308,6 @@
       var rHighRec = ratioRec >= rb.hi;
       var ka4NearRec = Math.abs(entryV - ka4Med) <= ka4Med * 0.1;
       var ka4HighRec = entryV > ka4Med;
-      if (ka4NearRec) return "";
       var judgeRec, analysisRec;
       if (!rHighRec && !ka4HighRec) { judgeRec = reserveLevelLabel(ratioRec, isPref); analysisRec = ""; }
       else if (rHighRec && ka4HighRec) { judgeRec = reserveLevelLabel(ratioRec, isPref); analysisRec = ""; }
@@ -231,14 +316,13 @@
       function ratioAtRec(sfx){ var rv=sfx?cur["r_r"+sfx]:cur.r; var sv=sfx?cur["sfs_r"+sfx]:cur.sfs; return (rv!=null&&sv)?rv/sv*100:null; }
       var rTrendPhrase = withTrendMeaning("r", trendSincePhrase((function(){ var a=[]; for (var k=1;k<DATA_YEAR.fiscal;k++) a.push(ratioAtRec(k)); a.push(ratioAtRec(null)); return a; })(), DATA_YEAR.fiscal, "%", 1));
       var ka4TrendPhrase = entry ? withTrendMeaning("ka4", trendSincePhrase(histArr(entry, "ka4", "kk"), DATA_YEAR.kokaikei, "%", 1)) : null;
-      return kkCrossBox("🔗 財政と比べてみると", "財政調整基金残高", ratioRec.toFixed(1)+"%", judgeRec, "純資産比率", entryV+"%", ka4HighRec?"全国の中央値より高め":"全国の中央値より低め", analysisRec, true, rTrendPhrase, ka4TrendPhrase) + KK_CROSSCHECK_CAVEAT;
+      return kkCrossBox("🔗 財政と比べてみると", "財政調整基金残高", ratioRec.toFixed(1)+"%", judgeRec, "純資産比率", entryV+"%", (ka4NearRec?"全国の中央値とほぼ同水準":ka4HighRec?"全国の中央値より高め":"全国の中央値より低め"), crossInsight("ka4", cur, entry, isPref), true, rTrendPhrase, ka4TrendPhrase) + KK_CROSSCHECK_CAVEAT;
     }
     if (code === "ka7" && cur.d != null) {
       var ka7Med = isPref ? KK_MEDIANS.ka7.pref : KK_MEDIANS.ka7.muni;
       var dHighRec = cur.d >= 18;
       var ka7NearRec = Math.abs(entryV - ka7Med) <= ka7Med * 0.1;
       var ka7HighRec = entryV > ka7Med;
-      if (ka7NearRec) return "";
       var judgeD, analysisD2;
       if (!dHighRec && !ka7HighRec) { judgeD = debtLevelLabel(cur.d, isPref); analysisD2 = ""; }
       else if (dHighRec && ka7HighRec) { judgeD = "重め"; analysisD2 = ""; }
@@ -254,9 +338,9 @@
       }
       var dTrendPhrase = withTrendMeaning("d", trendSincePhrase(histArr(cur, "d", "fiscal"), DATA_YEAR.fiscal, "%", 1));
       var ka7TrendPhrase = entry ? withTrendMeaning("ka7", trendSincePhrase(histArr(entry, "ka7", "kk"), DATA_YEAR.kokaikei, "万円", 1)) : null;
-      return kkCrossBox("🔗 財政と比べてみると", "実質公債費比率", cur.d+"%", judgeD, "住民一人当たり負債額", entryV+"万円", ka7HighRec?"全国の中央値より高め":"全国の中央値より低め", analysisD2, true, dTrendPhrase, ka7TrendPhrase) + KK_CROSSCHECK_CAVEAT;
+      return kkCrossBox("🔗 財政と比べてみると", "実質公債費比率", cur.d+"%", judgeD, "住民一人当たり負債額", entryV+"万円", (ka7NearRec?"全国の中央値とほぼ同水準":ka7HighRec?"全国の中央値より高め":"全国の中央値より低め"), crossInsight("ka7", cur, entry, isPref), true, dTrendPhrase, ka7TrendPhrase) + KK_CROSSCHECK_CAVEAT;
     }
-    if ((code === "ka3" || code === "ka1" || code === "ka6") && cur.u != null) {
+    if (code === "ka3" || code === "ka1" || code === "ka6") {
       var boxHtmlRec = buildFutureComboBox(code, entryV, isPref, cur, curName, entry, true);
       return boxHtmlRec ? (boxHtmlRec + KK_CROSSCHECK_CAVEAT) : "";
     }
@@ -398,7 +482,7 @@
     if (code === "ka3") { ex = "施設は平均して、耐用年数の約" + wari(v) + "割が過ぎています";
       mean = v >= 50 ? "施設全体として、建て替えや大規模な修繕の時期に近づいてきています" : "施設全体としては、まだ耐用年数の半分に達していません"; }
     if (code === "ka4") { ex = "資産を100円分とすると、約" + Math.round(v) + "円分を借金など（負債）に頼らずにまかなっています";
-      mean = "残りの約" + (100 - Math.round(v)) + "円分は負債（地方債や、将来払う退職手当など）で、これから返したり支払ったりしていく必要があります"; }
+      mean = "残りの約" + (100 - Math.round(v)) + "円分は負債（地方債や、将来払う退職手当など）で、これから返したり支払ったりしていく必要があります。" + KK_DEBT_NOTE; }
     if (code === "ka5") { ex = "資産を100円分とすると、約" + Math.round(v) + "円分を、将来の住民が返す地方債でつくっています";
       mean = "その返済は、これからの住民の税金などで行われます。将来の住民も使う施設なので、負担を世代で分け合うという考え方でもあります"; }
     if (code === "ka6") { mean = entry.ka9 != null ? "この費用のうち、利用する人が料金などで払っているのは約" + (Math.round(entry.ka9 * 10) / 10) + "%（受益者負担比率）で、残りは税金や国からのお金などでまかなわれています" : null; }
