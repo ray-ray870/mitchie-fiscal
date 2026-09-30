@@ -1,21 +1,49 @@
   function advice(name, d) {
-    var h = calcH(d.f,d.d,d.x,d.u,d.r,d.eo,d.__pref,d.sfs);
-    var r = d.r!=null ? d.r.toFixed(1) : "－";
+    // 2026-09-30 作り直し：以前は条件に合わない団体にも決まった文を出していた
+    // （例：財政力指数0.26でも「財政力指数・経常収支比率ともに良好」、基金が少なくても「財政の底力は残っています」）。
+    // 実際の値に合うことだけを書く。
+    var isPref = !!d.__pref;
+    var h = calcH(d.f,d.d,d.x,d.u,d.r,d.eo,isPref,d.sfs);
     var g = d.g!=null ? (d.g>=0?"+":"")+d.g.toFixed(1) : "－";
-    if (d.d>25) return name+"は実質公債費比率が"+d.d+"%と非常に重く財政再建が急務です🚨 ただし財政調整基金が"+r+"億円あり、返済が進めば将来的な改善も期待できます";
-    if (d.f>=1.0) return name+"は財政力指数"+d.f.toFixed(2)+"の優良団体です⭐ 国に頼らない財政運営ができています。ただし人口増減率"+g+"%の動向に注目です";
-    if (h>=80) return name+"の財政は総合的に健全です💙 財政力指数"+d.f.toFixed(2)+"・経常収支比率"+d.x.toFixed(1)+"%ともに良好で、住民サービスへのさらなる投資が期待されます";
-    if (d.x>95) return name+"の財政はかなりしんどい状態です😔 収入の"+d.x.toFixed(1)+"%が固定費に消えています。一方で財政調整基金は"+r+"億円あり、行財政改革の努力に期待です🐧";
-    if (d.g<-1.0) return name+"は人口減少率"+g+"%と深刻で税収への長期的影響が懸念されます😔 ただし財政調整基金"+r+"億円を抱えており、財政の底力は残っています🐧";
-    if (h<50) return name+"の財政は厳しい状況です😔 財政力指数"+d.f.toFixed(2)+"と自主財源が乏しく、国からの交付税に依存しています。財政調整基金"+r+"億円の活用と歳出改革が課題です";
-    return name+"の財政は全国平均的な水準です🐧 財政力指数"+d.f.toFixed(2)+"で大きな問題はありませんが、将来の人口減少・社会保障費増大への備えが重要です";
+    var rr = (d.sfs && d.sfs > 0 && d.r != null) ? d.r / d.sfs * 100 : null;
+    var ample = reserveIsAmple(d, isPref), low = reserveIsLow(d, isPref);
+    // 良い点・気になる点（各指標の目安はそれぞれの詳細画面と同じ）
+    var goods = [], weaks = [];
+    if (d.f >= 0.7) goods.push("財政力指数"+d.f.toFixed(2)); else if (d.f < 0.5) weaks.push("自主財源が少なく交付税への依存が大きいこと（財政力指数"+d.f.toFixed(2)+"）");
+    if (d.x < 90) goods.push("経常収支比率"+d.x.toFixed(1)+"%"); else if (d.x >= 95) weaks.push("固定費の割合が高いこと（経常収支比率"+d.x.toFixed(1)+"%）");
+    if (d.d != null && d.d >= 18) weaks.push("借金返済が重いこと（実質公債費比率"+d.d+"%）");
+    if (futureBurdenHigh(d.u, isPref)) weaks.push("将来負担が重いこと（将来負担比率"+d.u+"%）");
+    if (low) weaks.push("貯金（財政調整基金）が少ないこと（標準財政規模の"+rr.toFixed(1)+"%）");
+    if (ample) goods.push("多めの貯金（標準財政規模の"+rr.toFixed(1)+"%）");
+    if (d.d>25) return name+"は実質公債費比率が"+d.d+"%と非常に重く、財政再建が急務です🚨"+(ample ? " 財政調整基金は標準財政規模に比べて多めですが、財政再建中で支出を大きく抑えている自治体は、この比率が高く出ることがあります" : " 返済を進めながら、住民サービスをどう守るかが課題です");
+    if (d.f>=1.0) return name+"は財政力指数"+d.f.toFixed(2)+"で、おおむね普通交付税が交付されない水準です⭐ 自前の税収などで標準的な行政サービスをまかなえています。"+(d.x >= 95 ? "ただし固定費の割合（経常収支比率"+d.x.toFixed(1)+"%）が高めなのが気になる点です" : "今後は人口増減率"+g+"%の動向に注目です");
+    if (h>=80) return name+"の財政は総合的に健全です💙 "+(goods.length ? goods.slice(0,2).join("・")+"など、" : "")+"主な指標が良好で、住民サービスへのさらなる投資が期待されます";
+    if (d.x >= 95) return h>=70
+      ? name+"の財政は全体としては安定していますが、収入の"+d.x.toFixed(1)+"%が固定費に消えていて、自由に使えるお金は少なめです🐧"+(ample ? " 貯金は多めにあるので、急な出費への備えはあります" : "")
+      : name+"の財政はかなりしんどい状態です😔 収入の"+d.x.toFixed(1)+"%が固定費に消えています。"+(ample ? "一方で貯金は多めにあり、行財政改革の努力に期待です🐧" : "固定費の見直しと、いざというときの備えづくりが課題です🐧");
+    if (d.g<-1.0) return name+"は人口減少率"+g+"%と深刻で、税収への長期的な影響が懸念されます😔 "+(ample ? "ただし貯金は多めにあり、財政の底力は残っています🐧" : "人口に合わせた行政サービスの見直しが課題です🐧");
+    if (h<50) return name+"の財政は厳しい状況です😔 "+(weaks.length ? "特に、"+weaks.slice(0,2).join("、")+"が課題です" : "複数の指標で改善が必要です");
+    if (d.f < 0.3) return name+"は自主財源が少なく（財政力指数"+d.f.toFixed(2)+"）、国からの交付税への依存が大きい自治体です🐧 足りない分は交付税で補われる仕組みですが、国の制度変更の影響を受けやすい点には注意が必要です";
+    var wk = weakPoints(d, isPref);
+    if (wk.length) return name+"の財政は全国平均的な水準です🐧 気になる点は、"+wk.slice(0,2).join("、")+"です";
+    return name+"の財政は全国平均的な水準です🐧 大きく目立つ弱点はありませんが、将来の人口減少・社会保障費の増加への備えが重要です";
+  }
+
+  // 70点未満のとき、トップのカードで黄色・オレンジになっている指標を「気になる点」として名指しする（2026-09-30）
+  function heroWeakHtml(d, h, isPref) {
+    if (h >= 70) return "";
+    var wk = weakPoints(d, isPref);
+    var body = wk.length
+      ? "気になる点：" + wk.slice(0, 3).join("、")
+      : "目立って悪い指標はありませんが、どの指標も標準的か少し弱めのため、総合点は中くらいです。";
+    return "<div style='font-size:14px;line-height:1.6;margin-top:6px;'>" + body + "</div>";
   }
 
   function prof(s) {
-    if (s>=85) return {l:"絶好調みっちー",c:"#6dcfad",bg:"#d4f0e8",e:"⭐",m:"財政は非常に健全です。貯蓄も潤沢で投資余力も十分あります。",img:"happy"};
+    if (s>=85) return {l:"絶好調みっちー",c:"#6dcfad",bg:"#d4f0e8",e:"⭐",m:"財政は非常に健全で、全国でもトップクラスの水準です。",img:"happy"};
     if (s>=70) return {l:"元気なみっちー",c:"#7bb8e8",bg:"#e8f4fd",e:"💙",m:"財政はおおむね安定しています。引き続き堅実な運営が続けられています。",img:"normal"};
-    if (s>=50) return {l:"ちょっとしんどいみっちー",c:"#f0c46a",bg:"#fdf5d4",e:"⚠️",m:"財政にやや課題があります。借入比率が高めで改善が必要な状態です。",img:"tired"};
-    if (s>=30) return {l:"ぐったりみっちー",c:"#f0876a",bg:"#fde8e0",e:"🆘",m:"財政状況はかなり厳しい状態です。構造的な改革が急務です。",img:"sick"};
+    if (s>=50) return {l:"ちょっとしんどいみっちー",c:"#f0c46a",bg:"#fdf5d4",e:"⚠️",m:"財政にやや課題があります。",img:"tired"};
+    if (s>=30) return {l:"ぐったりみっちー",c:"#f0876a",bg:"#fde8e0",e:"🆘",m:"財政状況はかなり厳しい状態です。",img:"sick"};
     return {l:"ひんし状態みっちー",c:"#d0505a",bg:"#ffe0e4",e:"🚨",m:"財政は非常に厳しい状態です。複数の指標が全国でも下位の水準にあります。",img:"critical"};
   }
 
@@ -55,6 +83,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.0.9", date:"2026.9", items:["説明文をより分かりやすく改善"] },
     { version:"3.0.8", date:"2026.9", items:["表示の改善"] },
     { version:"3.0.7", date:"2026.9", items:["公会計のグラフに注記を追加"] },
     { version:"3.0.6", date:"2026.9", items:["公会計のグラフの表示を改善"] },
@@ -291,26 +320,26 @@
           "<div class='hlbl' style='background:"+pr.bg+";color:"+pr.c+";'>"+pr.l+"</div>" +
           "<div class='stars'>"+stars(h)+"</div>" +
           fiscalStatusBadge(d, nm===d.p) +
-          "<div class='hmsg'>"+pr.m+"</div>" +
+          "<div class='hmsg'>"+pr.m+heroWeakHtml(d, h, nm===d.p)+"</div>" +
         "</div>" +
       "</div>" +
       "<h2 class='sr-only'>健康度スコア</h2>" + noteHtml(d, h, d.p === nm) + "<div class='meter' id='m0' role='button' tabindex='0' style='border:3px solid "+pr.c+";background:"+pr.c+"10;'><div class='mt'><span>財政健全度スコア</span><span style='color:"+pr.c+";font-weight:700;'>"+h+"点</span></div>" +
         mmScoreBoxRanks(nm, d) +
         "<div class='mt-tap' style='text-align:center;margin-top:6px;'>タップで<span style='color:"+pr.c+";font-weight:700;'>"+nm+"</span>と似た自治体と詳細を見る▶</div>" +
       "</div>" +
-      "<div class='meter' id='m1' role='button' tabindex='0'><div class='mt'><span>実質公債費比率</span><span class='mt-tap'>タップで詳細 ▶</span></div>" +
+      "<div class='meter' id='m1' role='button' tabindex='0'><div class='mt'><span>実質公債費比率<span style='font-size:12px;font-weight:400;color:#7a7a90;'>（借金返済の重さ）</span></span><span class='mt-tap'>タップで詳細 ▶</span></div>" +
         "<div class='mb'><div id='dbar' class='mf' style='width:0%;background:"+dc+";'></div></div>" +
         "<div class='mv'><span>0%</span><span style='color:"+dc+";font-weight:700;'>"+d.d+"%</span><span>35%+</span></div>" +
       "</div>" +
       "<div class='tap-hint'>📊 各項目をタップすると説明とグラフが表示されます</div>" +
       "<h2 class='sr-only'>財政指標の一覧</h2><div class='grid'>" +
-        "<div class='stat' id='s0' role='button' tabindex='0' style='background:"+fc+"18;border-color:"+fc+"44;'><div class='si'>💪</div><div class='sl'>財政力指数</div><div class='sv' style='color:"+fc+";'>"+d.f.toFixed(2)+"</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s1' role='button' tabindex='0' style='background:"+xc+"18;border-color:"+xc+"44;'><div class='si'>📊</div><div class='sl'>経常収支比率</div><div class='sv' style='color:"+xc+";'>"+d.x.toFixed(1)+"%</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s2' role='button' tabindex='0' style='background:"+uc+"18;border-color:"+uc+"44;'><div class='si'>🏦</div><div class='sl'>将来負担比率</div><div class='sv' style='color:"+uc+";'>"+ul+"</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s3' role='button' tabindex='0' style='background:"+rc+"18;border-color:"+rc+"44;'><div class='si'>🐧</div><div class='sl'>財政調整基金</div><div class='sv' style='color:"+rc+";'>"+((d.sfs && d.sfs>0)?(d.r/d.sfs*100).toFixed(1)+"%":d.r+"億円")+"</div><div style='font-size:12px;color:#8a8a9a;margin-top:2px;'>("+d.r+"億円)</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s4' role='button' tabindex='0' style='background:"+gc+"18;border-color:"+gc+"44;'><div class='si'>👥</div><div class='sl'>人口増減率</div><div class='sv' style='color:"+gc+";'>"+(d.g>=0?"+":"")+d.g.toFixed(1)+"%</div>"+gYearNoteHtml+"<div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s5' role='button' tabindex='0' style='background:#7bb8e818;border-color:#7bb8e844;'><div class='si'>💹</div><div class='sl'>歳出／歳入</div><div class='sv' style='font-size:14px;line-height:1.7;'><span style='color:"+eoc+";display:block;'>💸 歳出 "+eol+" <small style='font-size:13px;'>"+eogs+"</small></span><span style='color:"+eic+";display:block;'>💰 歳入 "+eil+" <small style='font-size:13px;'>"+eigs+"</small></span></div></div>" +
-        "<div class='stat' id='s6' role='button' tabindex='0' style='background:"+educ+"18;border-color:"+educ+"44;'><div class='si'>📚</div><div class='sl'>教育費一般財源比率</div><div class='sv' style='color:"+educ+";'>"+edul+"</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s0' role='button' tabindex='0' style='background:"+fc+"18;border-color:"+fc+"44;'><div class='si'>💪</div><div class='sl'>財政力指数</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>税収でまかなえる度合い</div><div class='sv' style='color:"+fc+";'>"+d.f.toFixed(2)+"</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s1' role='button' tabindex='0' style='background:"+xc+"18;border-color:"+xc+"44;'><div class='si'>📊</div><div class='sl'>経常収支比率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>決まって出ていくお金の割合</div><div class='sv' style='color:"+xc+";'>"+d.x.toFixed(1)+"%</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s2' role='button' tabindex='0' style='background:"+uc+"18;border-color:"+uc+"44;'><div class='si'>🏦</div><div class='sl'>将来負担比率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>将来に残る負担の重さ</div><div class='sv' style='color:"+uc+";'>"+ul+"</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s3' role='button' tabindex='0' style='background:"+rc+"18;border-color:"+rc+"44;'><div class='si'>🐧</div><div class='sl'>財政調整基金</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>自治体の貯金</div><div class='sv' style='color:"+rc+";'>"+((d.sfs && d.sfs>0)?(d.r/d.sfs*100).toFixed(1)+"%":d.r+"億円")+"</div><div style='font-size:12px;color:#8a8a9a;margin-top:2px;'>("+d.r+"億円)</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s4' role='button' tabindex='0' style='background:"+gc+"18;border-color:"+gc+"44;'><div class='si'>👥</div><div class='sl'>人口増減率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>前年からの人口の増減</div><div class='sv' style='color:"+gc+";'>"+(d.g>=0?"+":"")+d.g.toFixed(1)+"%</div>"+gYearNoteHtml+"<div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s5' role='button' tabindex='0' style='background:#7bb8e818;border-color:#7bb8e844;'><div class='si'>💹</div><div class='sl'>歳出／歳入</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>使ったお金／入ったお金</div><div class='sv' style='font-size:14px;line-height:1.7;'><span style='color:"+eoc+";display:block;'>💸 歳出 "+eol+" <small style='font-size:13px;'>"+eogs+"</small></span><span style='color:"+eic+";display:block;'>💰 歳入 "+eil+" <small style='font-size:13px;'>"+eigs+"</small></span></div></div>" +
+        "<div class='stat' id='s6' role='button' tabindex='0' style='background:"+educ+"18;border-color:"+educ+"44;'><div class='si'>📚</div><div class='sl'>教育費比率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>歳出のうち教育に使った割合</div><div class='sv' style='color:"+educ+";'>"+edul+"</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s7' role='button' tabindex='0' style='background:"+chc+"18;border-color:"+chc+"44;'><div class='si'>👧</div><div class='sl'>子ども1人当たり投資額</div><div class='sv' style='color:"+chc+";'>"+chl+"</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s8' role='button' tabindex='0' style='background:"+fuc+"18;border-color:"+fuc+"44;'><div class='si'>🎁</div><div class='sl'>ふるさと納税</div><div class='sv' style='font-size:14px;line-height:1.7;'><span style='color:#6dcfad;display:block;'>🎁 受入額 "+(d.fu!=null?fmtManOku(d.fu):"—")+"</span><span style='color:#f0876a;display:block;'>📤 住民税控除額 "+(d.fk!=null?fmtManOku(d.fk):"—")+"</span></div></div>" +
       "</div>" +
@@ -359,7 +388,7 @@
     fiscalPower: "自治体がどれだけ自前の税収でやりくりできているかを見る指標",
     debt: "自治体が借金返済にどれくらい財源を使っているかを見る指標",
     flex: "毎年入るお金のうち、固定費でどれだけ使われているかを見る指標",
-    future: "自治体が将来支払うべき借金の重さを見る指標",
+    future: "借金など将来支払う負担が、貯金などを差し引いてどれくらい重いかを見る指標",
     reserve: "自治体の「もしもの時のための貯金」がどれくらいあるかを見る指標",
     growth: "自治体の人口がどれくらい増えている・減っているかを見る指標",
     education: "自治体の支出のうち、教育にどれだけ使われているかを見る指標",
@@ -369,13 +398,13 @@
   var META = {
     health:{icon:"🏥",label:"総合財政健全度スコア",desc:"総務省の公式データから財政力・借金返済・固定費・将来負担・貯金の5指標を用いて算出した、本アプリ独自の参考スコアです（0〜100点）。公式の格付けではありません。\n\n都道府県は高校・国道・河川など大規模な資産を抱えるため、将来負担比率や経常収支比率の水準が市区町村より構造的に高くなります。そのため都道府県には専用の基準を用いており、市区町村の点数とは直接比較できません。\n\n目安\n85点以上 → 絶好調\n70点以上 → 元気\n50点以上 → ちょっとしんどい\n30点以上 → ぐったり\n30点未満 → ひんし状態\n\nスコアの上に出る帯について\n⚠️「ただし、〜は高い水準です」\n総合スコアは高めでも、その指標だけが弱い場合に出ます。たとえば税収などの体力はあるものの、毎年の支出が固まっていて、新しい取り組みに回せるお金は少ない、という状態です。\n\n💡「〜は健全な水準です」\n総合スコアは低めでも、その指標は明確に良い場合に出ます。全体としては厳しくても、その部分の管理はできている、という意味です。\n\nスコアは5つの指標をまとめた参考値です。1つの数字だけで判断せず、各指標もあわせて見てください。",unit:"pt"},
     debt:{icon:"💳",label:"実質公債費比率",desc:"一般会計等が負担する実質的な公債費の標準財政規模に対する比率。25%以上で早期健全化基準、35%以上で財政再生基準となります。出典：総務省{FY}\n\n目安\n10%未満 → 健全\n18%超 → 注意\n25%以上 → 早期健全化基準\n35%以上 → 財政再生基準\n\n📈 高くなる理由\n① 過去の大型公共事業・施設建設で地方債を多く発行した\n② 合併特例債など特別な借入が多い\nなど。\n\n📉 低くなる理由\n① 堅実な財政運営で借入を抑制してきた\n② 財政力が高く税収が豊富なため借入が少ない\nなど。",unit:"%"},
-    fiscalPower:{icon:"💪",label:"財政力指数",desc:"基準財政収入額を基準財政需要額で割った値。1.0以上の団体には地方交付税が交付されません（不交付団体）。出典：総務省{FY}\n\n目安\n🟢 0.70以上 → 税収基盤が強い\n🔵 0.45〜0.70 → 標準的（中央値は市区町村{MED:f:muni:2}／都道府県{MED:f:pref:2}）\n🟡 0.25〜0.45 → 交付税への依存が大きい\n🟠 0.25未満 → 税収基盤が特に弱い\n\nこの数値が低いことは、それ自体では財政危機を意味しません。税収が少ない分は地方交付税で補われる仕組みになっているためです。人口が少ない地域や産業基盤の小さい地域では、低い値が出るのが通常です。\n\n📈 高くなる理由\n① 企業・工場が多く法人税・固定資産税が豊富\n② 人口が多く個人住民税が充実している\nなど。\n\n📉 低くなる理由\n① 産業が乏しく税収基盤が弱い\n② 人口減少・高齢化で税収が低下している\nなど。",unit:""},
+    fiscalPower:{icon:"💪",label:"財政力指数",desc:"基準財政収入額を基準財政需要額で割った値の過去3年度の平均。1.0を超えると、標準的な行政サービスを自前の税収などでまかなえる水準で、おおむね普通交付税が交付されない「不交付団体」にあたります（交付・不交付はその年度の値で決まるため、この平均値と一致しないことがあります）。出典：総務省{FY}\n\n目安\n🟢 0.70以上 → 税収基盤が強い\n🔵 0.45〜0.70 → 標準的（中央値は市区町村{MED:f:muni:2}／都道府県{MED:f:pref:2}）\n🟡 0.25〜0.45 → 交付税への依存が大きい\n🟠 0.25未満 → 税収基盤が特に弱い\n\nこの数値が低いことは、それ自体では財政危機を意味しません。税収が少ない分は地方交付税で補われる仕組みになっているためです。人口が少ない地域や産業基盤の小さい地域では、低い値が出るのが通常です。\n\n📈 高くなる理由\n① 企業・工場が多く法人税・固定資産税が豊富\n② 人口が多く個人住民税が充実している\nなど。\n\n📉 低くなる理由\n① 産業が乏しく税収基盤が弱い\n② 人口減少・高齢化で税収が低下している\nなど。",unit:""},
     flex:{icon:"📊",label:"経常収支比率",desc:"毎年度の経常的収入のうち人件費・扶助費・公債費など経常的経費に充当された割合。低いほど財政に弾力性があります。出典：総務省{FY}\n\n目安\nかつて「75〜80%が望ましい」とされてきましたが、これは法令上の基準ではなく慣例的な目安です。社会保障費の増加により全国的に上昇し、2003年度以降は全国平均が90%を超え続けています。\n\n🟢 90%未満 → 全国の中では余裕があるほう\n🔵 90〜95% → 標準的な水準（市区町村の中央値{MED:x:muni:1}%／都道府県{MED:x:pref:1}%）\n🟡 95〜98% → 新しい取り組みに回せるお金が少ない\n🟠 98%以上 → 余力がほぼない（全体の約9%）\n\nこの数字だけで良し悪しは判断できません。実質公債費比率や財政力指数と合わせて見てください。\n\n📈 高くなる理由\n① 人件費・社会保障費など固定的な支出が大きい\n② 過去の借金返済（公債費）が重い\nなど。\n\n📉 低くなる理由\n① 税収が豊富で財政に余裕がある\n② 行財政改革で人件費・固定費を削減した\nなど。",unit:"%"},
     future:{icon:"🏦",label:"将来負担比率",desc:"一般会計等が将来負担すべき実質的な負債総額の標準財政規模に対する比率。350%以上で早期健全化基準。出典：総務省{FY}\n\n目安（市区町村）\n🟢 負担なし・0%\n🔵 60%未満 → 軽い\n🟡 60〜100% → 一定の負担あり\n🟠 100%以上 → 要注意\n\n目安（都道府県）\n🟢 100%未満\n🔵 100〜160% → 標準的（47都道府県の中央値は{MED:u:pref:1}%）\n🟡 160〜250% → やや重い\n🟠 250%以上 → 重い\n\n都道府県は高校・国道・河川など大規模な資産を抱えるため、市区町村より水準が高くなります。そのため色の基準を分けています。\n\nなお350%以上は法令上の早期健全化基準です（市区町村は350%、都道府県は400%）。\n\n📈 高くなる理由\n① 過去の借入が多く残債が大きい\n② 公営企業・第三セクターの債務も含まれる\nなど。\n\n📉 低くなる理由\n① 借入を抑制し着実に返済してきた\n② 財政調整基金など充当可能財源が多い\nなど。",unit:"%"},
-    reserve:{icon:"🐧",label:"財政調整基金残高",desc:"年度間の財源不足に備えて積み立てている自治体の貯金です。残高が多いほど不測の事態への備えがあります。出典：総務省基金残高等一覧令和6年度（概算）\n\n目安（標準財政規模に対する割合）\n標準財政規模とは、自治体が使い道を決められるお金（一般財源）の標準的な総額です。財政調整基金の水準は、実務でもこの割合で語られます。\n\n市区町村（中央値{MED:rr:muni:1}%）\n🟢 20%以上 → 一般に適正とされる上限に到達\n🔵 10〜20% → 一般に適正とされる範囲\n🟡 5〜10% → やや少なめ\n🟠 5%未満 → 少ないほう\n\n都道府県（中央値{MED:rr:pref:1}%）\n🟢 10%以上 → 都道府県としては多いほう\n🔵 5〜10% → 総務省調査で最も多い水準\n🟡 2.5〜5% → やや少なめ\n🟠 2.5%未満 → 少ないほう\n\n適正水準に法令上の基準はありません。総務省が平成29年に行った調査では、積立の考え方を「標準財政規模の一定割合」と答えた団体の水準は、都道府県で5%前後、市町村で5〜20%が多いという結果でした。都道府県と市区町村では水準が大きく違うため、基準を分けています。\n\n多いほど良いとは限りません。積立の原資は住民が納めた税金であり、貯め込みすぎは「使うべきところに使えていない」という見方もできます。\n\n📈 多い理由\n① 税収が安定し積立を続けてきた\n② 原発立地など特別な収入がある\nなど。\n\n📉 少ない理由\n① 財政難で取り崩しが続いている\n② 大規模災害・事業で緊急支出があった\nなど。",unit:"億円"},
+    reserve:{icon:"🐧",label:"財政調整基金残高",desc:"年度間の財源不足に備えて積み立てている自治体の貯金です。残高が多いほど不測の事態への備えがあります。出典：総務省基金残高等一覧{FY}（概算）\n\n目安（標準財政規模に対する割合）\n標準財政規模とは、自治体が使い道を決められるお金（一般財源）の標準的な総額です。財政調整基金の水準は、実務でもこの割合で語られます。\n\n市区町村（中央値{MED:rr:muni:1}%）\n🟢 20%以上 → 一般に適正とされる上限に到達\n🔵 10〜20% → 一般に適正とされる範囲\n🟡 5〜10% → やや少なめ\n🟠 5%未満 → 少ないほう\n\n都道府県（中央値{MED:rr:pref:1}%）\n🟢 10%以上 → 都道府県としては多いほう\n🔵 5〜10% → 総務省調査で最も多い水準\n🟡 2.5〜5% → やや少なめ\n🟠 2.5%未満 → 少ないほう\n\n適正水準に法令上の基準はありません。総務省が平成29年に行った調査では、積立の考え方を「標準財政規模の一定割合」と答えた団体の水準は、都道府県で5%前後、市町村で5〜20%が多いという結果でした。都道府県と市区町村では水準が大きく違うため、基準を分けています。\n\n多いほど良いとは限りません。積立の原資は住民が納めた税金であり、貯め込みすぎは「使うべきところに使えていない」という見方もできます。\n\n📈 多い理由\n① 税収が安定し積立を続けてきた\n② 原発立地など特別な収入がある\nなど。\n\n📉 少ない理由\n① 財政難で取り崩しが続いている\n② 大規模災害・事業で緊急支出があった\nなど。",unit:"億円"},
     growth:{icon:"👥",label:"人口増減率",desc:"住民基本台帳に基づく前年比人口増減率。人口減少は税収低下や社会保障費増加につながります。出典：総務省{PY}\n\n目安\n0%以上 → 人口増加\n-0.5%以上 → 緩やかな減少\n-1%以下 → 深刻な人口減少\n\n📈 増加の理由\n① 子育て支援・住環境が充実した新興住宅地\n② 企業誘致・雇用創出が成功している\nなど。\n\n📉 減少の理由\n① 若者が都市部へ流出している\n② 少子高齢化が急速に進んでいる\nなど。",unit:"%"},
-    budget:{icon:"💹",label:"歳出／歳入",desc:"一般会計の歳出・歳入総額（億円）。自治体の予算規模を示します。歳出は人件費・扶助費・公債費・投資的経費などの総支出、歳入は地方税・地方交付税・国庫支出金・地方債などの総収入です。出典：総務省{FY}地方財政状況調査\n\n目安\n歳入＞歳出 → 黒字基調\n歳入＝歳出 → 収支均衡\n歳入＜歳出 → 赤字基調（要注意）",unit:"億円"},
-    education:{icon:"📚",label:"教育費一般財源比率",desc:"歳出総額に占める教育費の割合です（総務省{FY}データ）。\n\n目安\n中央値は市区町村{MED:edu:muni:1}%、都道府県{MED:edu:pref:1}%です。都道府県は高校・特別支援学校を持つため、市区町村より構造的に高くなります。\n\n⚠️ この数字には良し悪しがありません。そのため色分けをしていません。\n高いのは教育を重視しているからとも、学校施設の老朽化対応や小規模校の維持で費用がかさんでいるからとも読めます。低いのは子どもの人口が多くて相対的に下がっている場合もあります。他の指標と合わせてご覧ください。\n\n📈 比率が高くなる理由\n① 学校施設の老朽化対応（校舎・体育館の改修・建替え）\n② 少子化でも学校を統廃合できず固定費がかかる\n③ 教育・子育てを重点政策と位置づけ積極的に投資している\n④ 過疎地・離島で小規模校を存続させている\nなど。\n\n📉 比率が低くなる理由\n① 子ども人口が多く相対的に比率が下がる\n② 子育て・教育より、他の政策を優先する政策判断のため。（他の政策→インフラ・高齢者福祉などが考えられる）\nなど。",unit:"%"},
+    budget:{icon:"💹",label:"歳出／歳入",desc:"一般会計の歳出・歳入総額（億円）。自治体の予算規模を示します。歳出は人件費・扶助費・公債費・投資的経費などの総支出、歳入は地方税・地方交付税・国庫支出金・地方債などの総収入です。出典：総務省{FY}地方財政状況調査\n\n目安\n決算の歳入には地方債（借入金）や前年度からの繰越も含まれるため、ほぼすべての自治体で歳入が歳出を上回ります。歳入が歳出を下回るのは珍しく、注意が必要なサインです。\n財政に余裕があるかどうかは、経常収支比率や財政調整基金で確認するのが確実です。",unit:"億円"},
+    education:{icon:"📚",label:"教育費比率",desc:"歳出総額に占める教育費の割合です（総務省{FY}データ）。\n\n目安\n中央値は市区町村{MED:edu:muni:1}%、都道府県{MED:edu:pref:1}%です。都道府県は高校・特別支援学校を持つため、市区町村より構造的に高くなります。\n\n⚠️ この数字には良し悪しがありません。そのため色分けをしていません。\n高いのは教育を重視しているからとも、学校施設の老朽化対応や小規模校の維持で費用がかさんでいるからとも読めます。低いのは子どもの人口が多くて相対的に下がっている場合もあります。他の指標と合わせてご覧ください。\n\n📈 比率が高くなる理由\n① 学校施設の老朽化対応（校舎・体育館の改修・建替え）\n② 少子化でも学校を統廃合できず固定費がかかる\n③ 教育・子育てを重点政策と位置づけ積極的に投資している\n④ 過疎地・離島で小規模校を存続させている\nなど。\n\n📉 比率が低くなる理由\n① 子ども人口が多く相対的に比率が下がる\n② 子育て・教育より、他の政策を優先する政策判断のため。（他の政策→インフラ・高齢者福祉などが考えられる）\nなど。",unit:"%"},
     childInvest:{icon:"👧",label:"子ども1人当たり投資額",desc:"教育費と児童福祉費の合計を18歳未満人口で割った値です（総務省{FY}データ）。\n\n目安\n中央値は市区町村{MED:ch:muni:1}万円、都道府県{MED:ch:pref:1}万円です。\n\n⚠️ この数字には良し悪しがありません。そのため色分けをしていません。\n18歳未満の人数で割った値なので、子どもが少ない自治体ほど大きく出ます。全国で最も高いのは{MAX:ch:0}万円ですが、これは投資が手厚いのではなく、分母となる子どもの数が極端に少ないためです。逆に子育て世代が多い新興住宅地では、分母が大きくなるため低く出ます。\n\n金額の大小ではなく、同じ規模の自治体との比較や、経年の変化を見るほうが実態をつかめます。\n\n📉 数値が低い理由\n① 子育て世代が多く子ども人口が多い新興住宅地（分母が大きい）\n② 財政が厳しく教育・子育てへの支出が少ない\n③ 子育て・教育より、他の政策を優先する政策判断のため。（他の政策→インフラ・高齢者福祉などが考えられる）\nなど。\n\n📈 数値が高い理由\n① 過疎地で子ども数が極少なため1人当たりコストが膨らむ\n② 教育・子育てを重点政策と位置づけ積極的に投資している\nなど。",unit:"万円"},
     fiscalStatus:{icon:"📋",label:"起債許可団体・早期健全化団体・財政再生団体とは",desc:"",htmlDesc:
       "財政状況を示す3つの区分です。実は2つの別々の制度に基づいています。<br>" +
@@ -977,7 +1006,7 @@
       var judgeColor = colorR(ratio, isPrefView);
       topSummaryHtml += "<div style='background:"+judgeColor+"14;border:1px solid "+judgeColor+"55;border-radius:12px;padding:12px 14px;'>" +
         "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+judgeColor+";font-weight:700;'>"+curName+"</span>の財政調整基金は標準財政規模の<span style='color:"+judgeColor+";font-weight:700;'>"+ratio.toFixed(1)+"%</span>で、"+judge+"です。</div>";
-      var rHist = [cur.r_r2, cur.r_r3, cur.r_r4, cur.r_r5].filter(function(v){ return v!=null; });
+      var rHist = recentHist(cur, "r", 4);
       if (rHist.length >= 2) {
         var rAvg = rHist.reduce(function(a,b){return a+b;},0) / rHist.length;
         var rRatio = rAvg > 0 ? cur.r / rAvg : 1;
@@ -987,15 +1016,15 @@
           topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u{1F4C9} "+curName+"の財政調整基金は過去平均（"+rAvg.toFixed(1)+"億円）より大きく減っています。災害対応や大型事業への取り崩しがあった可能性があります。</div>";
         }
       }
-      if (ratio < rb.lo && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F 貯金が少なめ＋固定費も重い→緊急時に回せるお金が限られやすい状態です</div>";
+      if (ratio < rb.lo && cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F 貯金が少なめ＋固定費も重い→緊急時に回せるお金が限られやすい状態です</div>";
       else if (ratio < rb.lo && futureBurdenHigh(cur.u, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F 貯金が少なめ＋将来への借金も重い→今の備えと将来の返済の両方に課題があります</div>";
       else if (ratio < rb.lo && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F 貯金が少なめ＋自力収入も乏しい→大きな支出があったときの余力が限られます</div>";
       else if (ratio < rb.lo) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F 緊急時に備える積立が課題になりやすい水準です</div>";
-      else if (ratio < rb.mid && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F 貯金はやや少なめ＋固定費も重い→固定費の削減と積立増加が同時に課題です</div>";
+      else if (ratio < rb.mid && cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F 貯金はやや少なめ＋固定費も重い→固定費の削減と積立増加が同時に課題です</div>";
       else if (ratio < rb.mid) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F もう少し積み増せると緊急時の備えとして安心できる水準です</div>";
-      else if (ratio >= rb.hi && cur.u <= 0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2728 貯金が多め＋将来への借金もない→備えも負債もバランスの良い状態です</div>";
-      else if (ratio >= rb.hi && cur.x < 88) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2728 貯金が多め＋固定費も軽い→財政に余裕があり、危機対応力の高い状態です</div>";
-      else if (ratio >= rb.hi && cur.d > 25) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F ※歳出が極端に削減された自治体（財政再生団体など）は、この比率が高く見える場合があります。<br>"+curName+"は実質公債費比率が"+cur.d+"%と非常に高く、この基金の多くは借金返済や不測の事態への積立です。財政状況は深刻です。</div>";
+      else if (ratio >= rb.hi && cur.u <= 0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2728 貯金が多め＋将来負担も実質ゼロ→備えがあり、将来への負担も小さい状態です</div>";
+      else if (ratio >= rb.hi && cur.x < 90) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2728 貯金が多め＋固定費も軽い→財政に余裕があり、危機対応力の高い状態です</div>";
+      else if (ratio >= rb.hi && cur.d > 25) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u26A0\uFE0F ※歳出が極端に削減された自治体（財政再生団体など）は、この比率が高く見える場合があります。<br>"+curName+"は実質公債費比率が"+cur.d+"%と非常に高く、財政調整基金の比率が高く見えても、財政状況は深刻です。</div>";
       else if (ratio >= rb.hi) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2728 いざというときの「自治体の貯金」として機能しやすい水準です</div>";
           topSummaryHtml += "</div>";
       if (KK && KK[curName] && KK[curName].ka4 != null) {
@@ -1020,11 +1049,11 @@
           analysisR = "日々の備えと長期的な財産形成は別物です。";
         }
         topSummaryHtml += kkCrossBox("🔗 公会計と比べてみると",
-          "財政調整基金残高", ratio.toFixed(1)+"%", rHigh?"多め":"やや少なめ",
+          "財政調整基金残高", ratio.toFixed(1)+"%", reserveLevelLabel(ratio, isPrefView),
           "純資産比率", ka4v+"%", ka4Judge,
           analysisR,
           false, (function(){ function ratioAt(sfx){ var rv=sfx?cur["r_r"+sfx]:cur.r; var sv=sfx?cur["sfs_r"+sfx]:cur.sfs; return (rv!=null&&sv)?rv/sv*100:null; } var nR=countHist("r",1), arrR=[]; for (var ri=Math.max(1,nR-SHOW_HIST+1); ri<=nR; ri++) arrR.push(ratioAt(ri)); arrR.push(ratioAt(null)); return withTrendMeaning("r", trendSincePhrase(arrR, nR+1, "%", 1)); })(),
-          (function(){ var e=KK[curName]; return withTrendMeaning("ka4", trendSincePhrase([e.ka4_r1,e.ka4_r2,e.ka4_r3,e.ka4_r4,e.ka4_r5,e.ka4], 5, "%", 1)); })());
+          (function(){ var e=KK[curName]; return withTrendMeaning("ka4", trendSincePhrase(histArr(e, "ka4", "kk"), DATA_YEAR.kokaikei, "%", 1)); })());
         topSummaryHtml += KK_CROSSCHECK_CAVEAT;
         }
       }
@@ -1132,16 +1161,16 @@ if (key === "growth" && cur && cur.pop) {
       var msg;
       if (isUpLv(latestLv) && cumDown) msg = "✨ 直近は増加に転じています→長い目で見ると減少してきたため、この流れが続くかどうかに注目です";
       else if (isUpLv(latestLv) && cur.f >= 0.7) msg = "✨ 人口が増えている＋財政力も安定→人が集まることで税収も増え、好循環が生まれやすい状態です";
-      else if (isUpLv(latestLv) && cur.ch >= 100) msg = "✨ 人口が増えている＋子どもへの投資も手厚い→子育て環境の充実が若い世代を引き寄せている可能性があります";
-      else if (isUpLv(latestLv)) msg = "✨ 人口が増加中→住民が増えれば税収も増え、財政の安定にもつながります。この流れを維持したいところです";
+      else if (isUpLv(latestLv)) msg = "✨ 人口が増加中→住民が増えると税収も増えやすく、財政の安定にもつながりやすくなります";
       else if (latestLv === "flat" && cumUp) msg = "➡️ これまで人口が増えてきた地域で、直近は伸びが一服しています。この先の動きに注目です";
-      else if (latestLv === "flat" && cumDown) msg = "➡️ 直近は下げ止まっていますが、長い目で見ると人口は減ってきています。子育て支援・移住促進の効果が続くかどうかに注目です";
+      else if (latestLv === "flat" && cumDown) msg = "➡️ 直近は下げ止まっていますが、長い目で見ると人口は減ってきています。この先の動きに注目です";
       else if (latestLv === "flat") msg = "➡️ 人口はほぼ横ばいで、大きな変化はありません";
-      else if (gForMsg < -1.0 && cur.x > 95) msg = "🚨 人口が急減している＋固定費が重い→税収が減るのに支出が固定化、財政悪化が加速しやすい危険な組み合わせです";
-      else if (gForMsg < -1.0 && cur.f < 0.5) msg = "⚠️ 人口が急減している＋財政力も弱い→人口減少が税収減を招き、財政がじわじわ悪化するリスクが高い状態です";
-      else if (gForMsg < -0.5) msg = "⚠️ 人口の減少が続いている→住民1人あたりの行政コストが上がり、財政を圧迫しやすくなります。定住促進策が急務です";
+      else if (gForMsg < -1.0 && cur.x >= 95) msg = "⚠️ 人口の減少が大きい＋固定費の割合も高い→人口が減っても決まった支出はすぐには減らしにくく、財政への影響が出やすい組み合わせです";
+      else if (gForMsg < -1.0 && cur.f < 0.5) msg = "⚠️ 人口の減少が大きい＋自前の税収も少ない→人口減少による税収への影響に注意が必要な状態です";
+      else if (gForMsg < -0.5) msg = "⚠️ 人口が減少している→住民1人あたりの行政コストが上がりやすく、財政への影響に注意が必要です";
       else if (cumUp) msg = "➡️ 直近は緩やかに減少していますが、長い目で見ると人口が増えてきた地域です。一時的な動きかどうかに注目です";
-      else msg = "⚠️ 人口は緩やかな減少傾向→緩やかな減少でも長期的には財政に影響します。子育て支援・移住促進が重要です";
+      else if (cumLv === "downLarge") msg = "⚠️ 直近1年の減少は緩やかですが、長い目で見ると人口は大きく減ってきています";
+      else msg = "⚠️ 人口は緩やかな減少傾向です。緩やかな減少でも、長く続くと税収や行政サービスに影響します";
       topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>" + msg + "</div>";
           topSummaryHtml += "</div>";
     }
@@ -1151,12 +1180,8 @@ if (key === "growth" && cur && cur.pop) {
       var hj = h2>=85?"絶好調な状態":h2>=70?"おおむね安定した状態":h2>=50?"やや課題がある状態":h2>=30?"かなり厳しい状態":"非常に危機的な状態";
       var hc = h2>=85?"#6dcfad":h2>=70?"#7bb8e8":h2>=50?"#f0c46a":h2>=30?"#f0876a":"#d0505a";
       topSummaryHtml += "<div style='background:"+hc+"14;border:1px solid "+hc+"55;border-radius:12px;padding:12px 14px;'><div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+hc+";font-weight:700;'>"+curName+"</span>の総合スコアは<span style='color:"+hc+";font-weight:700;'>"+h2+"点</span>で、"+hj+"です。</div>" + (curTypeLabel ? "<div style='color:#8070c0;font-size:12px;margin-top:4px;'>（"+curTypeLabel+"）</div>" : "") + "</div>";
-      var bd_sf = Math.min(cur.f/1.2*25, 25);
-      var bd_sd = Math.max((25-Math.min(cur.d,25))/25*20, 0);
-      var bd_sx = Math.min(Math.max((100-cur.x)/15*20, 0), 20);
-      var bd_su = (!cur.u || cur.u <= 0) ? 20 : Math.max((200-Math.min(cur.u,200))/200*20, 0);
-      var bd_full = isPrefView ? 10 : 20;
-      var bd_sr = (cur.sfs && cur.sfs > 0 && cur.r != null) ? Math.min((cur.r/cur.sfs*100)/bd_full*15, 15) : 7.5;
+      var bdp = scoreBreakdown(cur, isPrefView);  // 総合スコアと同じ式（都道府県は都道府県の式）
+      var bd_sf = bdp.f, bd_sd = bdp.d, bd_sx = bdp.x, bd_su = bdp.u, bd_sr = bdp.r;
       var bdColor = function(score, max){ return (score/max) >= 0.5 ? "#1a7a5a" : "#c02020"; };
       topSummaryHtml += "<div class='bd-toggle' onclick=\"var c=document.getElementById('bdContent');var a=document.getElementById('bdArrow');var isOpen=c.style.maxHeight&&c.style.maxHeight!=='0px';c.style.maxHeight=isOpen?'0px':'280px';a.classList.toggle('open');\" style='display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin-top:10px;background:rgba(160,139,232,0.08);border-radius:10px;padding:10px 12px;font-size:12px;color:#6a3de8;font-weight:700;'>" +
         "<span>📊 内訳を見る</span><span id='bdArrow' style='transition:transform 0.2s;'>▼</span></div>" +
@@ -1177,19 +1202,20 @@ if (key === "growth" && cur && cur.pop) {
       }
     }
     if (key === "debt" && cur) {
-      var dj = cur.d<10?"健全な水準":cur.d<18?"注意が必要な水準":cur.d<25?"要改善の水準":"早期健全化基準を超えています";
+      // 都道府県は10〜14%が標準的（中央値11%）なので、市区町村と同じ目安だと大半が「注意」になってしまう（2026-09-30）
+      var dj = cur.d<10?"健全な水準":(isPrefView && cur.d<14)?"都道府県では標準的な水準":cur.d<18?"注意が必要な水準":cur.d<25?"要改善の水準（18%以上は借入に国などの許可が必要）":cur.d<35?"早期健全化基準（25%）を超えています":"財政再生基準（35%）を超えています";
       var dc2 = cur.d<10?"#6dcfad":cur.d<18?"#7bb8e8":cur.d<25?"#f0c46a":"#f0876a";
       topSummaryHtml += "<div style='background:"+dc2+"14;border:1px solid "+dc2+"55;border-radius:12px;padding:12px 14px;'>" +
         "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+dc2+";font-weight:700;'>"+curName+"</span>の実質公債費比率は<span style='color:"+dc2+";font-weight:700;'>"+cur.d+"%</span>で、"+dj+"。</div>";
-      if (cur.d > 18 && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 借金返済が重い＋自力収入が乏しい→返済で手一杯なのに稼ぐ力もない、最も厳しい二重苦です</div>";
-      else if (cur.d > 18 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 借金返済が重い＋固定費も硬直化→お金の出口がふさがれており、新しい政策に回せる余地がほぼありません</div>";
-      else if (cur.d > 18) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 借金返済の負担が大きい→収入の多くが返済に消えており、住民サービスへの影響が出やすい状態です</div>";
-      else if (cur.d < 10 && cur.f >= 0.7 && cur.x < 88) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 借金返済が軽い＋自力収入も豊か＋固定費も適正→返済の心配がなく政策投資もできる、理想的な状態です</div>";
+      if (cur.d >= 18 && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 借金返済が重い＋自前の税収も少ない→収入に占める返済の割合が大きく、財政の余裕が限られる状態です</div>";
+      else if (cur.d >= 18 && cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 借金返済が重い＋固定費も重い→収入の多くが返済と決まった支出に回り、新しい政策に回せる余地が小さい状態です</div>";
+      else if (cur.d >= 18) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 借金返済の負担が大きい→収入の多くが返済に消えており、住民サービスへの影響が出やすい状態です</div>";
+      else if (cur.d < 10 && cur.f >= 0.7 && cur.x < 90) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 借金返済が軽い＋自力収入も豊か＋固定費も適正→返済の心配がなく政策投資もできる、理想的な状態です</div>";
       else if (cur.d < 10 && cur.f >= 0.7) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 借金返済が軽い＋自力収入も豊か→返済の心配がなく、新しい政策にも積極的に投資できる状態です</div>";
       else if (cur.d < 10 && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 借金返済が軽い＋貯金も十分（標準財政規模比で多め）→いざというときの備えもあり、とても健全な財政です</div>";
-      else if (cur.d < 10 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 借金返済は軽いが固定費が重い→返済の心配はないものの、人件費・社会保障費が財政を圧迫しています</div>";
-      else if (cur.d < 10) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 借金返済の負担が軽く、財政に余裕があります。この水準を維持できると理想的です</div>";
-      else if (cur.d < 18 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 返済負担は標準的だが固定費が重い→借金は普通でも固定費に圧迫されており、政策の自由度が低い状態です</div>";
+      else if (cur.d < 10 && cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 借金返済は軽いが固定費が重い→返済の心配はないものの、人件費・社会保障費が財政を圧迫しています</div>";
+      else if (cur.d < 10) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 借金返済の負担が軽い水準です。この水準を維持できると安心です</div>";
+      else if (cur.d < 18 && cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 返済負担は標準的だが固定費が重い→借金は普通でも固定費に圧迫されており、政策の自由度が低い状態です</div>";
       else if (cur.d < 18 && cur.f >= 0.7) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 返済負担は標準的＋自力収入も安定→大きな心配はありませんが、借入残高の推移は引き続き注視を</div>";
       else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 返済負担がやや重め＋自力収入が少ない→交付税頼みになりやすく、国の制度変更の影響を受けやすい状態です</div>";
           topSummaryHtml += "</div>";
@@ -1202,7 +1228,7 @@ if (key === "growth" && cur && cur.pop) {
         var analysisD, ka7Judge;
         if (ka7Near) {
           ka7Judge = "中央値とほぼ同水準";
-          analysisD = "この" + (dHigh?"重さ":"軽さ") + "は負債額以外の要因によるものと考えられます。";
+          analysisD = "この" + levelNoun(debtLevelLabel(cur.d, isPrefView)) + "は負債額以外の要因によるものと考えられます。";
         } else if (!dHigh && !ka7High) {
           ka7Judge = "中央値より低め";
           analysisD = "";
@@ -1218,11 +1244,11 @@ if (key === "growth" && cur && cur.pop) {
           var ka7TrendB = kkMetricTrend(KK[curName], "ka7", ka7v);
           analysisD = ka7TrendB === "declining" ? "短期集中で返済を終えつつある可能性も考えられます。" : "返済期間を短く設定している可能性も考えられます。";
         }
-        var dTrendPhraseF = withTrendMeaning("d", trendSincePhrase([cur.d_r1,cur.d_r2,cur.d_r3,cur.d_r4,cur.d_r5,cur.d], 6, "%", 1));
+        var dTrendPhraseF = withTrendMeaning("d", trendSincePhrase(histArr(cur, "d", "fiscal"), DATA_YEAR.fiscal, "%", 1));
         var ka7EntryF = KK[curName];
-        var ka7TrendPhraseF = withTrendMeaning("ka7", trendSincePhrase([ka7EntryF.ka7_r1,ka7EntryF.ka7_r2,ka7EntryF.ka7_r3,ka7EntryF.ka7_r4,ka7EntryF.ka7_r5,ka7EntryF.ka7], 5, "万円", 1));
+        var ka7TrendPhraseF = withTrendMeaning("ka7", trendSincePhrase(histArr(ka7EntryF, "ka7", "kk"), DATA_YEAR.kokaikei, "万円", 1));
         topSummaryHtml += kkCrossBox("🔗 公会計と比べてみると",
-          "実質公債費比率", cur.d+"%", dHigh?"重め":"軽め",
+          "実質公債費比率", cur.d+"%", debtLevelLabel(cur.d, isPrefView),
           "住民一人当たり負債額", ka7v+"万円", ka7Judge,
           analysisD,
           false, dTrendPhraseF, ka7TrendPhraseF);
@@ -1230,56 +1256,68 @@ if (key === "growth" && cur && cur.pop) {
       }
     }
     if (key === "fiscalPower" && cur) {
-      var fj = cur.f>=1.0?"不交付団体（財政力豊か）":cur.f>=0.7?"比較的安定した財政力":cur.f>=0.5?"やや交付税依存":"交付税依存度が高い状態";
-      var fc2 = cur.f>=1.0?"#6dcfad":cur.f>=0.7?"#7bb8e8":cur.f>=0.5?"#f0c46a":"#f0876a";
+      // 言葉と色は下の説明文の「目安」・トップのカードの色（colorF）とそろえる（2026-09-30）
+      var fj = cur.f>=1.0?"おおむね普通交付税が交付されない水準（1.0以上）":cur.f>=0.7?"税収基盤が強い水準":cur.f>=0.45?"全国の中で標準的な水準":cur.f>=0.25?"交付税への依存が大きい水準":"税収基盤が特に弱い水準";
+      var fc2 = cur.f>=1.0?"#6dcfad":colorF(cur.f);
       topSummaryHtml += "<div style='background:"+fc2+"14;border:1px solid "+fc2+"55;border-radius:12px;padding:12px 14px;'>" +
         "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+fc2+";font-weight:700;'>"+curName+"</span>の財政力指数は<span style='color:"+fc2+";font-weight:700;'>"+cur.f.toFixed(2)+"</span>で、"+fj+"です。</div>";
-      if (cur.f < 0.5 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 自力収入が乏しい＋固定費が重い→稼げないのにお金が出ていく一方、最も身動きが取りにくい状態です</div>";
-      else if (cur.f < 0.5 && futureBurdenHigh(cur.u, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 自力収入が乏しい＋将来への借金も重い→今も苦しく将来も重荷を背負っており、構造的な改革が必要です</div>";
-      else if (cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 自力で稼ぐ力が弱い→国からの交付税に大きく依存しており、国の財政事情に左右されやすい状態です</div>";
-      else if (cur.f >= 1.0 && cur.x < 88) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 自力収入が豊か＋固定費も軽い→収入も支出もバランス良く、政策の自由度が高い理想的な財政です</div>";
-      else if (cur.f >= 1.0 && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 自力収入が豊か＋貯金も十分（標準財政規模比で多め）→財政力があり備えもある、とても安定した状態です</div>";
-      else if (cur.f >= 1.0 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 自力収入は豊かだが固定費が重い→稼ぐ力はあるのに固定費に消えており、政策投資の余地が限られています</div>";
-      else if (cur.f >= 1.0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 国からの交付税に頼らず自立した財政→住民サービスを自分たちの収入でまかなえる、強い自治体です</div>";
-      else if (cur.f >= 0.7 && cur.x < 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 財政力は安定＋固定費も許容範囲→大きな問題はなく、引き続きこの水準の維持が目標です</div>";
-      else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 交付税依存が高め→自主財源を増やす取り組み（企業誘致・定住促進など）が長期的な課題です</div>";
+      if (cur.f < 0.45 && cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 自前の税収が少ない＋固定費が重い→交付税への依存が大きく、決まった支出の割合も高いため、自由に使えるお金が少ない状態です</div>";
+      else if (cur.f < 0.45 && futureBurdenHigh(cur.u, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 自前の税収が少ない＋将来への負担も標準より重い→今後の返済を税収だけでまかなうのは難しく、交付税の動向に左右されやすい状態です</div>";
+      else if (cur.f < 0.45) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 自前の税収は少なめ→足りない分は国からの交付税で補われる仕組みのため、これだけで財政が危ないわけではありませんが、国の制度変更の影響を受けやすい状態です</div>";
+      else if (cur.f >= 1.0 && cur.x < 90) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 自前の税収が豊か＋固定費も軽い→収入も支出もバランスが良く、政策の自由度が高い財政です</div>";
+      else if (cur.f >= 1.0 && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 自前の税収が豊か＋貯金も十分（標準財政規模比で多め）→財政力があり備えもある、安定した状態です</div>";
+      else if (cur.f >= 1.0 && cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 自前の税収は豊かだが固定費が重い→収入の多くが決まった支出に回り、政策に使える余地が限られています</div>";
+      else if (cur.f >= 1.0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 自前の税収などで標準的な行政サービスをまかなえる水準です</div>";
+      else if (cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 財政力は標準以上だが固定費が重い→収入の多くが決まった支出に回り、新しい政策に回せる余地が限られています</div>";
+      else if (cur.f >= 0.7) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 税収基盤は強い＋固定費も許容範囲→大きな問題はなく、この水準の維持が目標です</div>";
+      else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 財政力は全国の中で標準的な水準です</div>";
           topSummaryHtml += "</div>";
     }
     if (key === "flex" && cur) {
-      var xj = cur.x<88?"財政に弾力性がある状態":cur.x<95?"標準的な水準":"硬直化した状態";
-      var xc2 = cur.x<88?"#6dcfad":cur.x<95?"#7bb8e8":"#f0876a";
+      // 言葉と色は説明文の「目安」・トップのカードの色（colorX）とそろえる（2026-09-30）
+      var xj = cur.x<90?"全国の中では余裕があるほう":cur.x<95?"標準的な水準":cur.x<98?"新しい取り組みに回せるお金が少ない水準":"余力がほぼない水準";
+      var xc2 = colorX(cur.x);
       topSummaryHtml += "<div style='background:"+xc2+"14;border:1px solid "+xc2+"55;border-radius:12px;padding:12px 14px;'>" +
         "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+xc2+";font-weight:700;'>"+curName+"</span>の経常収支比率は<span style='color:"+xc2+";font-weight:700;'>"+cur.x.toFixed(1)+"%</span>で、"+xj+"です。</div>";
       if (cur.x >= 100) {
         topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 "+curName+"は経常収支比率が100%を超えているため、経常的な収入だけでは経常的な支出をまかないきれていない状態です。</div>";
       }
-      if (cur.x > 95 && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 固定費が重い＋自力収入も乏しい→収入が少ないのに出費が固定化、新しいことに一切お金を使えない状態です</div>";
-      else if (cur.x > 95 && reserveIsLow(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 固定費が重い＋貯金も少ない→日常の支出でギリギリで、いざというときの備えもない、じわじわ危ない状態です</div>";
-      else if (cur.x > 95 && futureBurdenHigh(cur.u, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 固定費が重い＋将来への借金も多い→今の家計も苦しく将来の返済も重い、二重の重荷を抱えています</div>";
-      else if (cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 固定費が重く硬直化→人件費・社会保障費・借金返済が収入の大半を占め、政策の自由度が低い状態です</div>";
-      else if (cur.x < 88 && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 固定費が軽い＋貯金も十分→支出に余裕があり備えもある、財政運営の理想的な姿です</div>";
-      else if (cur.x < 88 && cur.f >= 1.0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 固定費が軽い＋自力収入も豊か→稼いでいて使い方も健全、新しい政策に積極投資できる状態です</div>";
-      else if (cur.x < 88) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 固定費が適正で財政に弾力性がある→急な支出や新しい施策にも対応しやすい、健全な状態です</div>";
+      if (cur.x >= 95 && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 固定費が重い＋自前の税収も少ない→収入の多くが決まった支出に回り、新しいことに使えるお金が少ない状態です</div>";
+      else if (cur.x >= 95 && reserveIsLow(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 固定費が重い＋貯金も少ない→決まった支出の割合が高く、いざというときの備えも少なめな状態です</div>";
+      else if (cur.x >= 95 && futureBurdenHigh(cur.u, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 固定費が重い＋将来への借金も多い→今の家計も苦しく将来の返済も重い、二重の重荷を抱えています</div>";
+      else if (cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 固定費が重く硬直化→人件費・社会保障費・借金返済が収入の大半を占め、政策の自由度が低い状態です</div>";
+      else if (cur.x < 90 && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 固定費が軽い＋貯金も十分→支出に余裕があり備えもある、財政運営の理想的な姿です</div>";
+      else if (cur.x < 90 && cur.f >= 1.0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 固定費が軽い＋自力収入も豊か→稼いでいて使い方も健全、新しい政策に積極投資できる状態です</div>";
+      else if (cur.x < 90) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 固定費が適正で財政に弾力性がある→急な支出や新しい施策にも対応しやすい、健全な状態です</div>";
       else if (cur.x < 95 && cur.f >= 0.7) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 固定費は標準的＋財政力も安定→大きな問題はありませんが、固定費が増えすぎないよう注視が必要です</div>";
       else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 固定費は標準的な水準→大きな問題はありませんが、95%を超えると硬直化します。推移を注視しましょう</div>";
           topSummaryHtml += "</div>";
     }
     if (key === "future" && cur) {
-      var ul2 = cur.u<=0?"将来負担なし":cur.u<100?"一定の負担あり（注意水準）":cur.u<350?"要注意の水準":"早期健全化基準を超えています";
-      var uc2 = cur.u<=0?"#6dcfad":cur.u<100?"#7bb8e8":cur.u<350?"#f0876a":"#d0505a";
+      // 都道府県は100〜160%が標準的で、早期健全化基準も400%（市区町村は350%）。以前は市区町村の目安のまま表示していた（2026-09-30）
+      // 色と言葉は、トップ画面のカードの色（score.js の colorU）とそろえる
+      var uLimit = isPrefView ? 400 : 350;
+      var uc2 = cur.u>=uLimit ? "#d0505a" : colorU(cur.u, isPrefView);
+      var uPre = isPrefView ? "都道府県では" : "";
+      // 言葉は下の説明文の「目安」と同じにする
+      var ul2 = (cur.u==null||cur.u<=0) ? "将来負担は実質ゼロ"
+              : cur.u>=uLimit ? "早期健全化基準（"+uLimit+"%）を超えています"
+              : isPrefView ? (uc2==="#6dcfad" ? "都道府県では低い水準" : uc2==="#7bb8e8" ? "都道府県では標準的な水準" : uc2==="#f0c46a" ? "都道府県ではやや重い水準" : "都道府県では重い水準")
+              : (uc2==="#7bb8e8" ? "軽い水準" : uc2==="#f0c46a" ? "一定の負担がある水準" : "要注意の水準");
       var uv = cur.u<=0?"0%":cur.u>=999?"再建中":cur.u.toFixed(1)+"%";
       topSummaryHtml += "<div style='background:"+uc2+"14;border:1px solid "+uc2+"55;border-radius:12px;padding:12px 14px;'>" +
         "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+uc2+";font-weight:700;'>"+curName+"</span>の将来負担比率は<span style='color:"+uc2+";font-weight:700;'>"+uv+"</span>で、"+ul2+"です。</div>";
-      if (futureBurdenHigh(cur.u, isPrefView) && reserveIsLow(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 将来への借金が重い＋貯金も少ない→今も苦しく将来も重荷、借金まみれで備えもない綱渡りの状態です</div>";
-      else if (futureBurdenHigh(cur.u, isPrefView) && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 将来への借金が重い＋毎年の固定費も重い→過去の借金に縛られながら今も出費が固定化、構造改革が急務です</div>";
-      else if (futureBurdenHigh(cur.u, isPrefView) && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 将来への借金が重い＋自力収入も乏しい→借金を返す力が弱く、長期的に財政が悪化するリスクがあります</div>";
-      else if (futureBurdenHigh(cur.u, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 将来世代への借金が重い→今の住民が使ったお金を将来世代が返す構図で、世代間の公平性が問われます</div>";
-      else if (cur.u <= 0 && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 将来への借金がない＋貯金も十分（標準財政規模比で多め）→将来世代に負担を残さず、備えもある。財政の優等生です</div>";
-      else if (cur.u <= 0 && cur.f >= 1.0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 将来への借金がない＋自力収入も豊か→借金ゼロで稼ぐ力もある、非常に健全な財政状態です</div>";
-      else if (cur.u <= 0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 将来世代への負担がない→過去の借金を着実に返し終えており、次世代に重荷を残さない健全な状態です</div>";
-      else if (cur.u < 100 && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 将来への負担は一定あるが貯金（標準財政規模比で多め）で備えもある→心配しすぎる必要はないが、借入残高の推移は要注視です</div>";
-      else if (cur.u < 100 && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 将来への借金は軽めだが固定費が重い→今のところ借金は軽いものの、返済に回せる余力が乏しく、今後の借入増加に注意が必要です</div>";
-      else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 将来への借金がやや重め→公共施設の維持費・更新費も増える中、新規借入の抑制が課題です</div>";
+      if (futureBurdenHigh(cur.u, isPrefView) && reserveIsLow(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 将来への負担が標準より重い＋貯金も少ない→将来の返済と、いざというときの備えの両方に課題があります</div>";
+      else if (futureBurdenHigh(cur.u, isPrefView) && cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 将来への負担が標準より重い＋毎年の固定費も重い→過去の借金などの負担に加えて、毎年の決まった支出の割合も高く、財政の余裕が小さい状態です</div>";
+      else if (futureBurdenHigh(cur.u, isPrefView) && cur.f < 0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 将来への負担が標準より重い＋自力収入も乏しい→借金を返す力が弱く、長期的に財政が悪化するリスクがあります</div>";
+      else if (futureBurdenHigh(cur.u, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 将来世代への負担が標準より重い→今の住民が使ったお金を将来世代が返す構図で、世代間の公平性が問われます</div>";
+      else if (cur.u <= 0 && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 将来負担が実質ゼロ＋貯金も十分（標準財政規模比で多め）→借金などの将来の負担を上回る備えがあり、財政の優等生です</div>";
+      else if (cur.u <= 0 && cur.f >= 1.0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 将来負担が実質ゼロ＋自力収入も豊か→借金などの負担を上回る備えがあり、稼ぐ力もある、非常に健全な財政状態です</div>";
+      else if (cur.u <= 0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 将来負担が実質ゼロ→借金などの将来の負担を、貯金や今後見込まれる収入でまかなえる状態で、次世代に重荷を残しにくい健全な状態です</div>";
+      else if (reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 将来への負担は一定あるが貯金（標準財政規模比で多め）で備えもある→心配しすぎる必要はないが、借入残高の推移は要注視です</div>";
+      else if (cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 将来への借金は重くはないが固定費が重い→今のところ借金は重くはないものの、返済に回せる余力が乏しく、今後の借入増加に注意が必要です</div>";
+      else if (uc2 === "#f0c46a") topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 将来への負担は一定程度ある→すぐに心配な水準ではありませんが、公共施設の更新などで今後さらに増えないか注意が必要です</div>";
+      else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 将来への負担は"+(isPrefView ? "都道府県では標準的な範囲" : "軽い水準")+"→今のところ心配は小さいものの、公共施設の更新などで今後増えないか、推移を見守りましょう</div>";
           topSummaryHtml += "</div>";
 
       var kkCrossBoxShownF = false;
@@ -1301,8 +1339,7 @@ if (key === "growth" && cur && cur.pop) {
         "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:#a08be8;font-weight:700;'>"+curName+"</span>の教育費比率は<span style='color:#a08be8;font-weight:700;'>"+cur.edu.toFixed(1)+"%</span>で、"+eduUnit+"の"+ej+"（中央値"+eduMed+"%）。</div>";
       topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>\u2139\uFE0F この数字は高い・低いが、そのまま良い・悪いを意味しません。高いのは教育を重視している場合もあれば、学校施設の老朽化対応や小規模校の維持で費用がかさんでいる場合もあります。都道府県は高校を持つため、市区町村より高く出ます。</div>";
       var eduCaveatFired = false;
-      var eduLowTh = isPrefView ? 11 : 6;
-      var eduHist = [cur.edu_r2, cur.edu_r3, cur.edu_r4, cur.edu_r5].filter(function(v){ return v!=null; });
+      var eduHist = recentHist(cur, "edu", 4);
       if (eduHist.length >= 2) {
         var eduAvg = eduHist.reduce(function(a,b){return a+b;},0) / eduHist.length;
         var eduRatio = eduAvg > 0 ? cur.edu / eduAvg : 1;
@@ -1314,10 +1351,14 @@ if (key === "growth" && cur && cur.pop) {
           eduCaveatFired = true;
         }
       }
-      
-      else if (cur.edu < eduLowTh && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 教育費が少ない＋固定費が重い→固定費に圧迫されて教育への投資が削られている可能性があります</div>";
-      else if (cur.edu < eduLowTh && !eduCaveatFired) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 教育への支出が少なめ→財政的制約がある可能性がありますが、子どもへの投資は将来の税収にも影響します</div>";
-      else if (!eduCaveatFired) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 教育費は標準的な水準→引き続き子どもへの投資の量と質を確認していきましょう</div>";
+      // 全国の中での位置（下位10%・上位10%）を事実として添える。良し悪しの判定はしない（2026-09-30。
+      // 以前は「教育への投資が削られている可能性」など、上の注意書きと食い違う言い方をしていた）
+      if (!eduCaveatFired) {
+        var eduP10 = DATA_STATS.edu[(isPrefView?"pref":"muni")+"P10"], eduP90 = DATA_STATS.edu[(isPrefView?"pref":"muni")+"P90"];
+        if (eduP10 != null && cur.edu < eduP10) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 教育費の割合は"+eduUnit+"の中でも低いほう（下位1割）です。学校の建て替えなどが一段落している、福祉や災害復旧などほかの支出が大きい、といった理由でも低くなります。</div>";
+        else if (eduP90 != null && cur.edu > eduP90) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 教育費の割合は"+eduUnit+"の中でも高いほう（上位1割）です。学校の建て替えなどの大きな工事がある年や、小規模校を多く維持している自治体で高くなりやすい傾向があります。</div>";
+        else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 教育費の割合は"+eduUnit+"の中で標準的な範囲です。</div>";
+      }
           topSummaryHtml += "</div>";
     }
     if (key === "childInvest" && cur && cur.ch!=null) {
@@ -1332,7 +1373,7 @@ if (key === "growth" && cur && cur.pop) {
         topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ "+curName+"は人口が少ない（"+cur.pop.toLocaleString()+"人）ため、子どもの人数自体が少なく、1人当たりで計算すると数値が実態以上に大きくなります。</div>";
         chCaveatFired = true;
       }
-      var chHist = [cur.ch_r2, cur.ch_r3, cur.ch_r4, cur.ch_r5].filter(function(v){ return v!=null; });
+      var chHist = recentHist(cur, "ch", 4);
       if (chHist.length >= 2) {
         var chAvg = chHist.reduce(function(a,b){return a+b;},0) / chHist.length;
         var chRatio = chAvg > 0 ? cur.ch / chAvg : 1;
@@ -1344,18 +1385,22 @@ if (key === "growth" && cur && cur.pop) {
           chCaveatFired = true;
         }
       }
-      var chLowTh = isPrefView ? 52 : 70;
-      if (cur.ch < chLowTh && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 子どもへの投資が少ない＋固定費が重い→固定費に圧迫されて将来世代への投資が削られている構図です</div>";
-      else if (cur.ch < chLowTh && cur.g < -0.5) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 子どもへの投資が少ない＋人口も減少中→投資不足が子育て世代の流出を招いている可能性があります</div>";
-      else if (cur.ch < chLowTh && !chCaveatFired) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 子どもへの投資が少なめ→保育・教育・医療費補助などの充実が、将来の定住促進にもつながります</div>";
-      else if (!chCaveatFired) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 子どもへの投資は標準的→近隣自治体と比較しながら、子育て世代に選ばれる地域づくりを目指したいところです</div>";
+      if (!chCaveatFired) {
+        var chP10 = DATA_STATS.ch[(isPrefView?"pref":"muni")+"P10"], chP90 = DATA_STATS.ch[(isPrefView?"pref":"muni")+"P90"];
+        if (chP10 != null && cur.ch < chP10) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 子ども1人当たりの投資額は"+chUnit+"の中でも低いほう（下位1割）です。子どもの人数が多い自治体ほど、1人当たりに直すと小さく出やすくなります。</div>";
+        else if (chP90 != null && cur.ch > chP90) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 子ども1人当たりの投資額は"+chUnit+"の中でも高いほう（上位1割）です。子どもの人数が少ない自治体ほど、1人当たりに直すと大きく出やすくなります。</div>";
+        else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 子ども1人当たりの投資額は"+chUnit+"の中で標準的な範囲です。</div>";
+      }
           topSummaryHtml += "</div>";
     }
     if (key === "budget" && cur && cur.eo && cur.ei) {
-      var bj = cur.ei>=cur.eo?"黒字基調です":cur.ei>=cur.eo*0.99?"ほぼ均衡しています":"赤字基調です";
+      // 決算の歳入には借入金や前年度からの繰越も入るため、ほぼすべての自治体で歳入が歳出を上回る。
+      // 「黒字基調」と書くと財政に余裕があるように読めてしまうので、事実だけを書く（2026-09-30）
+      var bj = cur.ei>=cur.eo?"歳入が歳出を上回っています":cur.ei>=cur.eo*0.99?"ほぼ均衡しています":"歳出が歳入を上回っています";
       var bc2 = cur.ei>=cur.eo?"#6dcfad":cur.ei>=cur.eo*0.99?"#7bb8e8":"#f0876a";
       topSummaryHtml += "<div style='background:"+bc2+"14;border:1px solid "+bc2+"55;border-radius:12px;padding:12px 14px;'>" +
         "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+bc2+";font-weight:700;'>"+curName+"</span>の歳出は<span style='color:"+bc2+";font-weight:700;'>"+cur.eo.toLocaleString()+"億円</span>、歳入は<span style='color:"+bc2+";font-weight:700;'>"+cur.ei.toLocaleString()+"億円</span>で、"+bj+"。</div>";
+      if (cur.ei >= cur.eo) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>ℹ️ 決算の歳入には借入金や前年度からの繰越も含まれるため、ほぼすべての自治体で歳入が歳出を上回ります。財政に余裕があるかどうかは、経常収支比率や財政調整基金で見るのが確実です。</div>";
       var budgetHistCountEarly = countHist("eo", budgetStartIdx);
       var eoHist = [];
       for (var ehi=budgetStartIdx; ehi<budgetStartIdx+budgetHistCountEarly; ehi++){ if (cur["eo_r"+ehi]!=null) eoHist.push(cur["eo_r"+ehi]); }
@@ -1368,15 +1413,14 @@ if (key === "growth" && cur && cur.pop) {
           topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📉 "+curName+"の歳出は過去平均（"+eoAvg.toFixed(1)+"億円）より大きく減っています。前年度の大型事業や特別な支出が終了した可能性があります。</div>";
         }
       }
-      if (cur.ei < cur.eo && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 収支が赤字＋固定費も重い→支出が収入を超えているのに固定費が大半を占め、改善の余地がほぼない最も厳しい状態です</div>";
+      if (cur.ei < cur.eo && cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 歳出が歳入を上回っている＋固定費も重い→決まった支出の割合が高く、収支の立て直しが難しくなりやすい状態です</div>";
       else if (cur.ei < cur.eo && reserveIsLow(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>🚨 収支が赤字＋貯金も少ない→赤字を補う備えもなく、財政の持続可能性に黄信号です</div>";
       else if (cur.ei < cur.eo && futureBurdenHigh(cur.u, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 収支が赤字＋将来への借金も重い→今も赤字で将来の返済も重く、収支改善が急務です</div>";
       else if (cur.ei < cur.eo) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 収入より支出が多い→財政調整基金や借入で補っている可能性があります。収支のバランス改善が課題です</div>";
-      else if (cur.ei >= cur.eo && cur.x > 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 収支は均衡しているが固定費が大半を占めている→数字上は黒字でも人件費・返済・社会保障で身動きが取れない硬直した状態です</div>";
-      else if (cur.ei >= cur.eo && cur.x > 88) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 収支は均衡しているが固定費がやや重め→収支は安定しているものの、新しい政策への投資余地は限られています</div>";
-      else if (cur.ei >= cur.eo && cur.f >= 1.0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 収支が黒字＋財政力も高い＋固定費も適正→自力で稼ぎ支出も健全、最も理想的な財政運営です</div>";
-      else if (cur.ei >= cur.eo && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 収支が黒字＋貯金も十分＋固定費も適正→稼いでいて備えもある、とても安定した財政運営です</div>";
-      else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 収支は均衡＋固定費も標準的→大きな問題はありませんが、社会保障費の増加など将来の支出増に備えた積立が重要です</div>";
+      else if (cur.ei >= cur.eo && cur.x >= 95) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>⚠️ 固定費が大半を占めている→人件費・返済・社会保障などで身動きが取りにくい、硬直した状態です</div>";
+      else if (cur.ei >= cur.eo && cur.f >= 1.0) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 財政力が高い＋固定費も適正→自力で稼ぎ、支出も健全な、理想的な財政運営です</div>";
+      else if (cur.ei >= cur.eo && reserveIsAmple(cur, isPrefView)) topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>✨ 貯金も十分＋固定費も適正→備えもあり、とても安定した財政運営です</div>";
+      else topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>📋 固定費は標準的→大きな問題はありませんが、社会保障費の増加など将来の支出増に備えた積立が重要です</div>";
           topSummaryHtml += "</div>";
     }
     // 過去の実績値と現在値を比べて、増減幅・度合いを一言添える（healthは合成値のため対象外。
@@ -1388,7 +1432,7 @@ if (key === "growth" && cur && cur.pop) {
       if (validIdxT.length >= 2) {
         var oldValT = vals[validIdxT[0]];
         var newValT = vals[validIdxT[validIdxT.length-1]];
-        var tdMain = trendDescribe(oldValT, newValT, META[key].unit, key==="fiscalPower"?2:1);
+        var tdMain = trendDescribe(oldValT, newValT, META[key].unit, key==="fiscalPower"?2:1, key==="flex" ? [1, 3, 5] : null);
         if (tdMain && tdMain.tier !== "横ばい") {
           var trendIcon = tdMain.dir === "増加" ? "📈" : "📉";
           topSummaryHtml += "<div style='font-size:13px;color:#5a5a7a;margin-top:6px;'>" + trendIcon + " " + META[key].label + "はこの" + validIdxT.length + "年で" + tdMain.text + "しています。" + "</div>";

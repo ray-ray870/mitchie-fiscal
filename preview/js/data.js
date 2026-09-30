@@ -47,6 +47,12 @@
                                   .map(function(n){ return get[key](DB[n]); });
         var m = medianOf(vals);
         if (m != null) DATA_STATS[key][b] = m;
+        // 下位10%・上位10%の境目（「全国の中でも低いほう／高いほう」と言うときに使う）
+        var s = vals.filter(function(v){ return v != null && !isNaN(v); }).sort(function(a,c){ return a - c; });
+        if (s.length) {
+          DATA_STATS[key][b + "P10"] = s[Math.floor(s.length * 0.1)];
+          DATA_STATS[key][b + "P90"] = s[Math.min(s.length - 1, Math.floor(s.length * 0.9))];
+        }
       });
     });
     var chMax = 0;
@@ -75,6 +81,24 @@
                       return v == null ? "－" : v.toFixed(+d);
                     })
                     .replace(/\{MAX:ch:(\d)\}/g, function(m0, d){ return DATA_STATS.chMax.muni.toFixed(+d); });
+  }
+  // 履歴＋最新値の配列（古い順）。財政は _r1〜_r(最新年度-1)、公会計は _r1〜_r(最新年度)。
+  // 以前は [x_r1…x_r5, x] と手で書いていて、3月に1年増えると最新の年が抜け、年のラベルもずれるところだった（2026-09-30）
+  function histArr(e, prefix, kind) {
+    if (!e) return [];
+    var n = kind === "kk" ? DATA_YEAR.kokaikei : (DATA_YEAR.fiscal - 1);
+    var a = [];
+    for (var k = 1; k <= n; k++) a.push(e[prefix + "_r" + k]);
+    a.push(e[prefix]);
+    return a;
+  }
+  // 最新値の直前の count 年分の履歴（空欄は除く）。「過去平均」の計算に使う
+  function recentHist(e, prefix, count) {
+    var a = [];
+    for (var k = DATA_YEAR.fiscal - count; k <= DATA_YEAR.fiscal - 1; k++) {
+      if (k >= 1 && e[prefix + "_r" + k] != null) a.push(e[prefix + "_r" + k]);
+    }
+    return a;
   }
   function countHistSlots(e, prefix) {
     var n = 0;

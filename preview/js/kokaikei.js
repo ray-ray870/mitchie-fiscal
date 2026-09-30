@@ -73,14 +73,21 @@
     }
     return yrLabels[startIdx] + "年度から" + yrLabels[n-1] + "年度にかけて" + dirWord;
   }
-  function trendDescribe(oldVal, newVal, unit, decimals) {
+  // pointSteps を渡すと、割合（%）ではなく差（ポイント）で度合いを決める。
+  // 経常収支比率のように90%前後で動く指標は、96.8→91.1%（5.7ポイント）でも割合では6%しか変わらず
+  // 「微減」になってしまうため（2026-09-30）
+  function trendDescribe(oldVal, newVal, unit, decimals, pointSteps) {
     if (oldVal == null || newVal == null) return null;
     decimals = decimals == null ? 1 : decimals;
     var diff = newVal - oldVal;
     var pct = oldVal !== 0 ? Math.abs(diff) / Math.abs(oldVal) : 0;
     var dir = diff > 0 ? "増加" : diff < 0 ? "減少" : "横ばい";
     var tier;
-    if (pct < 0.03) tier = "横ばい";
+    if (pointSteps) {
+      var ad = Math.abs(diff);
+      tier = ad < pointSteps[0] ? "横ばい" : ad < pointSteps[1] ? "微" + dir.charAt(0) : ad < pointSteps[2] ? "着実に" + dir : "大きく" + dir;
+    }
+    else if (pct < 0.03) tier = "横ばい";
     else if (pct < 0.10) tier = "微" + dir.charAt(0);
     else if (pct < 0.30) tier = "着実に" + dir;
     else tier = "大きく" + dir;
@@ -113,7 +120,7 @@
     ka1: {label:"住民一人当たり資産額", fullLabel:"住民一人当たり資産額", unit:"万円", nearNoun:"資産額"},
     ka6: {label:"住民一人当たり行政コスト", fullLabel:"住民一人当たり行政コスト", unit:"万円", nearNoun:"行政コスト"}
   };
-  function buildFutureComboBody(code, kkVal, med, uHigh, entry) {
+  function buildFutureComboBody(code, kkVal, med, uHigh, entry, uLabel) {
     var m = FUTURE_COMBO_META[code];
     var near = Math.abs(kkVal - med) <= med * 0.1;
     var high = kkVal > med;
@@ -121,7 +128,7 @@
     if (near) {
       judge = "中央値とほぼ同水準";
       fact = "<strong style='color:#c0623a;'>[公会計]</strong>" + m.label + "は中央値とほぼ同水準です。<strong style='color:#3a9970;'>[財政]</strong>将来への借金は" + (uHigh?"重め":"軽め") + "です。";
-      analysis = "この" + (uHigh?"重さ":"軽さ") + "は" + m.nearNoun + "以外の要因によるものと考えられます。";
+      analysis = "この" + (uLabel ? levelNoun(uLabel) : (uHigh?"重さ":"軽さ")) + "は" + m.nearNoun + "以外の要因によるものと考えられます。";
       return {judge:judge, analysis:analysis};
     }
     if (code === "ka3") {
@@ -154,16 +161,17 @@
     var m = FUTURE_COMBO_META[code];
     var med = isPrefView ? KK_MEDIANS[code].pref : KK_MEDIANS[code].muni;
     var uHigh = futureBurdenHigh(curObj.u, isPrefView);
-    var r = buildFutureComboBody(code, kkVal, med, uHigh, entry);
-    var uValsArr = [curObj.u_r1, curObj.u_r2, curObj.u_r3, curObj.u_r4, curObj.u_r5, curObj.u];
-    var uTrendPhrase = withTrendMeaning("u", trendSincePhrase(uValsArr, 6));
+    var uLabel = futureLevelLabel(curObj.u, isPrefView);
+    var r = buildFutureComboBody(code, kkVal, med, uHigh, entry, uLabel);
+    var uValsArr = histArr(curObj, "u", "fiscal");
+    var uTrendPhrase = withTrendMeaning("u", trendSincePhrase(uValsArr, DATA_YEAR.fiscal));
     // _r1＝平成30年度 … _r5＝令和4年度、主値＝令和5年度（2026-09-29：以前は _r5 が抜けていて、年が1つずれていた）
-    var kkValsArr = entry ? [entry[code+"_r1"], entry[code+"_r2"], entry[code+"_r3"], entry[code+"_r4"], entry[code+"_r5"], entry[code]] : [];
-    var kkTrendPhrase = entry ? withTrendMeaning(code, trendSincePhrase(kkValsArr, 5)) : null;
+    var kkValsArr = histArr(entry, code, "kk");
+    var kkTrendPhrase = entry ? withTrendMeaning(code, trendSincePhrase(kkValsArr, DATA_YEAR.kokaikei)) : null;
     var numMark = boxNumber ? ["①","②","③","④","⑤"][boxNumber-1] || "" : "";
     var heading = reverseOrder ? ("🔗 財政と比べてみると" + numMark) : ("🔗 公会計と比べてみると" + numMark);
     return kkCrossBox(heading,
-      "将来負担比率", curObj.u+"%", uHigh?"重め":"軽め",
+      "将来負担比率", curObj.u+"%", uLabel,
       m.label, kkVal+m.unit, r.judge,
       r.analysis,
       reverseOrder, uTrendPhrase, kkTrendPhrase);
@@ -214,13 +222,13 @@
       var ka4HighRec = entryV > ka4Med;
       if (ka4NearRec) return "";
       var judgeRec, analysisRec;
-      if (!rHighRec && !ka4HighRec) { judgeRec = "やや少なめ"; analysisRec = ""; }
-      else if (rHighRec && ka4HighRec) { judgeRec = "多め"; analysisRec = ""; }
-      else if (rHighRec && !ka4HighRec) { judgeRec = "多め"; analysisRec = "貯金と長期的な財産形成は別物です。"; }
-      else { judgeRec = "やや少なめ"; analysisRec = "日々の備えと長期的な財産形成は別物です。"; }
+      if (!rHighRec && !ka4HighRec) { judgeRec = reserveLevelLabel(ratioRec, isPref); analysisRec = ""; }
+      else if (rHighRec && ka4HighRec) { judgeRec = reserveLevelLabel(ratioRec, isPref); analysisRec = ""; }
+      else if (rHighRec && !ka4HighRec) { judgeRec = reserveLevelLabel(ratioRec, isPref); analysisRec = "貯金と長期的な財産形成は別物です。"; }
+      else { judgeRec = reserveLevelLabel(ratioRec, isPref); analysisRec = "日々の備えと長期的な財産形成は別物です。"; }
       function ratioAtRec(sfx){ var rv=sfx?cur["r_r"+sfx]:cur.r; var sv=sfx?cur["sfs_r"+sfx]:cur.sfs; return (rv!=null&&sv)?rv/sv*100:null; }
-      var rTrendPhrase = withTrendMeaning("r", trendSincePhrase([ratioAtRec(1),ratioAtRec(2),ratioAtRec(3),ratioAtRec(4),ratioAtRec(5),ratioAtRec(null)], 6, "%", 1));
-      var ka4TrendPhrase = entry ? withTrendMeaning("ka4", trendSincePhrase([entry.ka4_r1,entry.ka4_r2,entry.ka4_r3,entry.ka4_r4,entry.ka4_r5,entry.ka4], 5, "%", 1)) : null;
+      var rTrendPhrase = withTrendMeaning("r", trendSincePhrase((function(){ var a=[]; for (var k=1;k<DATA_YEAR.fiscal;k++) a.push(ratioAtRec(k)); a.push(ratioAtRec(null)); return a; })(), DATA_YEAR.fiscal, "%", 1));
+      var ka4TrendPhrase = entry ? withTrendMeaning("ka4", trendSincePhrase(histArr(entry, "ka4", "kk"), DATA_YEAR.kokaikei, "%", 1)) : null;
       return kkCrossBox("🔗 財政と比べてみると", "財政調整基金残高", ratioRec.toFixed(1)+"%", judgeRec, "純資産比率", entryV+"%", ka4HighRec?"中央値より高め":"中央値より低め", analysisRec, true, rTrendPhrase, ka4TrendPhrase) + KK_CROSSCHECK_CAVEAT;
     }
     if (code === "ka7" && cur.d != null) {
@@ -230,10 +238,10 @@
       var ka7HighRec = entryV > ka7Med;
       if (ka7NearRec) return "";
       var judgeD, analysisD2;
-      if (!dHighRec && !ka7HighRec) { judgeD = "軽め"; analysisD2 = ""; }
+      if (!dHighRec && !ka7HighRec) { judgeD = debtLevelLabel(cur.d, isPref); analysisD2 = ""; }
       else if (dHighRec && ka7HighRec) { judgeD = "重め"; analysisD2 = ""; }
       else if (!dHighRec && ka7HighRec) {
-        judgeD = "軽め";
+        judgeD = debtLevelLabel(cur.d, isPref);
         var ka7TrendC = kkMetricTrend(entry, "ka7", entryV);
         analysisD2 = ka7TrendC === "declining" ? "着実に返済が進んでいる長期返済中、という可能性も考えられます。" : "新しい借入も続いており、返済はこれから本格化する可能性も考えられます。";
       }
@@ -242,8 +250,8 @@
         var ka7TrendD = kkMetricTrend(entry, "ka7", entryV);
         analysisD2 = ka7TrendD === "declining" ? "短期集中で返済を終えつつある可能性も考えられます。" : "返済期間を短く設定している可能性も考えられます。";
       }
-      var dTrendPhrase = withTrendMeaning("d", trendSincePhrase([cur.d_r1,cur.d_r2,cur.d_r3,cur.d_r4,cur.d_r5,cur.d], 6, "%", 1));
-      var ka7TrendPhrase = entry ? withTrendMeaning("ka7", trendSincePhrase([entry.ka7_r1,entry.ka7_r2,entry.ka7_r3,entry.ka7_r4,entry.ka7_r5,entry.ka7], 5, "万円", 1)) : null;
+      var dTrendPhrase = withTrendMeaning("d", trendSincePhrase(histArr(cur, "d", "fiscal"), DATA_YEAR.fiscal, "%", 1));
+      var ka7TrendPhrase = entry ? withTrendMeaning("ka7", trendSincePhrase(histArr(entry, "ka7", "kk"), DATA_YEAR.kokaikei, "万円", 1)) : null;
       return kkCrossBox("🔗 財政と比べてみると", "実質公債費比率", cur.d+"%", judgeD, "住民一人当たり負債額", entryV+"万円", ka7HighRec?"中央値より高め":"中央値より低め", analysisD2, true, dTrendPhrase, ka7TrendPhrase) + KK_CROSSCHECK_CAVEAT;
     }
     if ((code === "ka3" || code === "ka1" || code === "ka6") && cur.u != null) {
@@ -369,7 +377,7 @@
       if ((code === "ka4" || code === "ka5") && cur.g != null && cur.g > 0) {
         var goodDirMatch = code === "ka4" ? diff < 0 : diff > 0;
         if (goodDirMatch) {
-          line += "<br><br>" + nm + "は人口が増加傾向にあり、" +
+          line += "<br><br>" + nm + "は人口が前年より増えており、" +
             (code === "ka4" ? "積極的な投資による可能性もあります。" : "将来世代への投資という側面もあると考えられます。");
         }
       }
