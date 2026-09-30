@@ -81,6 +81,28 @@
     return v < 60 ? "#7bb8e8" : v < 100 ? "#f0c46a" : "#f0876a";
   }
 
+  /* --- 「軽め」「重め」などの短い言葉（2026-09-30）---
+     詳細画面の最初の一文・カードの色・「公会計と比べてみると」の欄で、同じ値に違う言葉が
+     付かないように1か所にまとめる（以前は 84% が「やや高め」と「軽め」の両方で表示されていた）。 */
+  function futureLevelLabel(u, isPref) {
+    if (u == null || u <= 0) return "実質ゼロ";
+    var c = colorU(u, isPref);
+    if (isPref) return c === "#6dcfad" ? "低め" : c === "#7bb8e8" ? "標準的" : c === "#f0c46a" ? "やや重め" : "重め";
+    return c === "#7bb8e8" ? "軽め" : c === "#f0c46a" ? "一定の負担あり" : "重め";
+  }
+  function debtLevelLabel(d, isPref) {
+    if (d == null) return "－";
+    return d < 10 ? "軽め" : (isPref && d < 14) ? "標準的" : d < 18 ? "やや重め" : "重め";
+  }
+  function reserveLevelLabel(ratio, isPref) {
+    if (ratio == null) return "－";
+    var b = reserveBands(isPref);
+    return ratio >= b.hi ? "多め" : ratio >= b.mid ? "標準的" : ratio >= b.lo ? "やや少なめ" : "少なめ";
+  }
+  function levelNoun(label) {
+    return (label === "重め") ? "重さ" : (label === "軽め" || label === "低め" || label === "実質ゼロ") ? "軽さ" : "水準";
+  }
+
   /* --- 都道府県専用のスコア ---
      市区町村向けの基準をそのまま使うと、47都道府県のうち46県が下位2段階に
      集中してしまう。都道府県は高校・国道・河川など大規模な資産を抱えるため、
@@ -139,6 +161,53 @@
     var su = (!u || u <= 0) ? 20 : band(u, 340, 80) * 20;
     var sr = (sfs && sfs > 0 && r != null) ? Math.min((r / sfs * 100) / 10 * 15, 15) : 7.5;
     return Math.round(Math.min(sf + sd + sx + su + sr, 100));
+  }
+
+  /* --- 総合スコアの内訳（2026-09-30）---
+     詳細画面の「内訳を見る」用。都道府県は calcHPref と同じ式で出す
+     （以前は都道府県でも市区町村の式で内訳を出していて、足しても点数と合わなかった）。 */
+  function scoreBreakdown(d, isPref) {
+    var f = d.f, dd = d.d, x = d.x, u = d.u, r = d.r, sfs = d.sfs;
+    var p = {};
+    if (isPref) {
+      var band = function(v, zero, full) {
+        if (v == null) return 0;
+        var t = (zero - Math.min(Math.max(v, Math.min(zero, full)), Math.max(zero, full))) / (zero - full);
+        return Math.min(Math.max(t, 0), 1);
+      };
+      p.f = Math.min(Math.max((f - 0.20) / (0.90 - 0.20), 0), 1) * 25;
+      p.d = band(dd, 20, 6) * 20;
+      p.x = band(x, 101, 86) * 20;
+      p.u = (!u || u <= 0) ? 20 : band(u, 340, 80) * 20;
+      p.r = (sfs && sfs > 0 && r != null) ? Math.min((r / sfs * 100) / 10 * 15, 15) : 7.5;
+    } else {
+      p.f = Math.min(f/1.2*25, 25);
+      p.d = Math.max((25-Math.min(dd,25))/25*20, 0);
+      p.x = Math.min(Math.max((100-x)/15*20, 0), 20);
+      p.u = (!u || u <= 0) ? 20 : Math.max((200-Math.min(u,200))/200*20, 0);
+      p.r = (sfs && sfs > 0 && r != null) ? Math.min((r/sfs*100)/20*15, 15) : 7.5;
+    }
+    return p;
+  }
+
+  /* --- 「気になる点」（2026-09-30）---
+     トップ画面のカードの色（黄・オレンジ）と同じ判定で、気になる指標を名指しする。
+     カードの色と食い違わないよう、色の判定関数をそのまま使う。 */
+  function weakPoints(d, isPref) {
+    var ORANGE = "#f0876a", YELLOW = "#f0c46a";
+    var rr = (d.sfs && d.sfs > 0 && d.r != null) ? d.r / d.sfs * 100 : null;
+    var cd = (d.d == null) ? null : d.d < 10 ? "#6dcfad" : d.d < 18 ? "#7bb8e8" : d.d < 25 ? YELLOW : ORANGE;
+    var items = [
+      {c: colorF(d.f), y: "税収でまかなえる度合いが低め（財政力指数）", o: "税収でまかなえる度合いがかなり低い（財政力指数）"},
+      {c: cd, y: "借金返済が重め（実質公債費比率）", o: "借金返済がとても重い（実質公債費比率）"},
+      {c: colorX(d.x), y: "決まって出ていくお金の割合が高め（経常収支比率）", o: "決まって出ていくお金の割合がかなり高い（経常収支比率）"},
+      {c: (d.u == null || d.u <= 0) ? null : colorU(d.u, isPref), y: isPref ? "将来に残る負担がやや重め（将来負担比率）" : "将来に残る負担が一定程度ある（将来負担比率）", o: "将来に残る負担が重め（将来負担比率）"},
+      {c: rr == null ? null : colorR(rr, isPref), y: "貯金がやや少なめ（財政調整基金）", o: "貯金が少なめ（財政調整基金）"}
+    ];
+    var out = [];
+    items.forEach(function(it){ if (it.c === ORANGE) out.push(it.o); });
+    items.forEach(function(it){ if (it.c === YELLOW) out.push(it.y); });
+    return out;
   }
 
   function calcH(f,d,x,u,r,eo,isPref,sfs) {

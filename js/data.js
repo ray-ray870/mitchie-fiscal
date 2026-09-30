@@ -11,6 +11,118 @@
   var DB = null;
   var KANA_INDEX = null;
 
+  // ===== データの年（年号）=====
+  // 年号はアプリに直接書かず、読み込んだデータの履歴の数から自動で決める（2026-09-30）。
+  // 3月の年次更新で新しい年のデータが入れば、画面の「令和◯年度」も自動で新しい年になる。
+  //   財政（fiscal）   … f_r1（令和元年度）から並ぶ履歴の数＋1＝最新の年度
+  //   人口（population）… pop_r1（令和元年）から並ぶ履歴の数＋1＝最新の年（1月1日時点）
+  //   公会計（kokaikei）… ka1_r1（平成30年度）から並ぶ履歴の数＝最新の年度
+  // 下の数字は、データを読み込むまでの仮の値。
+  var DATA_YEAR = {fiscal: 6, population: 8, kokaikei: 5};
+  function reiwaText(n) { return n <= 0 ? ("平成" + (30 + n) + "年") : (n === 1 ? "令和元年" : ("令和" + n + "年")); }
+  // ===== 全国の中央値・最大値 =====
+  // 説明文に出てくる中央値なども、読み込んだデータから計算する（2026-09-30。以前は数字を直接書いていた）。
+  // 下の数字は、データを読み込むまでの仮の値。
+  var DATA_STATS = {
+    f: {muni: 0.44, pref: 0.47}, x: {muni: 91.5, pref: 93.8}, u: {muni: 35.5, pref: 159.7},
+    rr: {muni: 24.8, pref: 6.4}, edu: {muni: 10.5, pref: 18.9}, ch: {muni: 118.4, pref: 87.9},
+    chMax: {muni: 974.1, pref: 0}
+  };
+  function medianOf(vals) {
+    var s = vals.filter(function(v){ return v != null && !isNaN(v); }).sort(function(a,b){ return a - b; });
+    if (!s.length) return null;
+    var m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+  function computeDataStats() {
+    var get = {
+      f: function(e){ return e.f; }, x: function(e){ return e.x; },
+      u: function(e){ return (e.u == null || e.u === "-" || e.u === "－") ? null : e.u; },
+      rr: function(e){ return (e.sfs && e.sfs > 0 && e.r != null) ? e.r / e.sfs * 100 : null; },
+      edu: function(e){ return e.edu; }, ch: function(e){ return e.ch; }
+    };
+    Object.keys(get).forEach(function(key){
+      ["muni", "pref"].forEach(function(b){
+        var vals = Object.keys(DB).filter(function(n){ return (DB[n].p === n) === (b === "pref"); })
+                                  .map(function(n){ return get[key](DB[n]); });
+        var m = medianOf(vals);
+        if (m != null) DATA_STATS[key][b] = m;
+        // 下位10%・上位10%の境目（「全国の中でも低いほう／高いほう」と言うときに使う）
+        var s = vals.filter(function(v){ return v != null && !isNaN(v); }).sort(function(a,c){ return a - c; });
+        if (s.length) {
+          DATA_STATS[key][b + "P10"] = s[Math.floor(s.length * 0.1)];
+          DATA_STATS[key][b + "P90"] = s[Math.min(s.length - 1, Math.floor(s.length * 0.9))];
+        }
+      });
+    });
+    var chMax = 0;
+    Object.keys(DB).forEach(function(n){ if (DB[n].p !== n && DB[n].ch > chMax) chMax = DB[n].ch; });
+    if (chMax) DATA_STATS.chMax.muni = chMax;
+    // 公会計の全国中央値（js/kokaikei.js の KK_MEDIANS）も最新のデータで置き換える
+    if (typeof KK_MEDIANS === "object" && KK) {
+      Object.keys(KK_MEDIANS).forEach(function(code){
+        ["muni", "pref"].forEach(function(b){
+          var vals = Object.keys(KK).filter(function(n){ return n.charAt(0) !== "_" && DB[n] && ((DB[n].p === n) === (b === "pref")); })
+                                    .map(function(n){ return KK[n][code]; });
+          var m = medianOf(vals);
+          if (m != null) KK_MEDIANS[code][b] = Math.round(m * 10) / 10;
+        });
+      });
+    }
+  }
+  // 文章中の {FY}（財政の年度）{PY}（人口の年）{KY}（公会計の年度）を実際の年号に、
+  // {MED:項目:muni|pref:小数の桁数} を全国の中央値に、{MAX:ch:0} を最大値に置き換える
+  function fillYears(s) {
+    return String(s).replace(/\{FY\}/g, reiwaText(DATA_YEAR.fiscal) + "度")
+                    .replace(/\{PY\}/g, reiwaText(DATA_YEAR.population))
+                    .replace(/\{KY\}/g, reiwaText(DATA_YEAR.kokaikei) + "度")
+                    .replace(/\{MED:(\w+):(muni|pref):(\d)\}/g, function(m0, k, b, d){
+                      var v = DATA_STATS[k] && DATA_STATS[k][b];
+                      return v == null ? "－" : v.toFixed(+d);
+                    })
+                    .replace(/\{MAX:ch:(\d)\}/g, function(m0, d){ return DATA_STATS.chMax.muni.toFixed(+d); });
+  }
+  // 履歴＋最新値の配列（古い順）。財政は _r1〜_r(最新年度-1)、公会計は _r1〜_r(最新年度)。
+  // 以前は [x_r1…x_r5, x] と手で書いていて、3月に1年増えると最新の年が抜け、年のラベルもずれるところだった（2026-09-30）
+  function histArr(e, prefix, kind) {
+    if (!e) return [];
+    var n = kind === "kk" ? DATA_YEAR.kokaikei : (DATA_YEAR.fiscal - 1);
+    var a = [];
+    for (var k = 1; k <= n; k++) a.push(e[prefix + "_r" + k]);
+    a.push(e[prefix]);
+    return a;
+  }
+  // 最新値の直前の count 年分の履歴（空欄は除く）。「過去平均」の計算に使う
+  function recentHist(e, prefix, count) {
+    var a = [];
+    for (var k = DATA_YEAR.fiscal - count; k <= DATA_YEAR.fiscal - 1; k++) {
+      if (k >= 1 && e[prefix + "_r" + k] != null) a.push(e[prefix + "_r" + k]);
+    }
+    return a;
+  }
+  function countHistSlots(e, prefix) {
+    var n = 0;
+    while (e && Object.prototype.hasOwnProperty.call(e, prefix + "_r" + (n + 1))) n++;
+    return n;
+  }
+  function computeDataYears() {
+    var f = 0, p = 0, k = 0;
+    Object.keys(DB || {}).forEach(function(n){
+      f = Math.max(f, countHistSlots(DB[n], "f"));
+      p = Math.max(p, countHistSlots(DB[n], "pop"));
+    });
+    Object.keys(KK || {}).forEach(function(n){
+      if (n.charAt(0) !== "_") k = Math.max(k, countHistSlots(KK[n], "ka1"));
+    });
+    if (f) DATA_YEAR.fiscal = f + 1;
+    if (p) DATA_YEAR.population = p + 1;
+    if (k) DATA_YEAR.kokaikei = k;
+    // 画面に直接書いてある年号（トップページのフッターなど）も書き換える
+    document.querySelectorAll("[data-year]").forEach(function(el){
+      el.textContent = fillYears(el.getAttribute("data-year"));
+    });
+  }
+
   var dataFiles = [
     "data-hokkaido-tohoku.json",
     "data-kanto.json",
@@ -29,6 +141,8 @@
       DB = {};
       results.forEach(function(data){ Object.assign(DB, data); });
       Object.keys(DB).forEach(function(k){ if (DB[k] && DB[k].p === k) DB[k].__pref = true; });
+      computeDataYears();
+      computeDataStats();
       var cnt = Object.keys(DB).length;
       window.mitchieMunicipalityCount = cnt;
       var el2 = document.getElementById("municipality-count2");
