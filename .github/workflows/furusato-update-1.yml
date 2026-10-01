@@ -1,0 +1,93 @@
+name: ふるさと納税データ更新
+
+# 「Actions」タブから手動で実行するワークフロー（毎年8月ごろ）。
+# 総務省「ふるさと納税に関する現況調査結果」のExcel 2つをダウンロードして
+# scripts/build_furusato.py を実行し、preview/ に書き込む。
+#
+#   ・書き込むのは preview/data-*.json・preview/js/ui.js（グラフの年度ラベル）・
+#     scripts/furusato_config.json だけ。本番（ルート）には触らない。
+#   ・プレビューで確認してから「プレビューのデータを本番に反映」
+#     「プレビューを本番に反映」の2つで本番へ。
+#   ・自治体名が1件でも突き合わせられない、年度が合わない、などの場合は
+#     スクリプトが止まり、何もコミットしない。
+#
+# 手順の説明は scripts/README.md の「【8月】ふるさと納税の更新」。
+#
+# 注記（scripts/furusato_notes.json）だけを直したときは、URL欄を2つとも空欄のまま実行する。
+#   → 受入額・控除額には触らず、注記だけを preview/ のデータに入れ直す。
+
+on:
+  workflow_dispatch:
+    inputs:
+      ukeire_url:
+        description: '受入額Excel（各自治体のふるさと納税受入額及び受入件数（平成20年度～令和X年度））のURL（注記だけ反映するときは空欄）'
+        required: false
+        type: string
+      kojo_url:
+        description: '控除額Excel（各自治体の令和Y年度課税における住民税控除額等）のURL（注記だけ反映するときは空欄）'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  furusato:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 必要なパッケージをインストール
+        run: pip install openpyxl
+
+      - name: 総務省のExcelをダウンロード
+        if: github.event.inputs.ukeire_url != '' || github.event.inputs.kojo_url != ''
+        env:
+          UKEIRE_URL: ${{ github.event.inputs.ukeire_url }}
+          KOJO_URL: ${{ github.event.inputs.kojo_url }}
+        run: |
+          set -e
+          mkdir -p /tmp/furusato_xlsx
+          curl -fsSL -A "Mozilla/5.0" "$UKEIRE_URL" -o /tmp/furusato_xlsx/ukeire.xlsx
+          curl -fsSL -A "Mozilla/5.0" "$KOJO_URL" -o /tmp/furusato_xlsx/kojo.xlsx
+          ls -la /tmp/furusato_xlsx
+
+      - name: ふるさと納税データを作成（preview/ に書き込み）
+        if: github.event.inputs.ukeire_url != '' || github.event.inputs.kojo_url != ''
+        run: python scripts/build_furusato.py /tmp/furusato_xlsx
+
+      - name: 注記だけ反映（URL欄が2つとも空欄のとき）
+        if: github.event.inputs.ukeire_url == '' && github.event.inputs.kojo_url == ''
+        run: python scripts/build_furusato.py --notes-only
+
+      - name: 差分がある場合のみコミット
+        id: commit
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add preview/data-*.json preview/js/ui.js scripts/furusato_config.json
+          if git diff --cached --quiet; then
+            echo "変更なし。コミットをスキップします（URLが新年度のものか確認してください）。"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "ふるさと納税データ更新（preview）"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 公開処理(deploy-with-check)を自動実行
+        if: steps.commit.outputs.changed == 'true'
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy-with-check.yml/dispatches" \
+            -d '{"ref":"main"}'
