@@ -389,6 +389,8 @@
   function kkFmt(v, unit){
     if (v == null) return "―";
     if (unit === "百万円") {
+      // 1億円未満は「-0.0億円」にならないよう、万円で出す（2026-10-01）
+      if (v !== 0 && Math.abs(v) < 100) return (v > 0 ? "+" : "-") + (Math.abs(v) * 100).toLocaleString() + "万円";
       var oku = v / 100;
       return (oku>=0?"+":"") + oku.toFixed(1) + "億円";
     }
@@ -471,7 +473,7 @@
     var arr = histArr(entry, code, "kk"), pts = [];
     for (var i = 0; i < arr.length; i++) pts.push({y: i, v: arr[i]});   // 0＝平成30年度
     var meta = KK_META[code], unit = meta.unit;
-    var fmt = function(x){ return unit === "百万円" ? (Math.round(x / 10) / 10).toLocaleString() + "億円" : (Math.round(x * 10) / 10) + unit; };
+    var fmt = function(x){ return unit === "百万円" ? (x !== 0 && Math.abs(x) < 100 ? (x < 0 ? "-" : "") + (Math.abs(x) * 100).toLocaleString() + "万円" : (Math.round(x / 10) / 10).toLocaleString() + "億円") : (Math.round(x * 10) / 10) + unit; };
     var opt = (code === "ka9") ? {tol:0.3, fmt:fmt} : (unit === "%") ? {tol:1, fmt:fmt} : {tol:0.03, rel:true, fmt:fmt};
     if (code === "ka8") opt = {tol:Math.max(Math.abs(v) * 0.1, 10), fmt:fmt};
     opt.label = meta.label;
@@ -499,6 +501,7 @@
   }
 
   function kkOpenDetail(code, skipPush){
+    setChartLegend("", false);
     if (!cur || !KK) return;
     var nm = curName;
     var entry = KK[nm];
@@ -598,7 +601,21 @@
       var kkC = kkColor(code, entry[code], entry, isPref);
       var kkCText = TEXT_COLOR_MAP[kkC] || kkC;
       var Wk=300, Hk=100, Pk=20, PtopK=26;
-      var kkMn=Math.min.apply(null,kkVals), kkMx=Math.max.apply(null,kkVals), kkRng=(kkMx-kkMn)||1;
+      // 全国の中央値（その年度ごと）。_r1＝平成30年度…、主値＝最新年度（2026-10-01）
+      var kkMedVals = kkYrLabels.map(function(lbl){
+        var yy = chartYearOf(lbl); if (yy == null) return null;
+        var arr = [];
+        Object.keys(KK).forEach(function(n){
+          if (n.charAt(0) === "_" || !DB[n] || (DB[n].p === n) !== isPref) return;
+          var v = yy === KK_CURRENT_YEAR ? KK[n][code] : KK[n][code + "_r" + (yy + 1)];
+          if (typeof v === "number") arr.push(v);
+        });
+        arr.sort(function(a, b){ return a - b; });
+        return arr.length ? (arr.length % 2 ? arr[(arr.length - 1) / 2] : (arr[arr.length / 2 - 1] + arr[arr.length / 2]) / 2) : null;
+      });
+      var kkMedValid = kkMedVals.filter(function(v){ return v != null; });
+      var kkScale = kkVals.concat(kkMedValid);
+      var kkMn=Math.min.apply(null,kkScale), kkMx=Math.max.apply(null,kkScale), kkRng=(kkMx-kkMn)||1;
       function pxk(i){ return Pk+(i/(kkVals.length-1))*(Wk-Pk*2); }
       function pyk(v){ return Hk-Pk-((v-kkMn)/kkRng)*(Hk-PtopK-Pk); }
       var kkArea="M"+pxk(0)+","+pyk(kkVals[0]), kkLine="M"+pxk(0)+","+pyk(kkVals[0]);
@@ -622,7 +639,15 @@
       var kkSpSvg = document.getElementById("spSvg");
       kkSpSvg.setAttribute("viewBox","0 0 "+Wk+" "+Hk);
       kkSpSvg.style.height=Hk+"px";
-      kkSpSvg.innerHTML = "<defs><linearGradient id='gKk' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='"+kkC+"' stop-opacity='0.2'/><stop offset='100%' stop-color='"+kkC+"' stop-opacity='0'/></linearGradient></defs><path d='"+kkArea+"' fill='url(#gKk)'/><path d='"+kkLine+"' fill='none' stroke='"+kkC+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+kkDots;
+      var kkCovid = covidBandSvg(kkYrLabels, pxk, Wk, 4, Hk, false);
+      var kkMedHtml = "";
+      if (kkMedValid.length >= 2) {
+        var kkML = "";
+        kkMedVals.forEach(function(v, i){ if (v == null) return; kkML += (kkML ? " L" : "M") + pxk(i) + "," + pyk(v); });
+        kkMedHtml = "<path d='" + kkML + "' fill='none' stroke='#9a96a8' stroke-width='1.5' stroke-dasharray='4,3'/>";
+      }
+      setChartLegend(kkMedHtml ? (isPref ? "全国の都道府県の中央値" : "全国の市区町村の中央値") : "", !!kkCovid);
+      kkSpSvg.innerHTML = "<defs><linearGradient id='gKk' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='"+kkC+"' stop-opacity='0.2'/><stop offset='100%' stop-color='"+kkC+"' stop-opacity='0'/></linearGradient></defs>" + kkCovid + kkMedHtml + "<path d='"+kkLine+"' fill='none' stroke='"+kkC+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+kkDots;
       var kkYrLabelsHtml = kkYrLabels.map(function(y,i){
         var pct = (Pk+(i/(kkYrLabels.length-1))*(Wk-Pk*2))/Wk*100;
         return "<span style='left:"+pct+"%;'>"+y+"</span>";
