@@ -114,6 +114,78 @@
        ・用語は最初に出るところだけ（ ）で意味を添える
        ・🔍 は総務省の決算状況調（歳入内訳・目的別歳出）の金額をそのまま並べる（cur.bd、千円単位） */
   var SIT_BLUE = "#1a56b0", SIT_RED = "#c62828";
+  /* --- グラフの「新型コロナ対応の時期」の帯と凡例（2026-10-01）---
+     帯の位置は実際の日付に合わせる：国内で最初の感染者が確認された令和2年1月16日から、
+     感染症法上の位置づけが5類に移った令和5年5月8日まで。
+       年度のグラフ（財政・公会計）：1つの点＝その年度（4月〜翌3月）
+       年のグラフ（人口増減率）　　：1つの点＝その年の1月1日の人口と、前の年の1年間の増減 → 令和k年の点は令和(k-1)年の1年間 */
+  function chartYearOf(label) {
+    var s0 = String(label);
+    if (/H30/.test(s0)) return 0;
+    var mm = s0.match(/R(\d+)/);
+    if (mm) return +mm[1];
+    return /元/.test(s0) ? 1 : null;
+  }
+  function covidBandSvg(labels, pxFn, W, yTop, yBottom, calendar) {
+    var n = labels.length;
+    if (n < 2) return "";
+    var step = pxFn(1) - pxFn(0);
+    // 日付 → グラフ上の位置。年度のグラフは4月始まり、年のグラフ（人口）は「前の年の1年間」を表す
+    var xOfDate = function(yy, mo, dd){
+      var d = new Date(yy, mo - 1, dd), pt;
+      if (calendar) pt = {y: yy - 2017, f: (d - new Date(yy, 0, 1)) / 86400000 / 365};
+      else { var fy = mo >= 4 ? yy : yy - 1; pt = {y: fy - 2018, f: (d - new Date(fy, 3, 1)) / 86400000 / 365}; }
+      for (var i = 0; i < n; i++) if (chartYearOf(labels[i]) === pt.y) return pxFn(i) - step / 2 + pt.f * step;
+      var y0 = chartYearOf(labels[0]), y1 = chartYearOf(labels[n - 1]);
+      if (y0 != null && pt.y < y0) return pxFn(0) - step / 2;
+      if (y1 != null && pt.y > y1) return pxFn(n - 1) + step / 2;
+      return null;
+    };
+    // 国内最初の感染確認（令和2年1月16日）から少しずつ濃くなり、緊急事態宣言・まん延防止等重点措置が
+    // 繰り返し出ていた時期（最初の宣言 令和2年4月7日〜最後の重点措置の終了 令和4年3月21日）がいちばん濃く、
+    // 5類移行（令和5年5月8日）に向けて薄くなる
+    var xs = xOfDate(2020, 1, 16), xp1 = xOfDate(2020, 4, 7), xp2 = xOfDate(2022, 3, 21), xe = xOfDate(2023, 5, 8);
+    if (xs == null || xe == null || xe <= xs) return "";
+    var off = function(x){ return Math.max(0, Math.min(1, (x - xs) / (xe - xs))).toFixed(3); };
+    var gid = "covidG" + Math.round(xs * 10) + "_" + Math.round(xe * 10);
+    var x1 = Math.max(0, xs), x2 = Math.min(W, xe);
+    if (x2 <= x1) return "";
+    return "<defs><linearGradient id='" + gid + "' gradientUnits='userSpaceOnUse' x1='" + xs.toFixed(1) + "' y1='0' x2='" + xe.toFixed(1) + "' y2='0'>" +
+      "<stop offset='0' stop-color='#f0a860' stop-opacity='0.03'/>" +
+      (xp1 != null ? "<stop offset='" + off(xp1) + "' stop-color='#f0a860' stop-opacity='0.24'/>" : "") +
+      (xp2 != null ? "<stop offset='" + off(xp2) + "' stop-color='#f0a860' stop-opacity='0.24'/>" : "") +
+      "<stop offset='1' stop-color='#f0a860' stop-opacity='0.03'/></linearGradient></defs>" +
+      "<rect x='" + x1.toFixed(1) + "' y='" + yTop + "' width='" + (x2 - x1).toFixed(1) + "' height='" + (yBottom - yTop) + "' fill='url(#" + gid + ")'/>";
+  }
+  function setChartLegend(medLabel, covid) {
+    var wrap = document.getElementById("spWrap");
+    if (!wrap) return;
+    var el = document.getElementById("spLegend");
+    if (!el) { el = document.createElement("div"); el.id = "spLegend"; wrap.appendChild(el); }
+    el.innerHTML = (medLabel || covid) ? "<div style='display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:13px;color:#5a5a70;margin-top:22px;line-height:1.5;'>" +
+      (medLabel ? "<span><svg width='22' height='8' style='vertical-align:middle;'><line x1='0' y1='4' x2='22' y2='4' stroke='#9a96a8' stroke-width='2' stroke-dasharray='4,3'/></svg> " + medLabel + "</span>" : "") +
+      (covid ? "<span><span style='display:inline-block;width:34px;height:10px;background:linear-gradient(90deg,#f0a86008,#f0a8603d 30%,#f0a8603d 70%,#f0a86008);vertical-align:middle;'></span> 新型コロナ対応の時期（令和2年1月〜令和5年5月の5類移行まで）</span>" +
+               "<span style='font-size:12.5px;color:#7a7a90;'>色が濃いところ：緊急事態宣言などが繰り返し出ていた時期（令和2年4月〜令和4年3月）</span>" : "") +
+      "</div>" : "";
+  }
+  // ある年（令和の年）の全国の中央値。財政は _r◯ が令和◯年度、主値が最新年度
+  var HIST_MED_CACHE = {};
+  function histMedian(field, yr, isPref, isPop) {
+    var ck = field + yr + (isPref ? "p" : "m");
+    if (ck in HIST_MED_CACHE) return HIST_MED_CACHE[ck];
+    var latest = isPop ? DATA_YEAR.population : DATA_YEAR.fiscal;
+    var arr = [];
+    Object.keys(DB).forEach(function(n){
+      var e = DB[n]; if (!!e.__pref !== !!isPref) return;
+      var v = yr === latest ? e[field] : e[field + "_r" + yr];
+      if (field === "u" && (v == null || v <= 0) && (yr === latest || Object.prototype.hasOwnProperty.call(e, field + "_r" + yr))) v = 0;
+      if (typeof v === "number") arr.push(v);
+    });
+    arr.sort(function(a, b){ return a - b; });
+    var med = arr.length ? (arr.length % 2 ? arr[(arr.length - 1) / 2] : (arr[arr.length / 2 - 1] + arr[arr.length / 2]) / 2) : null;
+    HIST_MED_CACHE[ck] = med;
+    return med;
+  }
   function situationTrend(cur, field, opt, nullAsZero) {
     var arr = histArr(cur, field, "fiscal"), pts = [];
     for (var i = 0; i < arr.length; i++) {
@@ -436,6 +508,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.3.0", date:"2026.10", items:["グラフに、全国の中央値と新型コロナ対応の時期を表示","表示の改善"] },
     { version:"3.2.0", date:"2026.10", items:["国の基準を超えた自治体に、法律で決まっていることと、自治体自身の説明を表示","人口増減率に、自然増減・社会増減の内訳を表示","歳入・歳出の内訳から分かることを表示","各項目の説明を、見出しと箇条書きで読みやすく改善","公会計を令和6年度のデータに更新","表示の改善"] },
     { version:"3.1.1", date:"2026.9", items:["財政と公会計を比べる欄で、組み合わせから分かることを表示"] },
     { version:"3.1.0", date:"2026.9", items:["各項目の説明を、自治体の今の状況が分かる形に改善"] },
@@ -781,6 +854,7 @@
   };
 
   function openD(key, skipPush) {
+    setChartLegend("", false);   // 前の画面の凡例を消す
     if (!cur) return;
     var m = META[key];
     if (!m) return;
@@ -1969,13 +2043,21 @@ if (key === "growth" && cur && cur.pop) {
       var spSvg = document.getElementById("spSvg");
       spSvg.setAttribute("viewBox","0 0 "+W+" "+(svgH+10));
       spSvg.style.height=(svgH+10)+"px";
-      spSvg.innerHTML =
+      var covidHtml2 = eoVals.length > 1 ? covidBandSvg(budgetYrs || [], px2, W, 4, H - Pbottom2 + 14, false) : "";
+      setChartLegend("", !!covidHtml2);
+      spSvg.innerHTML = covidHtml2 +
         "<path d='"+eoLine+"' fill='none' stroke='#a08be8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>" +
         "<path d='"+eiLine+"' fill='none' stroke='#7bb8e8' stroke-width='2' stroke-dasharray='4,3' stroke-linecap='round' stroke-linejoin='round'/>" +
         dots2 + legend;
     } else {
     var validVals = chartVals.filter(function(v){ return v!=null; });
-    var mn=validVals.length?Math.min.apply(null,validVals):0, mx=validVals.length?Math.max.apply(null,validVals):0, rng=mx-mn||1;
+    // 全国の中央値の線（2026-10-01）：その年の動きが、その自治体だけか、全国でも同じかを見られるように
+    var yrNum = chartYearOf;
+    var medField = {fiscalPower:"f", flex:"x", debt:"d", future:"u", education:"edu", childInvest:"ch", growth:"g"}[key];
+    var medVals = medField ? chartYrs.map(function(lbl){ var yn = yrNum(lbl); return yn == null ? null : histMedian(medField, yn, isPrefView, key === "growth"); }) : [];
+    var medValid = medVals.filter(function(v){ return v != null; });
+    var allForScale = validVals.concat(medValid);
+    var mn=allForScale.length?Math.min.apply(null,allForScale):0, mx=allForScale.length?Math.max.apply(null,allForScale):0, rng=mx-mn||1;
     var W=300,H=100,P=20,Ptop=26;
     function px(i){return chartVals.length>1 ? P+(i/(chartVals.length-1))*(W-P*2) : W/2;}
     function py(v){return H-P-((v-mn)/rng)*(H-Ptop-P);}
@@ -2058,7 +2140,15 @@ if (key === "growth" && cur && cur.pop) {
     } else {
       spSvgEl.setAttribute("viewBox","0 0 "+W+" "+(H+10));
       spSvgEl.style.height=(H+10)+"px";
-      spSvgEl.innerHTML = "<defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='"+c+"' stop-opacity='0.2'/><stop offset='100%' stop-color='"+c+"' stop-opacity='0'/></linearGradient></defs><text x='"+P+"' y='10' font-size='10' fill='"+noteColor+"'>"+noteText+"</text><path d='"+area+"' fill='url(#g)'/><path d='"+line+"' fill='none' stroke='"+c+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+dots;
+      var covidHtml = chartVals.length > 1 ? covidBandSvg(chartYrs, px, W, 14, H + 10, key === "growth") : "";
+      var medHtml = "";
+      if (medValid.length >= 2) {
+        var mLine = "";
+        medVals.forEach(function(v, i){ if (v == null) return; mLine += (mLine ? " L" : "M") + px(i) + "," + py(v); });
+        medHtml = "<path d='" + mLine + "' fill='none' stroke='#9a96a8' stroke-width='1.5' stroke-dasharray='4,3'/>";
+      }
+      setChartLegend(medHtml ? (isPrefView ? "全国の都道府県の中央値" : "全国の市区町村の中央値") : "", !!covidHtml);
+      spSvgEl.innerHTML = "<defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='"+c+"' stop-opacity='0.2'/><stop offset='100%' stop-color='"+c+"' stop-opacity='0'/></linearGradient></defs>"+covidHtml+"<text x='"+P+"' y='10' font-size='10' fill='"+noteColor+"'>"+noteText+"</text>"+medHtml+"<path d='"+line+"' fill='none' stroke='"+c+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+dots;
     }
     }
     document.getElementById("ovEl").classList.remove("hidden");
