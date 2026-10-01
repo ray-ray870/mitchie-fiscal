@@ -384,6 +384,13 @@
             : "国の基準は下回るものの、将来の負担が重い状態です";
         col4 = cu === "#7bb8e8" ? SIT_BLUE : SIT_RED;
       }
+      if (isPref && u < lim) {
+        // 都道府県：国の基準との余裕＋都道府県の中での高め・低めを「→」の1行にまとめる
+        var pm4p = DATA_STATS.u.pref, pc4p = peerCmp(u, pm4p, 2), lr4p = limitRoom(u, lim);
+        var verd4p = lr4p.text + "。" + (lr4p.room && pc4p === "hi" ? "ただ、" : "") + "都道府県の中では、" + (pc4p === "same" ? "同じくらいの状態です" : pc4p === "hi" ? "高めの状態です" : "低めの状態です");
+        return situationBox(name, ["将来負担比率は" + sitB(pct1(u)) + "です", withTrend(tr4), cmpRow([["全国の都道府県の中央値", pct1(pm4p)]])],
+          verd4p, (lr4p.room && pc4p !== "hi") ? SIT_BLUE : SIT_RED, "");
+      }
       var pi4 = peerInfo(name, isPref), pl4 = "", pst4 = null;
       if (pi4) {
         var pv4 = peerVals(pi4, function(k){ var e = DB[k]; return (e.u == null || e.u <= 0) ? 0 : e.u; });
