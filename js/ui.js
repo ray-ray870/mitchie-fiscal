@@ -47,7 +47,7 @@
     // 財政調整基金
     if (d.sfs && d.sfs > 0 && d.r != null) {
       var rr = d.r / d.sfs * 100, cr = colorR(rr, isPref);
-      var rTxt = "<b>貯金（財政調整基金）" + d.r.toFixed(1) + "億円</b>（標準財政規模の" + p1(rr) + "%）";
+      var rTxt = "<b>貯金（財政調整基金）" + fmtOku(d.r, true) + "</b>（標準財政規模の" + p1(rr) + "%）";
       if (cr === "#6dcfad") goods.push(rTxt + "：急な出費に厚めに備えています");
       else if (cr === "#f0c46a" || cr === "#f0876a") warns.push({lv: cr === "#f0876a" ? 2 : 1,
         t: rTxt + "：大きな災害などの急な出費には、貯金が少なめの状態です",
@@ -425,15 +425,15 @@
               : "大きな災害などの急な出費には、貯金が少なめの状態です";
       if (pi5 && pc5) {
         return situationBox(name, [
-          "貯金（財政調整基金）は" + sitB(cur.r.toFixed(1) + "億円") + perCap + "で、標準財政規模の" + sitB(pct1(rr)) + "です",
-          situationTrend(cur, "r", {tol:0.05, rel:true, times:true, label:"残高", fmt:function(v){ return v.toFixed(1) + "億円"; }}),
+          "貯金（財政調整基金）は" + sitB(fmtOku(cur.r, true)) + perCap + "で、標準財政規模の" + sitB(pct1(rr)) + "です",
+          situationTrend(cur, "r", {tol:0.05, rel:true, times:true, label:"残高", fmt:function(v){ return fmtOku(v, true); }}),
           cmpRow([["全国の中央値", pct1(DATA_STATS.rr[b])], ["似ている自治体の中央値", pct1(pm5)]])
         ], st5 + peerTail(cr === "#6dcfad" || cr === "#7bb8e8", pc5, false, "貯金は", "多め", "少なめ"), (cr === "#6dcfad" || cr === "#7bb8e8") ? SIT_BLUE : SIT_RED,
           "※総務省の調査（2017年）では、貯金の目安を標準財政規模の割合で決めている団体は、市町村では5〜10%、都道府県では5%以下が多い結果でした。目安は団体ごとに違います。<br>" + peerNoteText(pi5));
       }
       return situationBox(name, [
-        "貯金（財政調整基金）は" + sitB(cur.r.toFixed(1) + "億円") + perCap + "で、標準財政規模の" + sitB(pct1(rr)) + "です",
-        situationTrend(cur, "r", {tol:0.05, rel:true, times:true, label:"残高", fmt:function(v){ return v.toFixed(1) + "億円"; }}),
+        "貯金（財政調整基金）は" + sitB(fmtOku(cur.r, true)) + perCap + "で、標準財政規模の" + sitB(pct1(rr)) + "です",
+        situationTrend(cur, "r", {tol:0.05, rel:true, times:true, label:"残高", fmt:function(v){ return fmtOku(v, true); }}),
         area + "の中央値は、標準財政規模の" + pct1(DATA_STATS.rr[b]) + "です",
         (function(){ if (!pi5 || pc5 == null) return ""; return peerLine(name, pct1(pm5), pc5); })()
       ], st5, (cr === "#6dcfad" || cr === "#7bb8e8") ? SIT_BLUE : SIT_RED,
@@ -446,9 +446,9 @@
       var chg = (cur.eog != null) ? "歳出は前年度より" + Math.abs(cur.eog).toFixed(1) + "%" + (cur.eog > 0 ? "増えました" : cur.eog < 0 ? "減りました" : "で、変わりませんでした") : "";
       var diff = Math.round((cur.ei - cur.eo) * 10) / 10;
       return situationBox(name, [
-        "歳出" + sitB(cur.eo.toLocaleString() + "億円") + "、歳入" + sitB(cur.ei.toLocaleString() + "億円") + perCapB,
+        "歳出" + sitB(fmtOku(cur.eo)) + "、歳入" + sitB(fmtOku(cur.ei)) + perCapB,
         chg
-      ], cur.ei >= cur.eo ? "差し引き約" + diff.toFixed(1) + "億円が残った状態です（翌年度に繰り越す分を含む）"
+      ], cur.ei >= cur.eo ? "差し引き約" + fmtOku(diff, true) + "が残った状態です（翌年度に繰り越す分を含む）"
                           : "歳出が歳入を上回った状態です。不足分は翌年度の収入を前倒しして埋めることになっています",
          cur.ei >= cur.eo ? SIT_BLUE : SIT_RED, "");
     }
@@ -471,13 +471,13 @@
       }
       if (pi6 && pc6) {
         return situationBox(name, [
-          (cur.eo ? "使ったお金" + cur.eo.toLocaleString() + "億円のうち、約" + sitB(eduOku.toFixed(1) + "億円（" + pct1(cur.edu) + "）") : sitB(pct1(cur.edu))) + "を教育に使っています",
+          (cur.eo ? "使ったお金" + fmtOku(cur.eo) + "のうち、約" + sitB(fmtOku(eduOku, true) + "（" + pct1(cur.edu) + "）") : sitB(pct1(cur.edu))) + "を教育に使っています",
           withTrend(situationTrend(cur, "edu", {tol:0.5, fmt:pct1, label:"教育費比率"})),
           cmpRow([["全国の中央値", pct1(med6)], ["似ている自治体の中央値", pct1(pm6)]])
         ], "似ている自治体" + (pc6 === "same" ? "と同じくらいです" : pc6 === "hi" ? "より大きめです" : "より小さめです"), "#3a2a6e", peerNoteText(pi6));
       }
       return situationBox(name, [
-        (cur.eo ? "使ったお金" + cur.eo.toLocaleString() + "億円のうち、約" + sitB(eduOku.toFixed(1) + "億円（" + pct1(cur.edu) + "）") : sitB(pct1(cur.edu))) + "を教育に使っています",
+        (cur.eo ? "使ったお金" + fmtOku(cur.eo) + "のうち、約" + sitB(fmtOku(eduOku, true) + "（" + pct1(cur.edu) + "）") : sitB(pct1(cur.edu))) + "を教育に使っています",
         withTrend(situationTrend(cur, "edu", {tol:0.5, fmt:pct1, label:"教育費比率"})), area + "の中央値は" + pct1(med6) + "です", pl6
       ], null, null, pi6 ? peerNoteText(pi6) : "", pst6);
     }
@@ -505,6 +505,7 @@
   var BD_EX_LABEL = {minsei:"民生費（福祉・子育て）", somu:"総務費（役所の運営など）", eisei:"衛生費（ごみ処理・保健など）", doboku:"土木費（道路・公園など）",
     edu:"教育費", kosai:"公債費（借金の返済）", shobo:"消防費", norin:"農林水産業費", shoko:"商工費", saigai:"災害復旧費", keisatsu:"警察費", rodo:"労働費", gikai:"議会費"};
   var BD_ED_LABEL = {kyu:"学校給食費", sho:"小学校費", chu:"中学校費", koko:"高等学校費", shakai:"社会教育費（公民館・図書館など）", somu:"教育総務費", tokushi:"特別支援学校費", yochi:"幼稚園費", hoken:"保健体育費"};
+  function okuT(v) { return fmtOku(v / 100000, true); }   // 千円 → 「◯億円」「◯兆◯億円」
   function oku(v) { return (Math.round(v / 10000) / 10).toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1}); }  // 千円 → 億円
   function bdBox(title, rows, tail, tailColor) {
     if (!rows.length) return "";
@@ -524,12 +525,12 @@
     var line = function(label, v, tot, peerPct){
       if (peerPct != null && tot) {   // 似ている自治体の数字があるときは、割合の行を下に分ける（項目名が狭くならないように）
         return "<div style='border-bottom:1px dotted #e0dcef;padding:4px 0;'>" +
-          "<div style='display:flex;justify-content:space-between;align-items:baseline;gap:8px;'><span style='flex:1;'>" + label + "</span><b style='font-size:17px;white-space:nowrap;'>" + oku(v) + "億円</b></div>" +
+          "<div style='display:flex;justify-content:space-between;align-items:baseline;gap:8px;'><span style='flex:1;'>" + label + "</span><b style='font-size:17px;white-space:nowrap;'>" + okuT(v) + "</b></div>" +
           "<div style='text-align:right;font-size:14px;color:#6a6a80;'>" + pctOf(v, tot).replace(/[（）]/g, "") + "　<span style='color:#8a7ab0;'>似ている自治体 " + (Math.round(peerPct * 10) / 10).toFixed(1) + "%</span></div></div>";
       }
       return "<div style='display:flex;justify-content:space-between;align-items:baseline;gap:8px;border-bottom:1px dotted #e0dcef;padding:4px 0;'>" +
         "<span style='flex:1;'>" + label + "</span>" +
-        "<span style='white-space:nowrap;text-align:right;'><b style='font-size:17px;'>" + oku(v) + "億円</b>" + (tot ? "<br><span style='font-size:14px;color:#6a6a80;'>" + pctOf(v, tot).replace(/[（）]/g, "") + "</span>" : "") + "</span></div>";
+        "<span style='white-space:nowrap;text-align:right;'><b style='font-size:17px;'>" + okuT(v) + "</b>" + (tot ? "<br><span style='font-size:14px;color:#6a6a80;'>" + pctOf(v, tot).replace(/[（）]/g, "") + "</span>" : "") + "</span></div>";
     };
     // 似ている自治体（類似団体）の、同じ年度の内訳の中央値（割合）。市区町村で、同じ区分が10団体以上あるときだけ
     var pinfo = peerInfo(name, isPref);
@@ -554,18 +555,18 @@
         r1 = [line("地方税（自治体の税収）", rv.tax, eiK, pMed(shRv("tax"))), line("地方交付税（国から配られるお金）", rv.lat, eiK, pMed(shRv("lat"))), line("国庫支出金（国の補助金など）", rv.nat, eiK, pMed(shRv("nat")))];
         var wt = cmpW(shRv("tax")(name), pMed(shRv("tax")));
         var wn = cmpW((rv.lat + rv.nat) / eiK * 100, pMed(function(k){ var x = DB[k].bd.rv, e = DB[k]; return (x && x.lat != null && x.nat != null && e.ei) ? (x.lat + x.nat) / (e.ei * 1e5) * 100 : null; }));
-        return bdBox("歳入" + cur.ei.toLocaleString() + "億円の内訳から分かること", r1, (wt && wn) ? "似ている自治体と比べると、自前の税収の割合は" + wt + "、国から来るお金（地方交付税・国庫支出金）の割合は" + wn + "です" : "", PTAIL);
+        return bdBox("歳入" + fmtOku(cur.ei) + "の内訳から分かること", r1, (wt && wn) ? "似ている自治体と比べると、自前の税収の割合は" + wt + "、国から来るお金（地方交付税・国庫支出金）の割合は" + wn + "です" : "", PTAIL);
       }
-      return bdBox("歳入" + (cur.ei ? cur.ei.toLocaleString() + "億円" : "") + "の内訳から分かること", r1, "");
+      return bdBox("歳入" + (cur.ei ? fmtOku(cur.ei) : "") + "の内訳から分かること", r1, "");
     }
     if (key === "flex") {
       if (pinfo && eoK) {
         var tk = Object.keys(ex).filter(function(k){ return BD_EX_LABEL[k] && ex[k] > 0; }).sort(function(a, c){ return ex[c] - ex[a]; }).slice(0, 3);
         var rowsF = tk.map(function(k){ return line(BD_EX_LABEL[k], ex[k], eoK, pMed(shEx(k))); });
         var w1 = cmpW(shEx(tk[0])(name), pMed(shEx(tk[0])));
-        return bdBox("歳出" + cur.eo.toLocaleString() + "億円の内訳から分かること", rowsF, w1 ? "いちばん多いのは" + BD_EX_LABEL[tk[0]] + "で、似ている自治体" + (w1 === "同じくらい" ? "と同じくらいです" : "より" + w1 + "です") : "", PTAIL);
+        return bdBox("歳出" + fmtOku(cur.eo) + "の内訳から分かること", rowsF, w1 ? "いちばん多いのは" + BD_EX_LABEL[tk[0]] + "で、似ている自治体" + (w1 === "同じくらい" ? "と同じくらいです" : "より" + w1 + "です") : "", PTAIL);
       }
-      return bdBox("歳出" + (cur.eo ? cur.eo.toLocaleString() + "億円" : "") + "の内訳から分かること", topEx(3), "");
+      return bdBox("歳出" + (cur.eo ? fmtOku(cur.eo) : "") + "の内訳から分かること", topEx(3), "");
     }
     if (key === "debt" || key === "future") {
       if (ex.kosai == null || rv.bond == null) return "";
@@ -591,10 +592,10 @@
         var ups = diffs.filter(function(o){ return o.d > 0; }).sort(function(a, c){ return c.d - a.d; }).slice(0, 2);
         var downs = diffs.filter(function(o){ return o.d < 0; }).sort(function(a, c){ return a.d - c.d; }).slice(0, 2);
         var rows = [];
-        ups.concat(downs).forEach(function(o){ rows.push("<div style='display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted #e0dcef;padding:4px 0;'><span style='flex:1;'>" + BD_EX_LABEL[o.k] + "</span><b style='font-size:17px;white-space:nowrap;color:#2a2a3a;'>" + (o.d >= 0 ? "＋" : "−") + oku(Math.abs(o.d)) + "億円</b></div>"); });
+        ups.concat(downs).forEach(function(o){ rows.push("<div style='display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted #e0dcef;padding:4px 0;'><span style='flex:1;'>" + BD_EX_LABEL[o.k] + "</span><b style='font-size:17px;white-space:nowrap;color:#2a2a3a;'>" + (o.d >= 0 ? "＋" : "−") + okuT(Math.abs(o.d)) + "</b></div>"); });
         var topMove = dEo < 0 ? downs[0] : ups[0];
-        html += bdBox("前年度からの主な増減（歳出 " + (dEo >= 0 ? "＋" : "−") + Math.abs(dEo).toFixed(1) + "億円）", rows,
-          topMove ? "いちばん大きく" + (dEo < 0 ? "減った" : "増えた") + "のは" + BD_EX_LABEL[topMove.k].replace(/（.*）/, "") + "（" + (topMove.d >= 0 ? "＋" : "−") + oku(Math.abs(topMove.d)) + "億円）です" : "", PTAIL);
+        html += bdBox("前年度からの主な増減（歳出 " + (dEo >= 0 ? "＋" : "−") + fmtOku(Math.abs(dEo), true) + "）", rows,
+          topMove ? "いちばん大きく" + (dEo < 0 ? "減った" : "増えた") + "のは" + BD_EX_LABEL[topMove.k].replace(/（.*）/, "") + "（" + (topMove.d >= 0 ? "＋" : "−") + okuT(Math.abs(topMove.d)) + "）です" : "", PTAIL);
       }
       var r2 = [];
       if (rv.bond != null) r2.push(line("地方債（借金）", rv.bond, eiK, pMed(shRv("bond"))));
@@ -720,6 +721,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.5.1", date:"2026.10", items:["大きな金額を「兆」で表示するなど、金額を読みやすい表示に変更"] },
     { version:"3.5.0", date:"2026.10", items:["内訳の枠に、似ている自治体との比較を表示","総合スコアの内訳に説明を追加","説明の修正"] },
     { version:"3.4.0", date:"2026.10", items:["人口や産業が似ている自治体との比較を表示","説明の修正"] },
     { version:"3.3.3", date:"2026.10", items:["説明の修正","「ひとこと」に、独自の総合点であることを表示"] },
@@ -946,8 +948,8 @@
     var fuc = (d.fu!=null && d.fk!=null) ? (d.fu > d.fk ? "#6dcfad" : (d.fk > d.fu ? "#f0876a" : "#a0a0a0")) : "#a0a0a0";
     var eoc = d.eog!=null ? (d.eog>=0?"#6dcfad":d.eog>=-0.5?"#f0c46a":"#f0876a") : "#a0a0a0";
     var eic = d.eig!=null ? (d.eig>=0?"#6dcfad":d.eig>=-0.5?"#f0c46a":"#f0876a") : "#a0a0a0";
-    var eol = d.eo ? d.eo.toLocaleString()+"億円" : "－";
-    var eil = d.ei ? d.ei.toLocaleString()+"億円" : "－";
+    var eol = d.eo ? fmtOku(d.eo) : "－";
+    var eil = d.ei ? fmtOku(d.ei) : "－";
     var eogs = d.eog!=null ? (d.eog>=0?"+":"")+d.eog.toFixed(1)+"%" : "";
     var eigs = d.eig!=null ? (d.eig>=0?"+":"")+d.eig.toFixed(1)+"%" : "";
     var el = document.getElementById("resEl");
@@ -982,7 +984,7 @@
         "<div class='stat' id='s0' role='button' tabindex='0' style='background:"+fc+"18;border-color:"+fc+"44;'><div class='si'>💪</div><div class='sl'>財政力指数</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>税収でまかなえる度合い</div><div class='sv' style='color:"+fc+";'>"+d.f.toFixed(2)+"</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s1' role='button' tabindex='0' style='background:"+xc+"18;border-color:"+xc+"44;'><div class='si'>📊</div><div class='sl'>経常収支比率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>決まって出ていくお金の割合</div><div class='sv' style='color:"+xc+";'>"+d.x.toFixed(1)+"%</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s2' role='button' tabindex='0' style='background:"+uc+"18;border-color:"+uc+"44;'><div class='si'>🏦</div><div class='sl'>将来負担比率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>将来に残る負担の重さ</div><div class='sv' style='color:"+uc+";'>"+ul+"</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s3' role='button' tabindex='0' style='background:"+rc+"18;border-color:"+rc+"44;'><div class='si'>🐧</div><div class='sl'>財政調整基金</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>自治体の貯金</div><div class='sv' style='color:"+rc+";'>"+((d.sfs && d.sfs>0)?(d.r/d.sfs*100).toFixed(1)+"%":d.r+"億円")+"</div><div style='font-size:12px;color:#8a8a9a;margin-top:2px;'>("+d.r+"億円)</div><div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s3' role='button' tabindex='0' style='background:"+rc+"18;border-color:"+rc+"44;'><div class='si'>🐧</div><div class='sl'>財政調整基金</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>自治体の貯金</div><div class='sv' style='color:"+rc+";'>"+((d.sfs && d.sfs>0)?(d.r/d.sfs*100).toFixed(1)+"%":fmtOku(d.r))+"</div><div style='font-size:12px;color:#8a8a9a;margin-top:2px;'>("+fmtOku(d.r)+")</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s4' role='button' tabindex='0' style='background:"+gc+"18;border-color:"+gc+"44;'><div class='si'>👥</div><div class='sl'>人口増減率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>前年からの人口の増減</div><div class='sv' style='color:"+gc+";'>"+(d.g>=0?"+":"")+d.g.toFixed(1)+"%</div>"+gYearNoteHtml+"<div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s5' role='button' tabindex='0' style='background:#7bb8e818;border-color:#7bb8e844;'><div class='si'>💹</div><div class='sl'>歳出／歳入</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>使ったお金／入ったお金</div><div class='sv' style='font-size:14px;line-height:1.7;'><span style='color:"+eoc+";display:block;'>💸 歳出 "+eol+" <small style='font-size:13px;'>"+eogs+"</small></span><span style='color:"+eic+";display:block;'>💰 歳入 "+eil+" <small style='font-size:13px;'>"+eigs+"</small></span></div></div>" +
         "<div class='stat' id='s6' role='button' tabindex='0' style='background:"+educ+"18;border-color:"+educ+"44;'><div class='si'>📚</div><div class='sl'>教育費比率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>歳出のうち教育に使った割合</div><div class='sv' style='color:"+educ+";'>"+edul+"</div><div class='su'>詳細を見る ▶</div></div>" +
@@ -1318,7 +1320,7 @@
         topFuList.sort(function(a,b){ return b.fu - a.fu; });
         topFuList = topFuList.slice(0, 10);
       }
-      var natTotalOkuF = Math.round(natTotalF / 10000).toLocaleString();
+      var natTotalOkuF = fmtOku(Math.round(natTotalF / 10000));
 
       var RANK_MEDAL = ["#f0a93a", "#aab2c2", "#c98652"]; // 金・銀・銅
       var topFuRowsHtml = topFuList.map(function(row, i){
@@ -1343,7 +1345,7 @@
         "生まれ故郷や応援したい自治体に寄附をすると、返礼品がもらえ、翌年の住民税・所得税が控除される制度です。寄附する自治体は自由に選べます。" +
         "</div>" +
         "<div style='background:#eeecf8;border:1px solid #dcd8ee;border-radius:14px;padding:14px 16px;margin-bottom:16px;'>" +
-        "<div style='font-size:15px;color:#3a3a4a;line-height:1.8;'><strong><span style='color:#3a6ee8;'>"+FURU_YEARS[FURU_YEARS.length-1]+"年度</span> 全国のふるさと納税受入額は約<span style='color:#3a6ee8;font-size:16px;'>" + natTotalOkuF + "億円</span>です。</strong></div>" +
+        "<div style='font-size:15px;color:#3a3a4a;line-height:1.8;'><strong><span style='color:#3a6ee8;'>"+FURU_YEARS[FURU_YEARS.length-1]+"年度</span> 全国のふるさと納税受入額は約<span style='color:#3a6ee8;font-size:16px;'>" + natTotalOkuF + "</span>です。</strong></div>" +
         "<div style='text-align:center;margin-top:10px;'><button type='button' onclick=\"furuToggleRank()\" style='display:inline-flex;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#f7b955,#f0876a);color:#fff;font-weight:700;font-size:15px;border:none;border-radius:999px;padding:9px 16px;box-shadow:0 3px 8px rgba(240,135,106,0.35);cursor:pointer;font-family:inherit;'><span id='furuRankBtnLabel'>"+(furuRankOpen?"🏆 全国ランキングTOP10 ▲":"🏆 全国ランキングTOP10 ▶")+"</span></button></div>" +
         furuRankBoxHtml +
         "</div>" +
@@ -2023,7 +2025,7 @@ if (key === "growth" && cur && cur.pop) {
       var bj = cur.ei>=cur.eo?"歳入が歳出を上回っています":cur.ei>=cur.eo*0.99?"ほぼ均衡しています":"歳出が歳入を上回っています";
       var bc2 = cur.ei>=cur.eo?"#6dcfad":cur.ei>=cur.eo*0.99?"#7bb8e8":"#f0876a";
       topSummaryHtml += "<div style='background:"+bc2+"14;border:1px solid "+bc2+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+bc2+";font-weight:700;'>"+curName+"</span>の歳出は<span style='color:"+bc2+";font-weight:700;'>"+cur.eo.toLocaleString()+"億円</span>、歳入は<span style='color:"+bc2+";font-weight:700;'>"+cur.ei.toLocaleString()+"億円</span>で、"+bj+"。</div>";
+        "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+bc2+";font-weight:700;'>"+curName+"</span>の歳出は<span style='color:"+bc2+";font-weight:700;'>"+fmtOku(cur.eo)+"</span>、歳入は<span style='color:"+bc2+";font-weight:700;'>"+fmtOku(cur.ei)+"</span>で、"+bj+"。</div>";
       if (cur.ei >= cur.eo) { /* 2026-10-01：推測・評価の文は削除 */ }
       var budgetHistCountEarly = countHist("eo", budgetStartIdx);
       var eoHist = [];
@@ -2222,7 +2224,7 @@ if (key === "growth" && cur && cur.pop) {
         }
         return l||"";
       }
-      function fmtB(v){ return v>=10000 ? Math.round(v/100)/10+"千億" : v+"億"; }
+      function fmtB(v){ return v>=10000 ? Math.round(v/1000)/10+"兆" : v+"億"; }
       var eoLine=mkLine(eoVals), eiLine=mkLine(eiVals);
       var svgH = H+20;
       var dots2="";
@@ -2299,7 +2301,7 @@ if (key === "growth" && cur && cur.pop) {
     for(var k=0;k<chartVals.length;k++){
       var last=k===chartVals.length-1;
       dots+="<circle cx='"+px(k)+"' cy='"+py(chartVals[k])+"' r='"+(last?5:3)+"' fill='"+(last?c:"white")+"' stroke='"+c+"' stroke-width='2'/>";
-      var dispVal = (m.unit==="億円" && chartVals[k]>=10000) ? Math.round(chartVals[k]/100)/10+"千億" : chartVals[k]+(m.unit==="%"?"%":m.unit==="億円"?"億":"");
+      var dispVal = (m.unit==="億円" && chartVals[k]>=10000) ? Math.round(chartVals[k]/1000)/10+"兆" : chartVals[k]+(m.unit==="%"?"%":m.unit==="億円"?"億":"");
       var prevV = k>0 ? chartVals[k-1] : null;
       var nextV = k<chartVals.length-1 ? chartVals[k+1] : null;
       var isValley = (prevV==null || chartVals[k] <= prevV) && (nextV==null || chartVals[k] <= nextV) && (prevV!=null || nextV!=null);

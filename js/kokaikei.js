@@ -401,7 +401,7 @@
       // 1億円未満は「-0.0億円」にならないよう、万円で出す（2026-10-01）
       if (v !== 0 && Math.abs(v) < 100) return (v > 0 ? "+" : "-") + (Math.abs(v) * 100).toLocaleString() + "万円";
       var oku = v / 100;
-      return (oku>=0?"+":"") + oku.toFixed(1) + "億円";
+      return (oku>=0?"+":"") + fmtOku(oku, true);
     }
     return v + unit;
   }
@@ -482,7 +482,7 @@
     var arr = histArr(entry, code, "kk"), pts = [];
     for (var i = 0; i < arr.length; i++) pts.push({y: i, v: arr[i]});   // 0＝平成30年度
     var meta = KK_META[code], unit = meta.unit;
-    var fmt = function(x){ return unit === "百万円" ? (x !== 0 && Math.abs(x) < 100 ? (x < 0 ? "-" : "") + (Math.abs(x) * 100).toLocaleString() + "万円" : (Math.round(x / 10) / 10).toLocaleString() + "億円") : (Math.round(x * 10) / 10) + unit; };
+    var fmt = function(x){ return unit === "百万円" ? (x !== 0 && Math.abs(x) < 100 ? (x < 0 ? "-" : "") + (Math.abs(x) * 100).toLocaleString() + "万円" : fmtOku(x / 100)) : (Math.round(x * 10) / 10) + unit; };
     var opt = (code === "ka9") ? {tol:0.3, fmt:fmt} : (unit === "%") ? {tol:1, fmt:fmt} : {tol:0.03, rel:true, fmt:fmt};
     if (code === "ka8") opt = {tol:Math.max(Math.abs(v) * 0.1, 10), fmt:fmt};
     opt.label = meta.label;
