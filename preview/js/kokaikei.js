@@ -301,7 +301,7 @@
   }
   // 公会計側のポップアップから見た、財政側とのクロスチェック（財政タブ側と同じロジックの逆方向）
   function kkReciprocalCross(code, entryV, isPref, entry) {
-    if (!cur) return "";
+    if (!cur || entryV == null) return "";   // その年度の値が公表されていない自治体は比べない（2026-10-01）
     if (code === "ka4" && cur.sfs && cur.sfs > 0) {
       var ratioRec = cur.r / cur.sfs * 100;
       var rb = reserveBands(isPref);
@@ -522,6 +522,11 @@
         if (line.charAt(0) === "・") return "<div style='font-size:15px;color:#5a5a70;line-height:1.7;padding-left:1em;text-indent:-1em;'>" + line + "</div>";
         return "<div style='font-size:16px;color:#2a2a3a;line-height:1.8;'>" + line + "</div>";
       }).join("");
+    // その年度の値が総務省の公表資料にない自治体（2026-10-01：令和6年度の公会計で11自治体）
+    if (entry[code] == null) cmpLine = "";
+    var missingHtml = (entry[code] == null) ? "<div style='background:#8a8a9a14;border:1px solid #8a8a9a33;border-radius:12px;padding:12px 14px;margin:0 0 14px;font-size:16px;color:#2a2a3a;line-height:1.7;'>" +
+      "<div style='font-size:16px;font-weight:700;color:#3a2a6e;margin-bottom:6px;'>🏠 " + escapeHtml(nm) + "の状況</div>" +
+      fillYears("{KY}") + "の値は、総務省の公表資料にありません。グラフには、公表されている年度の値を表示しています。</div>" : "";
     var cmpHtml = cmpLine ? ("<div style='background:#a08be814;border:1px solid #a08be840;border-radius:12px;padding:12px 14px;margin:0 0 14px;'>" +
       "<div style='font-size:16px;font-weight:700;color:#3a2a6e;margin-bottom:6px;'>🏠 " + escapeHtml(nm) + "の状況</div>" +
       "<div style='font-size:16px;color:#2a2a3a;line-height:1.8;'>" + cmpLine + "</div>" + kkSituationExtra(code, entry, isPref) + "</div>") : "";
@@ -589,7 +594,7 @@
         var kkTrendIcon = kkTd.dir === "増加" ? "📈" : "📉";
         kkCovidNote += "<div style='font-size:14px;color:#7a7a90;margin-top:6px;'>" + kkTrendIcon + " " + meta.label + "はこの" + kkVals.length + "年で" + kkTd.text + "しています。" + "</div>";
       }
-      document.getElementById("shTop").innerHTML = cmpHtml + kkCovidNote + kkReciprocalCross(code, entry[code], isPref, entry);
+      document.getElementById("shTop").innerHTML = missingHtml + cmpHtml + kkCovidNote + kkReciprocalCross(code, entry[code], isPref, entry);
       var kkC = kkColor(code, entry[code], entry, isPref);
       var kkCText = TEXT_COLOR_MAP[kkC] || kkC;
       var Wk=300, Hk=100, Pk=20, PtopK=26;
@@ -626,7 +631,7 @@
       // グラフの枠のすぐ下（説明文の先頭）に、公式データが無い年の注記を出す
       if (kkMissingNote) document.getElementById("shDesc").insertAdjacentHTML("afterbegin", kkMissingNote.replace("margin-top:8px;", "margin:-4px 0 12px;"));
     } else {
-      document.getElementById("shTop").innerHTML = cmpHtml + kkReciprocalCross(code, entry[code], isPref, entry) + kkMissingNote;
+      document.getElementById("shTop").innerHTML = missingHtml + cmpHtml + kkReciprocalCross(code, entry[code], isPref, entry) + kkMissingNote;
       document.getElementById("spSvg").innerHTML = "";
       document.getElementById("spSvg").style.height = "0px";
       document.getElementById("spLabels").innerHTML = "";

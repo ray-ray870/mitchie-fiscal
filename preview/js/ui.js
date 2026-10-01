@@ -265,7 +265,7 @@
   var BD_EX_LABEL = {minsei:"民生費（福祉・子育て）", somu:"総務費（役所の運営など）", eisei:"衛生費（ごみ処理・保健など）", doboku:"土木費（道路・公園など）",
     edu:"教育費", kosai:"公債費（借金の返済）", shobo:"消防費", norin:"農林水産業費", shoko:"商工費", saigai:"災害復旧費", keisatsu:"警察費", rodo:"労働費", gikai:"議会費"};
   var BD_ED_LABEL = {kyu:"学校給食費", sho:"小学校費", chu:"中学校費", koko:"高等学校費", shakai:"社会教育費（公民館・図書館など）", somu:"教育総務費", tokushi:"特別支援学校費", yochi:"幼稚園費", hoken:"保健体育費"};
-  function oku(v) { return (Math.round(v / 10000) / 10).toFixed(1); }  // 千円 → 億円
+  function oku(v) { return (Math.round(v / 10000) / 10).toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1}); }  // 千円 → 億円
   function bdBox(title, rows, tail) {
     if (!rows.length) return "";
     return "<div style='margin-top:12px;padding:12px 14px;background:#ffffffc0;border:1px solid #d8d5e8;border-radius:12px;'>" +
@@ -313,13 +313,14 @@
       var prev = bd.exp, eoPrev = cur["eo_r" + (DATA_YEAR.fiscal - 1)];
       if (prev && eoPrev != null && cur.eo) {
         var dEo = Math.round((cur.eo - eoPrev) * 10) / 10;
-        var ups = Object.keys(ex).filter(function(k){ return BD_EX_LABEL[k] && prev[k] != null && ex[k] != null; })
-          .map(function(k){ return {k:k, d:ex[k] - prev[k]}; })
-          .filter(function(o){ return dEo >= 0 ? o.d > 0 : o.d < 0; })
-          .sort(function(a, c){ return Math.abs(c.d) - Math.abs(a.d); }).slice(0, 3);
+        // 増えたものと減ったものを両方出す（減ったものだけだと、合計の増減と合わなく見えるため）
+        var diffs = Object.keys(ex).filter(function(k){ return BD_EX_LABEL[k] && prev[k] != null && ex[k] != null && ex[k] !== prev[k]; })
+          .map(function(k){ return {k:k, d:ex[k] - prev[k]}; });
+        var ups = diffs.filter(function(o){ return o.d > 0; }).sort(function(a, c){ return c.d - a.d; }).slice(0, 2);
+        var downs = diffs.filter(function(o){ return o.d < 0; }).sort(function(a, c){ return a.d - c.d; }).slice(0, 2);
         var rows = [];
-        ups.forEach(function(o){ rows.push("<div style='display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted #e0dcef;padding:4px 0;'><span style='flex:1;'>" + BD_EX_LABEL[o.k] + "</span><b style='font-size:17px;white-space:nowrap;'>" + (o.d >= 0 ? "＋" : "−") + oku(Math.abs(o.d)) + "億円</b></div>"); });
-        html += bdBox("前年度から" + (dEo >= 0 ? "増えた" : "減った") + "主な内訳（歳出 " + (dEo >= 0 ? "＋" : "−") + Math.abs(dEo).toFixed(1) + "億円）", rows, "");
+        ups.concat(downs).forEach(function(o){ rows.push("<div style='display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted #e0dcef;padding:4px 0;'><span style='flex:1;'>" + BD_EX_LABEL[o.k] + "</span><b style='font-size:17px;white-space:nowrap;color:#2a2a3a;'>" + (o.d >= 0 ? "＋" : "−") + oku(Math.abs(o.d)) + "億円</b></div>"); });
+        html += bdBox("前年度からの主な増減（歳出 " + (dEo >= 0 ? "＋" : "−") + Math.abs(dEo).toFixed(1) + "億円）", rows, "");
       }
       var r2 = [];
       if (rv.bond != null) r2.push(line("地方債（借金）", rv.bond, eiK));
@@ -435,7 +436,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
-    { version:"3.2.0", date:"2026.10", items:["国の基準を超えた自治体に、法律で決まっていることと、自治体自身の説明を表示","人口増減率に、自然増減・社会増減の内訳を表示","歳入・歳出の内訳から分かることを表示","各項目の説明を、見出しと箇条書きで読みやすく改善","表示の改善"] },
+    { version:"3.2.0", date:"2026.10", items:["国の基準を超えた自治体に、法律で決まっていることと、自治体自身の説明を表示","人口増減率に、自然増減・社会増減の内訳を表示","歳入・歳出の内訳から分かることを表示","各項目の説明を、見出しと箇条書きで読みやすく改善","公会計を令和6年度のデータに更新","表示の改善"] },
     { version:"3.1.1", date:"2026.9", items:["財政と公会計を比べる欄で、組み合わせから分かることを表示"] },
     { version:"3.1.0", date:"2026.9", items:["各項目の説明を、自治体の今の状況が分かる形に改善"] },
     { version:"3.0.9", date:"2026.9", items:["説明文をより分かりやすく改善","公会計タブに「みっちーからのひとこと」を追加"] },
