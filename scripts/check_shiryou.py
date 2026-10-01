@@ -111,15 +111,54 @@ def show_fund_text(label, xlsx_bytes):
     hit = [t for t in texts if "増減理由" in t or "今後の方針" in t or "基金" in t[:40]]
     out(f"- 図形の文章：全部で {len(texts)} 個、基金に関係しそうなもの {len(hit)} 個")
     joined = "\n".join(texts)
+    base = re.sub(r"（.*?）", "", label)
+    if base not in joined:
+        out(f"- ❌ このExcelの中に「{base}」の名前がありません（別の自治体のファイルの可能性）")
+        return False
     i = joined.find("財政調整基金")
     out("")
-    out(f"<details><summary>{label}：基金残高に係る経年分析の文章</summary>\n")
+    out(f"**{label}：基金残高に係る経年分析の文章**\n")
     out("```")
     k = joined.find("基金残高")
     out(joined[k:k + 1500] if k >= 0 else "（見つかりませんでした）")
     out("```")
-    out("</details>\n")
+    out("")
     return i >= 0
+
+
+def find_on_pref_site(start_url, name, max_pages=40):
+    """都道府県のページから、市町村名の付いた Excel を探す（同じサイト内を2階層まで）"""
+    from urllib.parse import urlparse
+    host = urlparse(start_url).netloc
+    seen, queue, tried = set(), [(start_url, 0)], []
+    while queue and len(seen) < max_pages:
+        url, depth = queue.pop(0)
+        if url in seen:
+            continue
+        seen.add(url)
+        try:
+            html = decode_html(get(url))
+        except Exception as ex:
+            tried.append(f"{url}（読めず：{ex}）")
+            continue
+        tried.append(url)
+        links = anchors(html, url)
+        for t, h, p in links:
+            low = h.lower().split("?")[0]
+            if name in t and low.endswith((".xlsx", ".xls", ".xlsm")):
+                return h, tried
+        # Excel のリンク文字が「Excel」だけのときは、前後の文字に名前があるかで判定
+        for t, h, p in links:
+            low = h.lower().split("?")[0]
+            if low.endswith((".xlsx", ".xls", ".xlsm")) and name in re.sub(r"<[^>]+>", "", html[max(0, p - 300):p]):
+                return h, tried
+        if depth < 2:
+            for t, h, p in links:
+                low = h.lower().split("?")[0].split("#")[0]
+                if urlparse(h).netloc == host and low.endswith((".html", ".htm", "/")) and h not in seen:
+                    if depth == 0 or name in t or "財政状況資料集" in t or "資料集" in t:
+                        queue.append((h.split("#")[0], depth + 1))
+    return None, tried
 
 
 def zip_names(zf):
@@ -165,6 +204,20 @@ def main():
                 found = show_fund_text(name, get(cand[0][1]))
             else:
                 after = [(t, h) for t, h, p in links if p > pos_muni]
+                pref_pages = [h for t, h in after if pref in t and not h.lower().endswith((".zip", ".pdf", ".xlsx"))]
+                if pref_pages:
+                    out(f"- {pref}のページ：{pref_pages[0]}")
+                    xl, tried = find_on_pref_site(pref_pages[0], name)
+                    out(f"- 調べたページ：{len(tried)}（" + "、".join(tried[:6]) + ("…" if len(tried) > 6 else "") + "）")
+                    if xl:
+                        out(f"- {name}のExcel：{xl}")
+                        if show_fund_text(name, get(xl)):
+                            out(f"- ✅ 財政調整基金の説明を取り出せました（{pref}のサイトから）")
+                            out("")
+                            continue
+                        out("- ⚠️ Excelはありましたが、財政調整基金の説明が見つかりませんでした")
+                    else:
+                        out(f"- ⚠️ {pref}のサイトで{name}のExcelが見つかりませんでした。総務省のZIPを試します")
                 zips = []
                 for i, (t, h) in enumerate(after):
                     if pref in t:
@@ -197,9 +250,9 @@ def main():
                         from pypdf import PdfReader
                         txt = "\n".join((pg.extract_text() or "") for pg in PdfReader(io.BytesIO(data)).pages)
                         k = txt.find("基金残高")
-                        out(f"\n<details><summary>{name}：PDFから取り出した文章</summary>\n\n```")
-                        out(txt[k:k + 1500] if k >= 0 else "（基金残高の欄が見つかりませんでした）")
-                        out("```\n</details>\n")
+                        out(f"\n**{name}：PDFから取り出した文章**（全{len(txt)}文字）\n\n```")
+                        out(txt[k:k + 1500] if k >= 0 else "（基金残高の欄が見つかりませんでした）先頭：" + txt[:300])
+                        out("```\n")
                         found = found or ("財政調整基金" in txt)
             out(f"- {'✅ 財政調整基金の説明を取り出せました' if found else '⚠️ 財政調整基金の説明が見つかりませんでした'}")
             ok_all = ok_all and found
