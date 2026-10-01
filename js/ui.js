@@ -273,7 +273,17 @@
     MUNI_U_ZERO_SHARE = n ? z / n : 0;
     return MUNI_U_ZERO_SHARE;
   }
+  // 似ている自治体が10団体未満のグループ：比較は出さず、グループ名と理由だけを短く添える
+  var PEER_NOTE_KEYS = {flex:1, fiscalPower:1, debt:1, future:1, reserve:1, education:1, childInvest:1};
   function situationHtml(key, cur, isPref, name) {
+    var h = situationHtmlCore(key, cur, isPref, name);
+    if (!h || isPref || !PEER_NOTE_KEYS[key] || h.indexOf("※似ている自治体") >= 0) return h;
+    if (typeof KK === "undefined" || !KK || !KK[name] || !KK[name].grp || peerInfo(name, false)) return h;
+    var grp = KK[name].grp;
+    var n = Object.keys(DB).filter(function(k){ return !DB[k].__pref && KK[k] && KK[k].grp === grp; }).length;
+    return h + "<div style='font-size:15px;color:#5a5a70;line-height:1.7;margin-top:6px;'>※似ている自治体：" + grp + "（" + n + "自治体）。自治体の数が少ないため、比較は表示していません</div>";
+  }
+  function situationHtmlCore(key, cur, isPref, name) {
     var b = isPref ? "pref" : "muni";
     var area = isPref ? "全国の都道府県" : "全国の市区町村";
     var pct1 = function(v){ return (Math.round(v * 10) / 10).toFixed(1) + "%"; };
@@ -721,7 +731,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
-    { version:"3.5.1", date:"2026.10", items:["大きな金額を「兆」で表示するなど、金額を読みやすい表示に変更"] },
+    { version:"3.5.1", date:"2026.10", items:["大きな金額を「兆」で表示するなど、金額を読みやすい表示に変更","似ている自治体が少ないときの説明を追加"] },
     { version:"3.5.0", date:"2026.10", items:["内訳の枠に、似ている自治体との比較を表示","総合スコアの内訳に説明を追加","説明の修正"] },
     { version:"3.4.0", date:"2026.10", items:["人口や産業が似ている自治体との比較を表示","説明の修正"] },
     { version:"3.3.3", date:"2026.10", items:["説明の修正","「ひとこと」に、独自の総合点であることを表示"] },
