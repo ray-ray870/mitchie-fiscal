@@ -1,0 +1,59 @@
+name: 財政状況資料集の説明を取り込む（プレビュー）
+
+# 国の基準を超えた自治体（実質公債費比率18%以上など）について、
+# 財政状況資料集に自治体自身が書いた説明を取り込み、preview/shiryou.json に保存する。
+# ふだんは3月の「年次データ更新（プレビュー）」の中で自動で実行される。
+# このワークフローは、年次更新とは別に取り込み直したいとき（初回・総務省の公表が遅れたときなど）に使う。
+# 本番への反映は「プレビューのデータを本番に反映」で行う。
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      MITCHIE_DATA_DIR: preview
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 財政状況資料集の説明を取り込む
+        run: python scripts/fetch_shiryou.py
+
+      - name: preview/ に保存
+        id: commit
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add preview/shiryou.json
+          if git diff --cached --quiet; then
+            echo "- 変更なし" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "財政状況資料集の説明を取り込み（preview）"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "- ✅ preview/shiryou.json に保存しました" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: プレビューを公開（deploy-with-check）
+        if: steps.commit.outputs.changed == 'true'
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy-with-check.yml/dispatches" \
+            -d '{"ref":"main"}'
