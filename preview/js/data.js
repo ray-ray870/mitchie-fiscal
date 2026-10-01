@@ -44,7 +44,13 @@
     var first = pts[0], last = pts[pts.length - 1], n = sg.length;
     var mn = Math.min.apply(null, pts.map(function(p){ return p.v; })), mx = Math.max.apply(null, pts.map(function(p){ return p.v; }));
     var word = function(d){ return d > 0 ? "増え" : "減っ"; };
-    var times = function(a, b){ return (opt.times && a > 0 && (b / a >= 1.15 || b / a <= 0.87)) ? "、約" + (Math.round(b / a * 10) / 10) + "倍" : ""; };
+    // 増えたときは「約◯倍」、減ったときは「約◯割減」（2026-10-01：「約0.1倍」は分かりにくいため）
+    var times = function(a, b){
+      if (!opt.times || !(a > 0)) return "";
+      if (b / a >= 1.15) return "、約" + (Math.round(b / a * 10) / 10) + "倍";
+      if (b / a <= 0.87) return "、約" + Math.round((1 - b / a) * 10) + "割減";
+      return "";
+    };
     if (flat(mn, mx)) return pre + yl(first.y) + "から、ほぼ横ばいです（" + fmt(mn) + "〜" + fmt(mx) + "）";
     var lastDir = sg[n - 1];
     if (lastDir === 0) {

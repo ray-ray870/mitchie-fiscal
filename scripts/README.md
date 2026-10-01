@@ -38,7 +38,7 @@ Claudeに「今年のデータに更新して」と声をかければ、URLを�
 | `purpose_expenditure` | 目的別歳出内訳（市・町村・都道府県） | 新しい年度 |
 | `age_population` | 住民基本台帳 年齢階級別人口 | 新しい年度の**次の年** |
 | `sfs` の `base_muni`・`pref_card` | 決算カード（標準財政規模） | 新しい年度 |
-| `population` | 住民基本台帳 人口・世帯数 | 人口は毎年7〜8月公表なので、**3月はそのままでよい** |
+| `population` | 住民基本台帳 人口・世帯数（人口動態＝自然増減・社会増減も同じファイルから取り込む） | 人口は毎年7〜8月公表なので、**3月はそのままでよい** |
 
 公会計は、総務省のページを自動で見に行き、新しい年度が公表されていれば取り込みます（URLの書き換えは不要）。
 
@@ -56,6 +56,7 @@ Actions の **年次データ更新（プレビュー）** で「Run workflow」
 すべて通ったときだけ `preview/` に保存して、プレビューを公開します（本番には触りません）。
 
 - 赤い×で止まったとき：実行画面の Summary（または赤い×の行）を Claude に見せる。何も保存されていないので、直してもう一度実行すればよい
+- 財政のあとに、歳入内訳・目的別歳出の内訳（詳細画面の「🔍 内訳から分かること」）も取り込みます。ファイルは総務省の年度ごとのページから自動で探すので、書き換えは不要です。取り込めなかったときも止まりません（その年は 🔍 の欄が出ないだけ）
 - 最後に、国の基準を超えた自治体（実質公債費比率18%以上など）だけ、財政状況資料集に自治体自身が書いた説明を取り込みます（`preview/shiryou.json`）。
   年度のURLは自動で探すので書き換え不要。取り込めなかったときも止まりません（Summary に ⚠️ が出て、その年は説明なしで表示）。
   あとから取り込み直すときは Actions の **財政状況資料集の説明を取り込む（プレビュー）** を実行
@@ -146,4 +147,4 @@ https://ray-ray870.github.io/mitchie-fiscal/preview/ で、いくつかの自治
 - 都道府県分の実質赤字比率・連結実質赤字比率は、単体のExcelファイルが総務省から一般公開されていないため、11月末の確報PDFで代替確認する運用としている
 - 実質公債費比率・将来負担比率は市町村・都道府県とも既存データからそのまま判定可能
 
-処理スクリプト：`scripts/update_fiscal_data.py`・`scripts/fetch_sfs.py`・`scripts/build_kokaikei.py`（自治体の説明：`scripts/fetch_shiryou.py`、照合：`scripts/audit_official_data.py`、リハーサル：`scripts/rehearse_annual_update.py`）
+処理スクリプト：`scripts/update_fiscal_data.py`・`scripts/fetch_sfs.py`・`scripts/build_kokaikei.py`（内訳：`scripts/fetch_breakdown.py`、自治体の説明：`scripts/fetch_shiryou.py`、照合：`scripts/audit_official_data.py`、リハーサル：`scripts/rehearse_annual_update.py`）

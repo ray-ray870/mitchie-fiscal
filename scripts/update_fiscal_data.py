@@ -181,12 +181,27 @@ def parse_population(muni_path):
     """人口ファイルは市町村・都道府県データが1本にまとまっているため、ファイルは1つでよい。"""
     muni_idx, pref_idx = {}, {}
     wb = openpyxl.load_workbook(muni_path, data_only=True)
+    # 人口動態（2026-10-01追加）：同じ表の列。列の位置が変わっていないか、見出しで確かめてから使う
+    #   9=転入者数（計） 10=出生者数 15=転出者数（計） 16=死亡者数 19=増減数 21=自然増減数 23=社会増減数
+    #   ※社会増減数には、転入・転出のほかに「その他」（住民票の記載・消除のその他）も含まれる（総務省の定義どおり）
+    head_rows = list(wb.active.iter_rows(min_row=2, max_row=6, values_only=True))
+    def head(col):
+        return "".join(str(r[col]) for r in head_rows if col < len(r) and r[col] is not None).replace(" ", "").replace("\u3000", "")
+    pd_cols = {"in": (9, "転入者数"), "b": (10, "出生者数"), "out": (15, "転出者数"), "dth": (16, "死亡者数"),
+               "chg": (19, "増減数"), "nat": (21, "自然増減数"), "soc": (23, "社会増減数")}
+    bad = [f"列{c}（{w}）" for c, w in pd_cols.values() if w not in head(c)]
+    if bad:
+        print(f"❌ 人口ファイルの人口動態の列が見つかりません：{bad}（見出し：{[head(c) for c, _ in pd_cols.values()]}）")
+        sys.exit(1)
     for row in wb.active.iter_rows(min_row=7, values_only=True):
         pref, name = row[1], row[2]
         if not pref or pref == "合計":
             continue
         pop, growth = row[5], row[20]
         entry = {"pop": pop, "g": round(growth, 3) if growth is not None else None}
+        pdv = {k: row[c] for k, (c, _) in pd_cols.items()}
+        if all(isinstance(v, (int, float)) for v in pdv.values()) and pdv["nat"] + pdv["soc"] == pdv["chg"]:
+            entry["pd"] = {k: int(v) for k, v in pdv.items()}
         if name == "-":
             pref_idx[pref] = entry
         else:
@@ -351,6 +366,11 @@ def main():
                 pop_is_new = pp["pop"] is not None and pp["pop"] != entry.get("pop")
                 slide_and_set(entry, "pop", pp["pop"], start_idx=2, year=pop_year)
                 slide_and_set(entry, "g", pp["g"], start_idx=2, force=pop_is_new, year=pop_year)
+                # 人口動態（前の年の1年間の出生・死亡・転入・転出など）。履歴は持たず、毎回最新に置き換える
+                if pp.get("pd"):
+                    entry["pd"] = pp["pd"]
+                else:
+                    entry.pop("pd", None)
             else:
                 warnings.append(f"{fname}:{name} 人口が見つかりません")
 
