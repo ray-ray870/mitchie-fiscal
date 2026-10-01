@@ -629,6 +629,7 @@ def main():
                 skipped.append(f"令和{k}年度（{grp}）：ファイルの記録がありません（audit_sources.json）")
                 continue
             side = "pref" if is_pref else "muni"
+            fis_idx = kikin_idx = None  # 標準財政規模の照合でも使う（概況・決算状況に無い場合の候補）
             try:
                 # 財政指標4項目
                 if src:
@@ -637,6 +638,7 @@ def main():
                     u = pick(FISCAL_PAGES[k], lambda t: ("全都道府県の主要財政指標" if is_pref else "全市町村の主要財政指標") in t,
                              label=f"令和{k}年度 主要財政指標（{grp}）")
                 idx = index([u], is_pref)
+                fis_idx = idx
                 for p in ("f", "x", "d", "u"):
                     cs, rate, _ = best_conv(idx, p, is_pref, k, FISCAL_LATEST, False)
                     if cs is None:
@@ -655,6 +657,7 @@ def main():
                     if fid not in kikin_page:
                         raise SourceMissing(f"令和{k}年度 基金残高（{grp}）：一覧ページにファイル{fid}が見つかりません")
                     idx = index([f"https://www.soumu.go.jp/main_content/{fid}.xlsx"], is_pref)
+                kikin_idx = idx
                 cs, rate, _ = best_conv(idx, "r", is_pref, k, FISCAL_LATEST, True)
                 if cs is None:
                     problems.append(f"財政調整基金（{grp}）令和{k}年度：公式の列が特定できません")
@@ -707,11 +710,22 @@ def main():
                               if ip == is_pref and e.get(field) is not None and e.get("sfs_y") == FISCAL_LATEST]
                     if not s_ents:
                         continue
-                    cs, rate, _ = best_conv(gai, "sfs", is_pref, 1, 1, True, ents=s_ents)
-                    if cs is None or rate < 0.5:
-                        problems.append(f"標準財政規模（{grp}）令和{k}年度：公式の表（概況・決算状況）で一致する列が見つかりません")
+                    # 表の候補：決算状況調（概況・決算状況）→ 主要財政指標一覧 → 基金残高等一覧（2026-10-01：
+                    # 都道府県の決算状況の表には標準財政規模の列が無かったため、候補を増やした）
+                    hit = None
+                    for tname, tidx in (("決算状況調", gai), ("主要財政指標一覧", fis_idx), ("基金残高等一覧", kikin_idx)):
+                        if tidx is None:
+                            continue
+                        cs, rate, _ = best_conv(tidx, "sfs", is_pref, 1, 1, True, ents=s_ents)
+                        if cs is not None and rate >= 0.5:
+                            hit = (tname, tidx, cs)
+                            break
+                    if hit is None:
+                        problems.append(f"標準財政規模（{grp}）令和{k}年度：公式の表（決算状況調・主要財政指標一覧・基金残高等一覧）で一致する列が見つかりません")
                         continue
-                    off = {key: round(to_num(row[cs[0]]) * cs[1], 1) for key, row in gai.items()
+                    tname, tidx, cs = hit
+                    LABEL["sfs"] = f"標準財政規模（{tname}と照合）"
+                    off = {key: round(to_num(row[cs[0]]) * cs[1], 1) for key, row in tidx.items()
                            if row is not None and to_num(row[cs[0]]) is not None}
                     check("sfs", is_pref, 1, 1, off, range(1, 2), ents=s_ents, ylab=lambda _k, k=k: f"令和{k}年度")
                 # 教育費：歳出総額の列（不明な年は組で探す）と教育費の列
