@@ -13,6 +13,7 @@ import os
 import re
 import sys
 import urllib.request
+from urllib.parse import urljoin
 import zipfile
 from html import unescape
 from pathlib import Path
@@ -59,14 +60,29 @@ def badge_entities():
     return res
 
 
-def anchors(html):
+def decode_html(raw):
+    """総務省のページは Shift_JIS のことがあるので、文字コードを判定して読む"""
+    m = re.search(rb'charset=["\']?([A-Za-z0-9_\-]+)', raw[:3000])
+    enc = (m.group(1).decode().lower() if m else "utf-8")
+    if enc in ("shift_jis", "shift-jis", "sjis", "x-sjis"):
+        enc = "cp932"
+    try:
+        return raw.decode(enc)
+    except Exception:
+        for e in ("utf-8", "cp932", "euc_jp"):
+            try:
+                return raw.decode(e)
+            except Exception:
+                pass
+    return raw.decode("utf-8", errors="replace")
+
+
+def anchors(html, base):
     """ページ内のリンクを順番に (文字, URL) で返す"""
     res = []
     for m in re.finditer(r"<a\s[^>]*href=\"([^\"]+)\"[^>]*>(.*?)</a>", html, re.S | re.I):
         text = re.sub(r"<[^>]+>", "", unescape(m.group(2))).strip()
-        href = m.group(1)
-        if href.startswith("/"):
-            href = "https://www.soumu.go.jp" + href
+        href = urljoin(base, unescape(m.group(1)))
         res.append((text, href, m.start()))
     return res
 
@@ -129,15 +145,18 @@ def main():
     out("- 対象（国の基準を超えた自治体）：" + "、".join(f"{n}（実質公債費比率{d}%・将来負担比率{u}%）" for n, p, pr, d, u in targets))
     out("")
 
-    html = get(index_url).decode("utf-8", errors="replace")
-    links = anchors(html)
+    html = decode_html(get(index_url))
+    links = anchors(html, index_url)
     pos_muni = html.find("市町村の財政状況資料集")
+    out(f"- 一覧ページのリンク数：{len(links)}（Excel {sum(1 for t, h, p in links if h.lower().endswith('.xlsx'))}・ZIP {sum(1 for t, h, p in links if h.lower().endswith('.zip'))}）、市町村の欄の位置：{pos_muni}")
+    out("- リンクの例：" + "、".join(f"{t}→{h}" for t, h, p in links if h.lower().endswith(('.xlsx', '.zip')))[:600])
+    out("")
     ok_all = True
     for name, pref, isp, d, u in targets:
         out(f"### {name}")
         try:
             if isp:
-                cand = [(t, h) for t, h, p in links if h.endswith(".xlsx") and name in t and (pos_muni < 0 or p < pos_muni)]
+                cand = [(t, h) for t, h, p in links if h.lower().endswith(".xlsx") and name in t and (pos_muni < 0 or p < pos_muni)]
                 if not cand:
                     out("- ❌ 一覧ページにExcelのリンクが見つかりません")
                     ok_all = False
@@ -150,7 +169,7 @@ def main():
                 for i, (t, h) in enumerate(after):
                     if pref in t:
                         for t2, h2 in after[i + 1:i + 4]:
-                            if h2.endswith(".zip"):
+                            if h2.lower().endswith(".zip"):
                                 zips.append(h2)
                                 break
                         if zips:
