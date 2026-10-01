@@ -10,6 +10,8 @@
   if ("scrollRestoration" in history) { history.scrollRestoration = "manual"; }
   var DB = null;
   var KANA_INDEX = null;
+  // 国の基準を超えた自治体について、財政状況資料集に自治体自身が書いた説明（shiryou.json）
+  var SHIRYOU = {};
 
   // ===== データの年（年号）=====
   // 年号はアプリに直接書かず、読み込んだデータの履歴の数から自動で決める（2026-09-30）。
@@ -172,9 +174,11 @@
   ];
   Promise.all(dataFiles.map(function(f){ return fetch(f).then(function(r){ return r.json(); }); }).concat([
     fetch("kokaikei.json").then(function(r){ return r.json(); }).catch(function(){ return {}; }),
-    fetch("kana-index.json").then(function(r){ return r.json(); }).catch(function(){ return {}; })
+    fetch("kana-index.json").then(function(r){ return r.json(); }).catch(function(){ return {}; }),
+    fetch("shiryou.json").then(function(r){ return r.json(); }).catch(function(){ return {}; })
   ]))
     .then(function(results){
+      SHIRYOU = results.pop() || {};
       KANA_INDEX = results.pop();
       KK = results.pop();
       DB = {};
