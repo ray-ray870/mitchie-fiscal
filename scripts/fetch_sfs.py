@@ -201,6 +201,10 @@ def main():
              "を追加してください。例: \"%s\": 1063971" % (CFG_BASE_KEY, CFG_BASE_KEY))
     base = int(sfs_cfg[CFG_BASE_KEY])
     pref_url = sfs_cfg.get(CFG_PREF_KEY)
+    # 今の標準財政規模（sfs）が何年度の値かは、sfs_y に記録する（2026-10-01〜）。
+    # それより前に取り込んだデータには sfs_y がないため、令和6年度の取り込みに使ったのと同じ設定
+    # （base_muni 1063971・pref_card 001064044）で実行したときだけ、令和6年度の値とみなす（1回きりの移行用）
+    legacy_year = 6 if (not SUFFIX and base == 1063971 and str(pref_url or "").endswith("001064044.xlsx")) else None
 
     # --- data-*.json を先に読み込んでおく（書き込み用、かつ都道府県ごとの答え合わせ用） ---
     dbs = {}
@@ -300,6 +304,10 @@ def main():
                 if SUFFIX:
                     # 過去分の一括登録（バックフィル）: 直接そのキーに書き込む
                     v[FIELD] = all_sfs[look]
+                elif v.get("sfs_y", legacy_year) == FISCAL_YEAR:
+                    # 同じ年度で再実行したとき（8月の人口だけの更新など）：履歴は動かさず、値だけ入れ直す（2026-10-01）
+                    v["sfs"] = all_sfs[look]
+                    v["sfs_y"] = FISCAL_YEAR
                 else:
                     # 今年度分の通常更新：今の値を「前の年度の欄」に移してから、新しい値をセット
                     new_year = "sfs_r%d" % (FISCAL_YEAR - 1) not in v
@@ -307,6 +315,7 @@ def main():
                         compared += 1
                         same_as_before += v.get("sfs") == all_sfs[look]
                     slide_and_set(v, "sfs", all_sfs[look], year=FISCAL_YEAR)
+                    v["sfs_y"] = FISCAL_YEAR
                 n += 1
                 matched += 1
             else:
