@@ -10,6 +10,8 @@
   if ("scrollRestoration" in history) { history.scrollRestoration = "manual"; }
   var DB = null;
   var KANA_INDEX = null;
+  // 国の基準を超えた自治体について、財政状況資料集に自治体自身が書いた説明（shiryou.json）
+  var SHIRYOU = {};
 
   // ===== データの年（年号）=====
   // 年号はアプリに直接書かず、読み込んだデータの履歴の数から自動で決める（2026-09-30）。
@@ -42,7 +44,13 @@
     var first = pts[0], last = pts[pts.length - 1], n = sg.length;
     var mn = Math.min.apply(null, pts.map(function(p){ return p.v; })), mx = Math.max.apply(null, pts.map(function(p){ return p.v; }));
     var word = function(d){ return d > 0 ? "増え" : "減っ"; };
-    var times = function(a, b){ return (opt.times && a > 0 && (b / a >= 1.15 || b / a <= 0.87)) ? "、約" + (Math.round(b / a * 10) / 10) + "倍" : ""; };
+    // 増えたときは「約◯倍」、減ったときは「約◯割減」（2026-10-01：「約0.1倍」は分かりにくいため）
+    var times = function(a, b){
+      if (!opt.times || !(a > 0)) return "";
+      if (b / a >= 1.15) return "、約" + (Math.round(b / a * 10) / 10) + "倍";
+      if (b / a <= 0.87) return "、約" + Math.round((1 - b / a) * 10) + "割減";
+      return "";
+    };
     if (flat(mn, mx)) return pre + yl(first.y) + "から、ほぼ横ばいです（" + fmt(mn) + "〜" + fmt(mx) + "）";
     var lastDir = sg[n - 1];
     if (lastDir === 0) {
@@ -172,9 +180,11 @@
   ];
   Promise.all(dataFiles.map(function(f){ return fetch(f).then(function(r){ return r.json(); }); }).concat([
     fetch("kokaikei.json").then(function(r){ return r.json(); }).catch(function(){ return {}; }),
-    fetch("kana-index.json").then(function(r){ return r.json(); }).catch(function(){ return {}; })
+    fetch("kana-index.json").then(function(r){ return r.json(); }).catch(function(){ return {}; }),
+    fetch("shiryou.json").then(function(r){ return r.json(); }).catch(function(){ return {}; })
   ]))
     .then(function(results){
+      SHIRYOU = results.pop() || {};
       KANA_INDEX = results.pop();
       KK = results.pop();
       DB = {};

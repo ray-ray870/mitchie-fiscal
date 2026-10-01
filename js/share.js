@@ -99,7 +99,7 @@
         "<div class='sc-bar-track'><div class='sc-bar-fill' style='width:"+b.pct+"%;background:"+b.color+";'></div></div></div>";
     }).join("");
 
-    var summary = advice(cityName, d);
+    var summary = adviceSummary(cityName, d);
     var stateLabel = STATE_LABELS[state][0];
 
     return (
