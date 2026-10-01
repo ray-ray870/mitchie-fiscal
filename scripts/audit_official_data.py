@@ -724,6 +724,21 @@ def main():
                         if cs is not None and rate >= 0.5:
                             hit = (tname, tidx, cs)
                             break
+                    if hit is None and is_pref:
+                        # 都道府県：決算状況調のページにあるほかの表もすべて探す（2026-10-01。決算状況・主要財政指標一覧・
+                        # 基金残高等一覧には、都道府県の標準財政規模の列が無かったため）
+                        try:
+                            for lu, lt in links(KESSAN_PREF[k]):
+                                try:
+                                    tidx = index([lu], True)
+                                except Exception:
+                                    continue
+                                cs, rate, _ = best_conv(tidx, "sfs", is_pref, 1, 1, True, ents=s_ents)
+                                if cs is not None and rate >= 0.5:
+                                    hit = (f"決算状況調「{lt[:20]}」", tidx, cs)
+                                    break
+                        except OSError:
+                            pass
                     if hit is None:
                         problems.append(f"標準財政規模（{grp}）令和{k}年度：公式の表（決算状況調・主要財政指標一覧・基金残高等一覧）で一致する列が見つかりません")
                         # 原因を調べるための手がかり：アプリの値に近い（±25%）セルと、その列の見出し（2団体まで）
