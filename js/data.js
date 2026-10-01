@@ -21,6 +21,13 @@
   //   公会計（kokaikei）… ka1_r1（平成30年度）から並ぶ履歴の数＝最新の年度
   // 下の数字は、データを読み込むまでの仮の値。
   var DATA_YEAR = {fiscal: 6, population: 8, kokaikei: 5};
+  // 政令指定都市（20市）。将来負担比率の早期健全化基準は、都道府県と同じ400%（市町村は350%）
+  // 出典：総務省「早期健全化基準と財政再生基準」（https://www.soumu.go.jp/iken/zaisei/kenzenka/index3.html）（2026-10-01）
+  var SEIREI_CITIES = {"札幌市":"北海道","仙台市":"宮城県","さいたま市":"埼玉県","千葉市":"千葉県","横浜市":"神奈川県",
+    "川崎市":"神奈川県","相模原市":"神奈川県","新潟市":"新潟県","静岡市":"静岡県","浜松市":"静岡県","名古屋市":"愛知県",
+    "京都市":"京都府","大阪市":"大阪府","堺市":"大阪府","神戸市":"兵庫県","岡山市":"岡山県","広島市":"広島県",
+    "北九州市":"福岡県","福岡市":"福岡県","熊本市":"熊本県"};
+  function uLimitOf(d, isPref) { return (isPref || (d && d.__seirei)) ? 400 : 350; }
   function reiwaText(n) { return n <= 0 ? ("平成" + (30 + n) + "年") : (n === 1 ? "令和元年" : ("令和" + n + "年")); }
   // ===== 全国の中央値・最大値 =====
   // 説明文に出てくる中央値なども、読み込んだデータから計算する（2026-09-30。以前は数字を直接書いていた）。
@@ -190,6 +197,7 @@
       DB = {};
       results.forEach(function(data){ Object.assign(DB, data); });
       Object.keys(DB).forEach(function(k){ if (DB[k] && DB[k].p === k) DB[k].__pref = true; });
+      Object.keys(SEIREI_CITIES).forEach(function(k){ if (DB[k] && DB[k].p === SEIREI_CITIES[k]) DB[k].__seirei = true; });
       computeDataYears();
       computeDataStats();
       var cnt = Object.keys(DB).length;
