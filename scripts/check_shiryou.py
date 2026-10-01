@@ -126,6 +126,40 @@ def show_fund_text(label, xlsx_bytes):
     return i >= 0
 
 
+def find_in_table_rows(page_url, name):
+    """都道府県のページの表で、市町村名が書かれた行にある ZIP / Excel を開いて、その市町村の Excel を探す。
+    （北海道庁のように「夕張市、岩見沢市、美唄市｜1／8（ZIP）」と並んでいる形）
+    戻り値：(Excelの中身, 説明) または (None, 説明)"""
+    html = decode_html(get(page_url))
+    notes = []
+    rows = re.findall(r"<tr[\s>].*?</tr>", html, re.S | re.I)
+    cand = []
+    for r in rows:
+        text = re.sub(r"<[^>]+>", "", unescape(r))
+        if name not in text:
+            continue
+        for t, h, p in anchors(r, page_url):
+            low = h.lower().split("?")[0]
+            # 「夕張市~歌志内市」のように範囲で書かれたリンクは決算カードなので後回し
+            if low.endswith((".zip", ".xlsx", ".xls")) and h not in [c[1] for c in cand]:
+                cand.append(("~" in t or "～" in t, h, t))
+    cand.sort(key=lambda c: c[0])
+    notes.append(f"{name}の行にあったファイル：{len(cand)}（" + "、".join(t for _, h, t in cand) + "）")
+    for _, h, t in cand:
+        data = get(h)
+        if h.lower().split("?")[0].endswith(".zip"):
+            zf = zipfile.ZipFile(io.BytesIO(data))
+            for n, info in zip_names(zf):
+                if name in n and n.lower().endswith((".xlsx", ".xlsm")):
+                    notes.append(f"見つけたファイル：{t} の中の {n}")
+                    return zf.read(info), notes
+            notes.append(f"{t}：中身 " + "、".join(n for n, _ in zip_names(zf)[:6]))
+        elif name in t:
+            notes.append(f"見つけたファイル：{t}")
+            return data, notes
+    return None, notes
+
+
 def find_on_pref_site(start_url, name, max_pages=40):
     """都道府県のページから、市町村名の付いた Excel を探す（同じサイト内を2階層まで）"""
     from urllib.parse import urlparse
@@ -207,6 +241,15 @@ def main():
                 pref_pages = [h for t, h in after if pref in t and not h.lower().endswith((".zip", ".pdf", ".xlsx"))]
                 if pref_pages:
                     out(f"- {pref}のページ：{pref_pages[0]}")
+                    data, notes = find_in_table_rows(pref_pages[0], name)
+                    for nt in notes:
+                        out(f"- {nt}")
+                    if data is not None:
+                        if show_fund_text(name, data):
+                            out(f"- ✅ 財政調整基金の説明を取り出せました（{pref}のサイトの表から）")
+                            out("")
+                            continue
+                        out("- ⚠️ Excelはありましたが、財政調整基金の説明が見つかりませんでした")
                     xl, tried = find_on_pref_site(pref_pages[0], name)
                     out(f"- 調べたページ：{len(tried)}（" + "、".join(tried[:6]) + ("…" if len(tried) > 6 else "") + "）")
                     if xl:
