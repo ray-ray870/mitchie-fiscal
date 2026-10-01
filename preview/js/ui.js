@@ -198,11 +198,61 @@
       return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
     });
   }
+  /* ================= 国の基準を超えた自治体の枠（2026-10-01）=================
+     実質公債費比率・将来負担比率の詳細画面と、財政調整基金の詳細画面で、グラフの下・「◯◯とは？」の前に出す。
+     ・見出しと本文は、データ（実質公債費比率・将来負担比率）と法律で決まっていることだけ。
+         35%以上 … 財政再生の基準（地方公共団体の財政の健全化に関する法律）
+         25%以上、または将来負担比率が基準以上（市町村350%・都道府県400%）… 早期健全化の基準（同法）
+         18%以上 … 新しい借金に許可が必要（地方財政法）。許可には公債費負担適正化計画が求められる（総務省 地方債同意等基準）
+     ・📄 の欄は、財政状況資料集に自治体自身が書いた説明（shiryou.json）を、言い換えずにそのまま出す。
+       取り込めなかった年・項目は出さない。 */
+  function legalStatusBoxHtml(key, cur, isPref, name) {
+    if (!cur) return "";
+    var d = cur.d, u = cur.u, uLimit = isPref ? 400 : 350;
+    function over(v, th) { return v > th ? "を超えています" : "に達しています"; }
+    var lv = 0, head = "", lines = [], law = "";
+    if (d != null && d >= 35) {
+      lv = 1;
+      head = "🏛️ 財政再生団体の基準" + over(d, 35);
+      lines.push("実質公債費比率が" + d.toFixed(1) + "%で、財政再生の基準（35%）以上です");
+      law = "法律により、財政再生計画を作り、総務大臣の同意を得て立て直しを進める必要があります。同意がないと、災害復旧などを除き、新しい借金ができません";
+    } else if ((d != null && d >= 25) || (u != null && u >= uLimit)) {
+      lv = 2;
+      var dOver = d != null && d >= 25, uOver = u != null && u >= uLimit;
+      head = "⚠️ 早期健全化の基準" + over(dOver ? d : u, dOver ? 25 : uLimit);
+      if (dOver) lines.push("実質公債費比率が" + d.toFixed(1) + "%で、早期健全化の基準（25%）以上です");
+      if (uOver) lines.push("将来負担比率が" + u.toFixed(1) + "%で、早期健全化の基準（" + uLimit + "%）以上です");
+      law = "法律により、財政健全化計画を作り、議会の議決を経て、立て直しを進める必要があります";
+    } else if (d != null && d >= 18) {
+      lv = 3;
+      head = "📝 借金に" + (isPref ? "国" : "都道府県") + "の許可が必要な水準です";
+      lines.push("実質公債費比率が" + d.toFixed(1) + "%で、18%以上です");
+      law = "新しく借金をするには、" + (isPref ? "国" : "都道府県") + "の許可が必要です。許可を受けるには、借金返済の負担を減らす計画（公債費負担適正化計画）を作ることが求められます";
+    }
+    if (!lv) return "";
+    var col = lv === 1 ? {b:"#b71c1c", bg:"#fdeaea", h:"#a31515"}
+            : lv === 2 ? {b:"#d84343", bg:"#fdf0f0", h:"#b71c1c"}
+            :            {b:"#e88b8b", bg:"#fff6f6", h:"#c62828"};
+    var html = "<div style='border:2px solid " + col.b + ";background:" + col.bg + ";border-radius:14px;padding:14px 16px;margin:22px 0 6px;'>" +
+      "<div style='font-size:17px;font-weight:700;color:" + col.h + ";margin-bottom:8px;line-height:1.5;'>" + head + "</div>" +
+      "<div style='font-size:16px;color:#2a2a3a;line-height:1.75;'>" + lines.map(escapeHtml).join("<br>") + "</div>" +
+      "<div style='font-size:16px;color:#2a2a3a;line-height:1.75;margin-top:4px;'>→ " + escapeHtml(law) + "</div>";
+    var sh = (typeof SHIRYOU === "object" && SHIRYOU) ? SHIRYOU[name] : null;
+    var txt = sh && sh[key];
+    if (txt) {
+      var body = escapeHtml(txt).replace(/（(増減理由|今後の方針)）\n?/g, "<b style='color:#5a4a7a;'>（$1）</b>").replace(/\n/g, "<br>");
+      html += "<div style='border-top:1px solid " + col.b + "55;margin-top:12px;padding-top:10px;'>" +
+        "<div style='font-size:16px;font-weight:700;color:#3a2a6e;margin-bottom:6px;'>📄 " + escapeHtml(name) + "の説明（" + escapeHtml(SHIRYOU._year || "") + " 財政状況資料集より）</div>" +
+        "<div style='font-size:15px;color:#3a3a4a;line-height:1.8;'>" + body + "</div></div>";
+    }
+    return html + "</div>";
+  }
   /* ================= アップデート情報 =================
      新しい版を出したら、いちばん上に1件足す（新しい順）。
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.2.0", date:"2026.10", items:["国の基準を超えた自治体に、法律で決まっていることと、自治体自身の説明を表示"] },
     { version:"3.1.1", date:"2026.9", items:["財政と公会計を比べる欄で、組み合わせから分かることを表示"] },
     { version:"3.1.0", date:"2026.9", items:["各項目の説明を、自治体の今の状況が分かる形に改善"] },
     { version:"3.0.9", date:"2026.9", items:["説明文をより分かりやすく改善","公会計タブに「みっちーからのひとこと」を追加"] },
@@ -1529,7 +1579,7 @@ if (key === "growth" && cur && cur.pop) {
         }
       }
     }
-    document.getElementById("shTop").innerHTML = rankHtml + topSummaryHtml; document.getElementById("shDesc").innerHTML = ((rankHtml || topSummaryHtml) ? "<div style='border-top:1px dashed #d8d5e8;margin:22px 0;'></div><div style='font-size:16px;font-weight:700;color:#3a6ee8;margin-bottom:8px;'>"+m.label+"とは？</div>" : "") + descHtml;
+    document.getElementById("shTop").innerHTML = rankHtml + topSummaryHtml; document.getElementById("shDesc").innerHTML = ((key==="debt"||key==="future"||key==="reserve") ? legalStatusBoxHtml(key, cur, isPrefView, curName) : "") + ((rankHtml || topSummaryHtml) ? "<div style='border-top:1px dashed #d8d5e8;margin:22px 0;'></div><div style='font-size:16px;font-weight:700;color:#3a6ee8;margin-bottom:8px;'>"+m.label+"とは？</div>" : "") + descHtml;
     var shElAfter = document.querySelector("#ovEl .sh");
     if (shElAfter) shElAfter.scrollTop = 0;
     setTimeout(function(){ var s = document.querySelector("#ovEl .sh"); if (s) s.scrollTop = 0; }, 50);
