@@ -205,6 +205,37 @@ def read_kojo(path, lookup):
     return out, unmatched
 
 
+# ---------- 注記だけ反映（2026-10-01追加） ----------
+
+def notes_only(target):
+    """furusato_notes.json の注記（fuNote）だけを data-*.json に入れ直す。受入額・控除額には触らない。
+    ワークフローでURL欄を空欄のまま実行したときに使う"""
+    dbs, lookup = load_db(target)
+    notes = json.load(open(NOTES_FILE, encoding="utf-8")) if os.path.exists(NOTES_FILE) else {}
+    names = [n for n in notes if not n.startswith("_")]
+    for name in names:
+        if not any(name in db for db in dbs.values()):
+            fail("furusato_notes.json の自治体名がDBにありません: " + name)
+        for x in notes[name]:
+            if not x.get("t") or not str(x.get("u", "")).startswith("https://"):
+                fail("%s の注記に本文（t）か出典URL（u）がありません" % name)
+    changed = []
+    for fn, db in dbs.items():
+        for k, v in db.items():
+            if k == v.get("p"):
+                continue
+            before = v.get("fuNote")
+            if k in notes:
+                v["fuNote"] = notes[k]
+            else:
+                v.pop("fuNote", None)
+            if v.get("fuNote") != before:
+                changed.append(k)
+        with open(os.path.join(target, fn), "w", encoding="utf-8") as f:
+            json.dump(db, f, ensure_ascii=False, separators=(",", ":"))
+    print("OK: 注記だけ反映しました。注記のある自治体 %d件、変わった自治体 %d件 %s" % (len(names), len(changed), changed))
+
+
 # ---------- メイン ----------
 
 def main():
@@ -214,8 +245,11 @@ def main():
     if "--target" in args:
         target = args[args.index("--target") + 1]
     pos = [a for i, a in enumerate(args) if not a.startswith("--") and (i == 0 or args[i - 1] != "--target")]
+    if "--notes-only" in args:
+        return notes_only(target)
     if not pos:
-        fail("使い方: python scripts/build_furusato.py <Excelフォルダ> [--full] [--target <フォルダ>]")
+        fail("使い方: python scripts/build_furusato.py <Excelフォルダ> [--full] [--target <フォルダ>]"
+             "／注記だけ: python scripts/build_furusato.py --notes-only")
     src = pos[0]
 
     config = json.load(open(CONFIG_FILE, encoding="utf-8")) if os.path.exists(CONFIG_FILE) else {}
