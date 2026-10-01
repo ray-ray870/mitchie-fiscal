@@ -106,24 +106,96 @@ def shapes_text(xlsx_bytes):
     return texts
 
 
+def shapes_by_sheet(xlsx_bytes):
+    """シートごとに、図形（テキストボックス）の位置と文章を取り出す
+    戻り値：{シート名: [(上の行, 左の列, 下の行, 文章), ...]}"""
+    z = zipfile.ZipFile(io.BytesIO(xlsx_bytes))
+    wb = z.read("xl/workbook.xml").decode("utf-8")
+    rels = z.read("xl/_rels/workbook.xml.rels").decode("utf-8")
+    rmap = {}
+    for m in re.finditer(r"<Relationship\s[^>]*>", rels):
+        tag = m.group(0)
+        i, t = re.search(r'Id="([^"]+)"', tag), re.search(r'Target="([^"]+)"', tag)
+        if i and t:
+            rmap[i.group(1)] = t.group(1)
+    res = {}
+    for m in re.finditer(r"<sheet\s[^>]*>", wb):
+        tag = m.group(0)
+        nm, rid = re.search(r'name="([^"]+)"', tag), re.search(r'r:id="([^"]+)"', tag)
+        if not nm or not rid or rid.group(1) not in rmap:
+            continue
+        sheet_file = rmap[rid.group(1)].split("/")[-1]
+        try:
+            srels = z.read(f"xl/worksheets/_rels/{sheet_file}.rels").decode("utf-8")
+        except KeyError:
+            continue
+        d = re.search(r'Target="\.\./drawings/(drawing\d+\.xml)"', srels)
+        if not d:
+            continue
+        xml = z.read("xl/drawings/" + d.group(1)).decode("utf-8")
+        items = []
+        for a in re.findall(r"<xdr:(?:twoCellAnchor|oneCellAnchor)[\s>].*?</xdr:(?:twoCellAnchor|oneCellAnchor)>", xml, re.S):
+            fr = re.search(r"<xdr:from><xdr:col>(\d+)</xdr:col>.*?<xdr:row>(\d+)</xdr:row>", a, re.S)
+            to = re.search(r"<xdr:to><xdr:col>(\d+)</xdr:col>.*?<xdr:row>(\d+)</xdr:row>", a, re.S)
+            paras = []
+            for pp in re.findall(r"<a:p[\s>].*?</a:p>", a, re.S):
+                t = "".join(re.findall(r"<a:t(?:\s[^>]*)?>(.*?)</a:t>", pp, re.S))
+                if t.strip():
+                    paras.append(unescape(t).strip())
+            if fr and paras:
+                items.append((int(fr.group(2)), int(fr.group(1)), int(to.group(2)) if to else int(fr.group(2)), "\n".join(paras)))
+        res[unescape(nm.group(1))] = items
+    return res
+
+
+def is_comment(t):
+    """分析欄の文章らしいか（数字の羅列・注意書き・見出しを除く）"""
+    t1 = t.replace("\n", "")
+    return len(t1) >= 30 and not t1.startswith("※") and len(re.findall(r"[ぁ-ん]", t1)) >= 10
+
+
+def extract_comments(xlsx_bytes):
+    """財政状況資料集から、①財政調整基金 ②実質公債費比率 ③将来負担比率 の自治体の説明を取り出す"""
+    sheets = shapes_by_sheet(xlsx_bytes)
+    res = {}
+    # ① 財政調整基金：「財政調整基金」という見出しの図形のすぐ下にある文章
+    for nm, items in sheets.items():
+        if "基金残高" not in nm:
+            continue
+        labels = [it for it in items if it[3].strip() == "財政調整基金"]
+        for lr, lc, lto, _ in labels:
+            below = sorted([it for it in items if is_comment(it[3]) and lto - 1 <= it[0] <= lto + 3 and abs(it[1] - lc) <= 2])
+            if below:
+                res["財政調整基金"] = below[0][3]
+                break
+    # ②③ 「実質公債費比率（分子）の構造」「将来負担比率（分子）の構造」の分析欄（いちばん上の文章）
+    for key in ("実質公債費比率", "将来負担比率"):
+        for nm, items in sheets.items():
+            if key in nm and "構造" in nm:
+                cs = sorted(it for it in items if is_comment(it[3]))
+                if cs:
+                    res[key] = cs[0][3]
+                break
+    return res, sheets
+
+
 def show_fund_text(label, xlsx_bytes):
-    texts = shapes_text(xlsx_bytes)
-    hit = [t for t in texts if "増減理由" in t or "今後の方針" in t or "基金" in t[:40]]
-    out(f"- 図形の文章：全部で {len(texts)} 個、基金に関係しそうなもの {len(hit)} 個")
-    joined = "\n".join(texts)
+    res, sheets = extract_comments(xlsx_bytes)
+    joined = "\n".join(it[3] for items in sheets.values() for it in items)
     base = re.sub(r"（.*?）", "", label)
     if base not in joined:
         out(f"- ❌ このExcelの中に「{base}」の名前がありません（別の自治体のファイルの可能性）")
         return False
-    i = joined.find("財政調整基金")
     out("")
-    out(f"**{label}：基金残高に係る経年分析の文章**\n")
-    out("```")
-    k = joined.find("基金残高")
-    out(joined[k:k + 1500] if k >= 0 else "（見つかりませんでした）")
-    out("```")
-    out("")
-    return i >= 0
+    for key in ("財政調整基金", "実質公債費比率", "将来負担比率"):
+        out(f"**{label}：{key}についての説明**\n")
+        out("```")
+        out(res.get(key, "（見つかりませんでした）"))
+        out("```")
+        out("")
+    ok = all(k in res for k in ("財政調整基金", "実質公債費比率", "将来負担比率"))
+    out(f"- {'✅ 3つとも取り出せました' if ok else '⚠️ 取り出せなかった説明があります：' + '、'.join(k for k in ('財政調整基金', '実質公債費比率', '将来負担比率') if k not in res)}")
+    return ok
 
 
 def find_in_table_rows(page_url, name):
@@ -246,19 +318,19 @@ def main():
                         out(f"- {nt}")
                     if data is not None:
                         if show_fund_text(name, data):
-                            out(f"- ✅ 財政調整基金の説明を取り出せました（{pref}のサイトの表から）")
+                            out(f"- ✅ 説明を取り出せました（{pref}のサイトの表から）")
                             out("")
                             continue
-                        out("- ⚠️ Excelはありましたが、財政調整基金の説明が見つかりませんでした")
+                        out("- ⚠️ Excelはありましたが、見つからない説明がありました")
                     xl, tried = find_on_pref_site(pref_pages[0], name)
                     out(f"- 調べたページ：{len(tried)}（" + "、".join(tried[:6]) + ("…" if len(tried) > 6 else "") + "）")
                     if xl:
                         out(f"- {name}のExcel：{xl}")
                         if show_fund_text(name, get(xl)):
-                            out(f"- ✅ 財政調整基金の説明を取り出せました（{pref}のサイトから）")
+                            out(f"- ✅ 説明を取り出せました（{pref}のサイトから）")
                             out("")
                             continue
-                        out("- ⚠️ Excelはありましたが、財政調整基金の説明が見つかりませんでした")
+                        out("- ⚠️ Excelはありましたが、見つからない説明がありました")
                     else:
                         out(f"- ⚠️ {pref}のサイトで{name}のExcelが見つかりませんでした。総務省のZIPを試します")
                 zips = []
@@ -297,7 +369,7 @@ def main():
                         out(txt[k:k + 1500] if k >= 0 else "（基金残高の欄が見つかりませんでした）先頭：" + txt[:300])
                         out("```\n")
                         found = found or ("財政調整基金" in txt)
-            out(f"- {'✅ 財政調整基金の説明を取り出せました' if found else '⚠️ 財政調整基金の説明が見つかりませんでした'}")
+            out(f"- {'✅ 説明を取り出せました' if found else '⚠️ 見つからない説明がありました'}")
             ok_all = ok_all and found
         except Exception as ex:
             out(f"- ❌ エラー：{ex}")
