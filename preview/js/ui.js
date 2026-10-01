@@ -677,6 +677,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.5.0", date:"2026.10", items:["内訳の枠に、似ている自治体との比較を表示","総合スコアの内訳に説明を追加","説明の修正"] },
     { version:"3.4.0", date:"2026.10", items:["人口や産業が似ている自治体との比較を表示","説明の修正"] },
     { version:"3.3.3", date:"2026.10", items:["説明の修正","「ひとこと」に、独自の総合点であることを表示"] },
     { version:"3.3.2", date:"2026.10", items:["説明の修正"] },
@@ -1810,7 +1811,7 @@ if (key === "growth" && cur && cur.pop) {
       var bdp = scoreBreakdown(cur, isPrefView);  // 総合スコアと同じ式（都道府県は都道府県の式）
       var bd_sf = bdp.f, bd_sd = bdp.d, bd_sx = bdp.x, bd_su = bdp.u, bd_sr = bdp.r;
       var bdColor = function(score, max){ return (score/max) >= 0.5 ? "#1a7a5a" : "#c02020"; };
-      topSummaryHtml += "<div class='bd-toggle' onclick=\"var c=document.getElementById('bdContent');var a=document.getElementById('bdArrow');var isOpen=c.style.maxHeight&&c.style.maxHeight!=='0px';c.style.maxHeight=isOpen?'0px':'280px';a.classList.toggle('open');\" style='display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin-top:10px;background:rgba(160,139,232,0.08);border-radius:10px;padding:10px 12px;font-size:14px;color:#6a3de8;font-weight:700;'>" +
+      topSummaryHtml += "<div class='bd-toggle' onclick=\"var c=document.getElementById('bdContent');var a=document.getElementById('bdArrow');var isOpen=c.style.maxHeight&&c.style.maxHeight!=='0px';c.style.maxHeight=isOpen?'0px':'420px';a.classList.toggle('open');\" style='display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin-top:10px;background:rgba(160,139,232,0.08);border-radius:10px;padding:10px 12px;font-size:14px;color:#6a3de8;font-weight:700;'>" +
         "<span>📊 内訳を見る</span><span id='bdArrow' style='transition:transform 0.2s;'>▼</span></div>" +
         "<div id='bdContent' style='max-height:0;overflow:hidden;transition:max-height 0.25s ease;font-size:14px;color:#5a5a7a;line-height:1.9;'>" +
         "<div style='padding-top:8px;'>" +
@@ -1819,6 +1820,7 @@ if (key === "growth" && cur && cur.pop) {
         "経常収支比率 <strong style='color:"+bdColor(bd_sx,20)+";'>"+bd_sx.toFixed(1)+"点</strong>／20点満点<br>" +
         "将来負担比率 <strong style='color:"+bdColor(bd_su,20)+";'>"+bd_su.toFixed(1)+"点</strong>／20点満点<br>" +
         "財政調整基金 <strong style='color:"+bdColor(bd_sr,15)+";'>"+bd_sr.toFixed(1)+"点</strong>／15点満点" +
+        "<div style='font-size:15px;color:#7a7a90;line-height:1.7;margin-top:6px;'>※財政力指数は、自前の税収でまかなえる力を測る指標であり、自治体の財政基盤をみる重要な指標の一つとして、配点を大きく設定しています。</div>" +
         "</div></div>" +
         "<div style='border-top:2px dashed rgba(160,139,232,0.3);margin:14px 0 12px;'></div>";
       if (peersHtml) {
