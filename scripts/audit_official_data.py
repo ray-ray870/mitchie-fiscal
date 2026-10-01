@@ -495,6 +495,7 @@ def main():
         return e.get(p) if k == latest else e.get(f"{p}_r{k}")
 
     report, problems, skipped = [], [], []
+    sfs_diag = []  # 標準財政規模の列が見つからなかったときの手がかり
     align_rows = ["| 項目 | 区分 | 公式の年 | 一番一致したアプリの年 | 一致率 | 判定 |", "|---|---|---|---|---|---|"]
     mis_rows = ["| 項目 | 区分 | 年 | 照合した団体 | 端数のずれ | 食い違い | 食い違いの例（アプリ → 公式） |", "|---|---|---|---|---|---|---|"]
     official_cache = {}
@@ -630,6 +631,7 @@ def main():
                 continue
             side = "pref" if is_pref else "muni"
             fis_idx = kikin_idx = None  # 標準財政規模の照合でも使う（概況・決算状況に無い場合の候補）
+            fis_url = kikin_url = None
             try:
                 # 財政指標4項目
                 if src:
@@ -638,7 +640,7 @@ def main():
                     u = pick(FISCAL_PAGES[k], lambda t: ("全都道府県の主要財政指標" if is_pref else "全市町村の主要財政指標") in t,
                              label=f"令和{k}年度 主要財政指標（{grp}）")
                 idx = index([u], is_pref)
-                fis_idx = idx
+                fis_idx, fis_url = idx, u
                 for p in ("f", "x", "d", "u"):
                     cs, rate, _ = best_conv(idx, p, is_pref, k, FISCAL_LATEST, False)
                     if cs is None:
@@ -651,12 +653,14 @@ def main():
             try:
                 # 財政調整基金
                 if src:
-                    idx = index([src["reserve_fund"][side]], is_pref)
+                    kikin_url = src["reserve_fund"][side]
+                    idx = index([kikin_url], is_pref)
                 else:
                     fid = KIKIN_FILES[k][1 if is_pref else 0]
                     if fid not in kikin_page:
                         raise SourceMissing(f"令和{k}年度 基金残高（{grp}）：一覧ページにファイル{fid}が見つかりません")
-                    idx = index([f"https://www.soumu.go.jp/main_content/{fid}.xlsx"], is_pref)
+                    kikin_url = f"https://www.soumu.go.jp/main_content/{fid}.xlsx"
+                    idx = index([kikin_url], is_pref)
                 kikin_idx = idx
                 cs, rate, _ = best_conv(idx, "r", is_pref, k, FISCAL_LATEST, True)
                 if cs is None:
@@ -722,6 +726,26 @@ def main():
                             break
                     if hit is None:
                         problems.append(f"標準財政規模（{grp}）令和{k}年度：公式の表（決算状況調・主要財政指標一覧・基金残高等一覧）で一致する列が見つかりません")
+                        # 原因を調べるための手がかり：アプリの値に近い（±25%）セルと、その列の見出し（2団体まで）
+                        for n0, ev0, _, key0 in s_ents[:2]:
+                            av0 = ev0["sfs"]
+                            for tname, tidx, turl in (("決算状況調", gai, gai_urls[0] if len(gai_urls) == 1 else None),
+                                                      ("主要財政指標一覧", fis_idx, fis_url), ("基金残高等一覧", kikin_idx, kikin_url)):
+                                row0 = tidx.get(key0) if tidx else None
+                                if row0 is None:
+                                    sfs_diag.append(f"{n0}（アプリ {av0}億円）／{tname}：この団体の行が見つかりません")
+                                    continue
+                                hs0 = heads_of(turl) if turl else []
+                                near = []
+                                for ci, v in enumerate(row0):
+                                    x = to_num(v)
+                                    if x is None:
+                                        continue
+                                    for sc in MONEY_SCALES:
+                                        if av0 and abs(x * sc - av0) <= abs(av0) * 0.25:
+                                            near.append(f"列{ci}「{(hs0[ci] if ci < len(hs0) else '')[:30]}」{round(x * sc, 1)}億円")
+                                            break
+                                sfs_diag.append(f"{n0}（アプリ {av0}億円）／{tname}：" + ("、".join(near) if near else "近い値の列なし"))
                         continue
                     tname, tidx, cs = hit
                     LABEL["sfs"] = f"標準財政規模（{tname}と照合）"
@@ -1007,6 +1031,9 @@ def main():
         report += ["### 確認が必要な点", ""] + [f"- {x}" for x in problems] + [""]
     if skipped:
         report += ["### 照合できなかったもの（公式ファイルが見つからない）", ""] + [f"- {x}" for x in skipped] + [""]
+    if sfs_diag:
+        report += ["### 標準財政規模の手がかり（列が見つからなかったとき）", "",
+                   "アプリの値に近いセルがある列と、その見出しです。", ""] + [f"- {x}" for x in sfs_diag] + [""]
     if detail_notes:
         report += ["### 内訳の照合（参考情報）", ""] + [f"- {x}" for x in detail_notes] + [""]
     if kk_notes:
