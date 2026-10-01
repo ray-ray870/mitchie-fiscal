@@ -1,0 +1,31 @@
+name: 財政状況資料集の取り込みテスト（確認のみ）
+
+# 国の基準を超えた自治体（夕張市・北海道・新潟県など）の「財政状況資料集」を総務省からダウンロードして、
+# 自治体が書いた説明文（基金の増減理由・今後の方針）を取り出せるかを確かめる。
+# データは一切書き換えない。結果は実行画面の Summary に出る。
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 必要なライブラリをインストール
+        run: pip install pypdf
+
+      - name: 取り込みテスト
+        run: python scripts/check_shiryou.py
