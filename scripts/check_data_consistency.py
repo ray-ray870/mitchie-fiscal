@@ -67,6 +67,12 @@ def main():
     db_names = set(db.keys())
     print("  自治体数: %d" % len(db_names))
 
+    # --- 財政データの中身（件数・必須項目・範囲・スコア）---
+    # 別ファイル scripts/check_data_values.py のチェックをここから呼ぶ（ワークフローの変更は不要）
+    sys.path.insert(0, HERE)
+    import check_data_values
+    check_data_values.check(db, problems, notes)
+
     # --- 公会計データ（kokaikei.json）との突き合わせ ---
     print("")
     print("■ 公会計データ（kokaikei.json）と突き合わせ中")
@@ -131,7 +137,7 @@ def main():
             print("  ・" + p)
         sys.exit(1)
     else:
-        print("OK: 財政データ・公会計データ・かな検索インデックスの自治体の顔ぶれは一致しています。")
+        print("OK: 財政データ・公会計データ・かな検索インデックスの自治体の顔ぶれは一致し、データの中身も想定の範囲内です。")
         sys.exit(0)
 
 
