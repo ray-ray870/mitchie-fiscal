@@ -1,5 +1,24 @@
   var HEALTH_LABELS = {happy:["絶好調","#6dcfad"],normal:["元気","#7bb8e8"],tired:["ちょっとしんどい","#f0c46a"],sick:["ぐったり","#f0876a"],critical:["ひんし","#d0505a"]};
 
+  /* 金額（億円）の表示（読みやすさのため）。
+       ・1万億円（1兆円）以上：「9兆5,337億円」（兆と、四捨五入した億円）
+       ・100億円以上：小数なしの億円「6,449億円」
+       ・100億円未満：小数第1位まで（「3.5億円」。ちょうど整数なら「71億円」）
+     v：億円の数値。第2引数は以前の名残で、今は使わない。
+     符号は呼び出し側で付ける（負の値のときだけ先頭に「-」が付く） */
+  function fmtOku(v) {
+    if (v == null || isNaN(v)) return "－";
+    var a = Math.abs(v), sign = v < 0 ? "-" : "";
+    var r1 = Math.round(a * 10) / 10;
+    if (r1 >= 10000 || Math.round(a) >= 10000) {
+      var cho = Math.floor(a / 10000), rest = Math.round(a - cho * 10000);
+      if (rest >= 10000) { cho += 1; rest = 0; }
+      return sign + cho.toLocaleString() + "兆" + (rest > 0 ? rest.toLocaleString() + "億" : "") + "円";
+    }
+    if (r1 >= 100) return sign + Math.round(a).toLocaleString() + "億円";
+    return sign + r1.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 1}) + "億円";
+  }
+
   function healthState(score) {
     if (score>=85) return "happy";
     if (score>=70) return "normal";

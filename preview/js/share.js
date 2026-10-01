@@ -91,7 +91,7 @@
       {label:"実質公債費比率", disp:d.d.toFixed(1)+"%", pct:Math.max(100-(d.d/25*100),0), color:dc},
       {label:"経常収支比率", disp:d.x.toFixed(1)+"%", pct:Math.max(100-((d.x-70)/30*100),0), color:xc},
       {label:"将来負担比率", disp:(d.u<=0?"0":d.u.toFixed(0))+"%", pct:d.u<=0?100:Math.max(100-(d.u/200*100),0), color:uc},
-      {label:"財政調整基金", disp:d.r.toFixed(1)+"億円", pct:d.eo? Math.min((d.r/d.eo*100)/15*100,100) : 50, color:rc},
+      {label:"財政調整基金", disp:fmtOku(d.r, true), pct:d.eo? Math.min((d.r/d.eo*100)/15*100,100) : 50, color:rc},
       {label:"人口増減率", disp:(d.g>=0?"+":"")+d.g.toFixed(1)+"%", pct:Math.max(Math.min(50+d.g*20,100),0), color:gc}
     ];
     var barsHtml = bars.map(function(b){
