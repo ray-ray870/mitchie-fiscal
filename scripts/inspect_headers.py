@@ -55,12 +55,42 @@ def show(label, url, head_rows, sample="姶良市", name_col=None):
     out("```\n")
 
 
+def page_links(url):
+    """ページ内の Excel リンクを（リンクの文字, URL）で表示する"""
+    import re
+    from html import unescape
+    out(f"## リンク一覧\n- {url}")
+    try:
+        req = urllib.request.Request(url, headers=UA)
+        raw = urllib.request.urlopen(req, timeout=120).read()
+    except Exception as ex:
+        out(f"- 読めませんでした：{ex}\n")
+        return []
+    try:
+        html = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        html = raw.decode("cp932", errors="ignore")
+    res = []
+    out("```")
+    for href, text in re.findall(r'<a[^>]+href="([^"]+\.xlsx?)"[^>]*>(.*?)</a>', html, flags=re.S | re.I):
+        t = re.sub(r"<[^>]+>|\s", "", unescape(text))
+        h = "https://www.soumu.go.jp" + href if href.startswith("/") else href
+        res.append((t, h))
+        out(f"{t} → {h.rsplit('/', 1)[-1]}")
+    out("```\n")
+    return res
+
+
 def main():
-    cfg = json.loads((ROOT / "scripts" / "config.json").read_text(encoding="utf-8"))
-    show("人口（住民基本台帳）", cfg["population"]["muni"], (2, 6))
-    show("目的別歳出（市）", cfg["purpose_expenditure"]["city"], (7, 13))
-    show("性質別歳出？（市・番号から予想）", "https://www.soumu.go.jp/main_content/001061670.xlsx", (7, 13))
-    show("性質別歳出？（町村・番号から予想）", "https://www.soumu.go.jp/main_content/001061675.xlsx", (7, 13), sample="湧水町")
+    for k in (6, 5):
+        page_links(f"https://www.soumu.go.jp/iken/zaisei/r0{k}_shichouson.html")
+    pl = page_links("https://www.soumu.go.jp/iken/zaisei/r06_todohuken.html")
+    page_links("https://www.soumu.go.jp/iken/zaisei/r05_todohuken.html")
+    for t, h in pl:
+        if "歳入内訳" in t:
+            show("都道府県 歳入内訳：" + t, h, (3, 7), sample="鹿児島県")
+            break
+    show("都道府県 目的別歳出（今使っているファイル）", "https://www.soumu.go.jp/main_content/001056128.xlsx", (2, 6), sample="鹿児島県")
 
 
 if __name__ == "__main__":
