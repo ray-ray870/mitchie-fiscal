@@ -1,0 +1,125 @@
+name: 年次データ更新（プレビュー）
+
+# 3月の年次更新は、このワークフロー1つだけを実行する（2026-09-30〜。以前の update-data.yml・fetch-sfs.yml の代わり）。
+#
+#   1. 財政・人口・歳出歳入・教育費・子ども投資額（scripts/update_fiscal_data.py）
+#   1b. 歳入内訳・目的別歳出の内訳（scripts/fetch_breakdown.py）… 取り込めなくても止めない
+#   2. 標準財政規模（scripts/fetch_sfs.py）
+#   3. 公会計（scripts/build_kokaikei.py）… 新しい年度が総務省から公表されていれば取り込む。まだなら何もしない
+#   4. 自治体の顔ぶれのチェック（scripts/check_data_consistency.py）
+#   5. 公式データとの照合（scripts/audit_official_data.py）… 全項目・全年度を総務省のExcelと突き合わせる
+#   6. 財政状況資料集（scripts/fetch_shiryou.py）… 国の基準を超えた自治体だけ、自治体自身の説明を取り込む。
+#      取り込めなくても止めない（その年は説明なしで表示される）
+#
+# ・書き込むのは preview/ のデータだけ（本番には触らない）。
+# ・どこかで1つでも問題があれば赤い×で止まり、何も保存しない。
+# ・すべて通ったときだけ preview/ に保存して、プレビューを公開する。
+#   プレビューで確認してから「プレビューのデータを本番に反映」を実行する。
+#
+# 手順の説明は scripts/README.md の「【3月末】メイン更新」。
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'scripts/config.json のURLと年を新しい年度のものに書き換えましたか？'
+        required: true
+        default: 'はい'
+        type: choice
+        options:
+          - 'はい'
+          - 'いいえ（まだ）'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: annual-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'はい'
+    env:
+      MITCHIE_DATA_DIR: preview
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 必要なライブラリをインストール
+        run: pip install pandas openpyxl xlrd
+
+      - name: 1. 財政・人口などを更新
+        run: python scripts/update_fiscal_data.py
+
+      - name: 1b. 歳入内訳・目的別歳出の内訳（詳細画面の「🔍 内訳から分かること」）
+        continue-on-error: true
+        run: python scripts/fetch_breakdown.py
+
+      - name: 2. 標準財政規模を更新
+        run: python scripts/fetch_sfs.py
+
+      - name: 3. 公会計を更新（公表されていれば）
+        run: python scripts/build_kokaikei.py
+
+      - name: 4. 自治体の顔ぶれのチェック
+        run: python scripts/check_data_consistency.py
+
+      - name: 自治体の数のチェック（SNSの紹介文）
+        run: |
+          python - <<'EOF'
+          import json, os, re
+          n = sum(len(json.load(open(f"preview/{f}", encoding="utf-8"))) for f in os.listdir("preview") if f.startswith("data-") and f.endswith(".json"))
+          html = open("preview/index.html", encoding="utf-8").read()
+          m = re.search(r"全国([\d,]+)自治体", html)
+          shown = int(m.group(1).replace(",", "")) if m else None
+          msg = (f"- 自治体の数：{n:,}（SNSの紹介文と一致）" if shown == n else
+                 f"- ⚠️ 自治体の数が {n:,} になりました。preview/index.html の「全国{m.group(1) if m else '?'}自治体」（2か所）と「約{m.group(1) if m else '?'}自治体対応」を {n:,} に書き換えてください（データの保存は続けます）")
+          print(msg)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fp:
+              fp.write("\n" + msg + "\n")
+          EOF
+
+      - name: 5. 公式データとの照合
+        run: python scripts/audit_official_data.py --record
+
+      - name: 6. 財政状況資料集（国の基準を超えた自治体の説明）
+        continue-on-error: true
+        run: python scripts/fetch_shiryou.py
+
+      - name: preview/ に保存
+        id: commit
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add preview/data-*.json preview/kokaikei.json scripts/audit_sources.json 2>/dev/null || git add preview/data-*.json preview/kokaikei.json
+          git add preview/shiryou.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "変更なし（config.json のURL・年が新しい年度のものか確認してください）" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "年次データ更新（preview）"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### ✅ preview/ に保存しました。プレビューで確認してから「プレビューのデータを本番に反映」を実行してください。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: プレビューを公開（deploy-with-check）
+        if: steps.commit.outputs.changed == 'true'
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy-with-check.yml/dispatches" \
+            -d '{"ref":"main"}'
