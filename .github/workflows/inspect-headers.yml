@@ -1,0 +1,24 @@
+name: Excelの見出しを確認（確認のみ・一時的）
+
+# 人口動態・歳出の内訳が取り込めるかを調べるために、総務省のExcelの見出しを表示する。
+# データは一切書き換えない。確認が終わったら、このファイルと scripts/inspect_headers.py は削除する。
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install openpyxl
+      - name: 見出しを表示
+        run: python scripts/inspect_headers.py
