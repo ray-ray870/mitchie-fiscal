@@ -130,11 +130,6 @@ h1::after{content:'✦';font-size:15px;position:absolute;top:-6px;right:-18px;ba
 .share-card .sc-bar-fill{height:100%;border-radius:20px;}
 .share-card .sc-comment-wrap{background:white;border-radius:24px;padding:26px 34px 30px;}
 .share-card .sc-comment-title{font-size:33px;font-weight:700;color:#6a3de8;margin-bottom:18px;}
-.share-card .sc-point-row{display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;}
-.share-card .sc-point-chip{flex-shrink:0;font-size:24px;font-weight:700;border-radius:50px;padding:6px 16px;white-space:nowrap;}
-.share-card .sc-good-chip{background:rgba(109,207,173,0.18);color:#3a9878;}
-.share-card .sc-bad-chip{background:rgba(240,135,106,0.15);color:#c05a3a;}
-.share-card .sc-point-text{font-size:28px;color:#5a5a7a;line-height:1.5;padding-top:4px;}
 .share-card .sc-summary{font-size:29px;color:#3a2a6e;line-height:1.6;font-weight:700;}
 .share-card .sc-footer{margin-top:28px;text-align:center;font-size:26px;color:#a08be8;}
 .share-choice-btn{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;background:white;border:none;border-radius:16px;padding:16px 18px;font-size:15px;font-weight:700;color:#3a2a6e;margin-bottom:10px;box-shadow:0 2px 8px rgba(120,100,200,0.1);text-align:left;font-family:'Zen Maru Gothic',sans-serif;cursor:pointer;}
@@ -228,7 +223,6 @@ h1::after{content:'✦';font-size:15px;position:absolute;top:-6px;right:-18px;ba
 .nk-pref-name:active{opacity:0.6;}
 .nk-pref-score{font-size:16px;font-weight:700;color:#6a3de8;}
 .nk-pref-zone{width:6px;height:34px;border-radius:3px;flex-shrink:0;}
-.nk-pref-nat{font-size:12px;color:#777;margin-top:2px;}
 .nk-pref-sub{font-size:12px;color:#777;margin-top:2px;}
 .nk-more-btn{width:100%;text-align:center;padding:12px;font-size:15px;color:#6a3de8;background:none;border:none;cursor:pointer;}
 .nk-zone-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#555;margin:8px 0;}

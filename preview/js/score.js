@@ -4,7 +4,7 @@
        ・1万億円（1兆円）以上：「9兆5,337億円」（兆と、四捨五入した億円）
        ・100億円以上：小数なしの億円「6,449億円」
        ・100億円未満：小数第1位まで（「3.5億円」。ちょうど整数なら「71億円」）
-     v：億円の数値。第2引数は以前の名残で、今は使わない。
+     v：億円の数値。
      符号は呼び出し側で付ける（負の値のときだけ先頭に「-」が付く） */
   function fmtOku(v) {
     if (v == null || isNaN(v)) return "－";
@@ -26,8 +26,6 @@
     if (score>=30) return "sick";
     return "critical";
   }
-
-
 
   /* --- 色判定：経常収支比率 ---
      90未満=緑 / 95未満=青 / 98未満=黄 / 98以上=橙
@@ -56,21 +54,6 @@
     return isPref ? u > 160 : u > 100;
   }
 
-  /* --- 基金が十分かどうかの共通判定 ---
-     他の指標の総合コメントでも使う。基金カードの緑ラインと同じ基準なので、
-     カードの色と文章が食い違わない。 */
-  function reserveIsAmple(e, isPref) {
-    if (!e || !e.sfs || e.sfs <= 0 || e.r == null) return false;
-    return (e.r / e.sfs * 100) >= reserveBands(isPref).hi;
-  }
-
-  // 財政調整基金が「少ない」と言えるか。cur.rは絶対額（億円）なので、規模の大きい自治体・小さい自治体を
-  // 同じ金額で比べると不公平になる。標準財政規模との比率（reserveBandsの「少ないほう」の目安）で判定する。
-  function reserveIsLow(e, isPref) {
-    if (!e || !e.sfs || e.sfs <= 0 || e.r == null) return false;
-    return (e.r / e.sfs * 100) < reserveBands(isPref).lo;
-  }
-
   function colorR(ratio, isPref) {
     if (ratio == null) return "#7bb8e8";
     var b = reserveBands(isPref);
@@ -81,6 +64,20 @@
   function colorF(f) {
     if (f == null) return "#7bb8e8";
     return f >= 0.70 ? "#6dcfad" : f >= 0.45 ? "#7bb8e8" : f >= 0.25 ? "#f0c46a" : "#f0876a";
+  }
+
+  /* --- 色判定：実質公債費比率 ---
+     10未満=緑 / 18未満=青 / 25未満=黄 / 25以上=橙（18%・25%は国の基準） */
+  function colorD(d) {
+    if (d == null) return "#7bb8e8";
+    return d < 10 ? "#6dcfad" : d < 18 ? "#7bb8e8" : d < 25 ? "#f0c46a" : "#f0876a";
+  }
+
+  /* --- 色判定：人口増減率 ---
+     説明文の「目安」と同じ：+0.1%以上=緑 / ±0.1%未満=青（ほぼ横ばい） / -0.5%まで=黄 / それより大きい減少=橙 */
+  function colorG(g) {
+    if (g == null) return "#7bb8e8";
+    return g >= 0.1 ? "#6dcfad" : g > -0.1 ? "#7bb8e8" : g >= -0.5 ? "#f0c46a" : "#f0876a";
   }
 
   function colorX(x) {
@@ -118,9 +115,6 @@
     var b = reserveBands(isPref);
     return ratio >= b.hi ? "多め" : ratio >= b.mid ? "標準的" : ratio >= b.lo ? "やや少なめ" : "少なめ";
   }
-  function levelNoun(label) {
-    return (label === "重め") ? "重さ" : (label === "軽め" || label === "低め" || label === "実質ゼロ") ? "軽さ" : "水準";
-  }
 
   /* --- 都道府県専用のスコア ---
      市区町村向けの基準をそのまま使うと、47都道府県のうち46県が下位2段階に
@@ -135,8 +129,7 @@
     var GOOD = "#6dcfad", WARN = "#f0c46a";
     var warn = [], good = [];
     var cxv = colorX(d.x), cuv = colorU(d.u, isPref);
-    var cdv = (d.d == null) ? "#7bb8e8"
-            : d.d < 10 ? "#6dcfad" : d.d < 18 ? "#7bb8e8" : d.d < 25 ? "#f0c46a" : "#f0876a";
+    var cdv = colorD(d.d);
     var isWeak = function(c){ return c === "#f0c46a" || c === "#f0876a"; };
     var isBest = function(c){ return c === "#6dcfad"; };
 
@@ -168,23 +161,9 @@
     return out;
   }
 
-  function calcHPref(f,d,x,u,r,eo,sfs) {
-    function band(v, zero, full) {
-      if (v == null) return 0;
-      var t = (zero - Math.min(Math.max(v, Math.min(zero, full)), Math.max(zero, full))) / (zero - full);
-      return Math.min(Math.max(t, 0), 1);
-    }
-    var sf = Math.min(Math.max((f - 0.20) / (0.90 - 0.20), 0), 1) * 25;
-    var sd = band(d, 20, 6) * 20;
-    var sx = band(x, 101, 86) * 20;
-    var su = (!u || u <= 0) ? 20 : band(u, 340, 80) * 20;
-    var sr = (sfs && sfs > 0 && r != null) ? Math.min((r / sfs * 100) / 10 * 15, 15) : 7.5;
-    return Math.round(Math.min(sf + sd + sx + su + sr, 100));
-  }
-
   /* --- 総合スコアの内訳（2026-09-30）---
-     詳細画面の「内訳を見る」用。都道府県は calcHPref と同じ式で出す
-     （以前は都道府県でも市区町村の式で内訳を出していて、足しても点数と合わなかった）。 */
+     総合スコア（calcH）と、詳細画面の「内訳を見る」の両方がこの式を使う。
+     都道府県は専用の基準、市区町村は 財政力25＋公債費20＋経常収支20＋将来負担20＋基金15。 */
   function scoreBreakdown(d, isPref) {
     var f = d.f, dd = d.d, x = d.x, u = d.u, r = d.r, sfs = d.sfs;
     var p = {};
@@ -215,7 +194,7 @@
   function weakPoints(d, isPref) {
     var ORANGE = "#f0876a", YELLOW = "#f0c46a";
     var rr = (d.sfs && d.sfs > 0 && d.r != null) ? d.r / d.sfs * 100 : null;
-    var cd = (d.d == null) ? null : d.d < 10 ? "#6dcfad" : d.d < 18 ? "#7bb8e8" : d.d < 25 ? YELLOW : ORANGE;
+    var cd = (d.d == null) ? null : colorD(d.d);
     var items = [
       {c: colorF(d.f), y: "税収でまかなえる度合いが低め（財政力指数）", o: "税収でまかなえる度合いがかなり低い（財政力指数）"},
       {c: cd, y: "借金返済が重め（実質公債費比率）", o: "借金返済がとても重い（実質公債費比率）"},
@@ -229,13 +208,9 @@
     return out;
   }
 
+  // 総合スコア（0〜100点）。第6引数（eo）は以前の名残で使っていない
   function calcH(f,d,x,u,r,eo,isPref,sfs) {
-    if (isPref) return calcHPref(f,d,x,u,r,eo,sfs);
-    var sf = Math.min(f/1.2*25, 25);
-    var sd = Math.max((25-Math.min(d,25))/25*20, 0);
-    var sx = Math.min(Math.max((100-x)/15*20, 0), 20);
-    var su = (!u || u <= 0) ? 20 : Math.max((200-Math.min(u,200))/200*20, 0);
-    var sr = (sfs && sfs > 0 && r != null) ? Math.min((r/sfs*100)/20*15, 15) : 7.5;
-    return Math.round(Math.min(sf+sd+sx+su+sr, 100));
+    var p = scoreBreakdown({f: f, d: d, x: x, u: u, r: r, sfs: sfs}, isPref);
+    return Math.round(Math.min(p.f + p.d + p.x + p.u + p.r, 100));
   }
 

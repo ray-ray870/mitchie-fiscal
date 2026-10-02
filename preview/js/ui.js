@@ -47,7 +47,7 @@
     // 財政調整基金
     if (d.sfs && d.sfs > 0 && d.r != null) {
       var rr = d.r / d.sfs * 100, cr = colorR(rr, isPref);
-      var rTxt = "<b>貯金（財政調整基金）" + fmtOku(d.r, true) + "</b>（標準財政規模の" + p1(rr) + "%）";
+      var rTxt = "<b>貯金（財政調整基金）" + fmtOku(d.r) + "</b>（標準財政規模の" + p1(rr) + "%）";
       if (cr === "#6dcfad") goods.push(rTxt + "：急な出費に厚めに備えています");
       else if (cr === "#f0c46a" || cr === "#f0876a") warns.push({lv: cr === "#f0876a" ? 2 : 1,
         t: rTxt + "：大きな災害などの急な出費には、貯金が少なめの状態です",
@@ -62,14 +62,14 @@
     }
     warns.sort(function(a, b){ return b.lv - a.lv; });
     var head = h >= 85 ? "の財政はとても健全です⭐" : h >= 70 ? "の財政はおおむね安定しています💙"
-             : h >= 50 ? (warns.length ? "の財政は全国平均的な水準ですが、気をつけたいところがあります🐧" : "の財政は全国平均的な水準です🐧")
+             : h >= 50 ? "の財政は、やや課題がある状態です🐧"
              : h >= 30 ? "の財政はかなりしんどい状態です😔" : "の財政はとても厳しい状態です🚨";
     var hows = [], seen = {};
     warns.forEach(function(w){ if (w.how && !seen[w.how] && hows.length < 2) { seen[w.how] = 1; hows.push(w.how); } });
     var citW = warns.filter(function(w){ return w.cit; })[0];
     return {h: h, head: name + head, goods: goods.slice(0, 2), warns: warns.slice(0, 3), hows: hows,
             cit: "予算の使い道は、議会で決まります。" + name + "の予算書や財政状況資料集で、" + (citW ? citW.cit : "お金の使い道") + "を確かめられます",
-            flexNote: (!warns.length && d.x != null && d.x >= 90 && d.x < 95) ? "黄・オレンジの指標はありません。ただ、新しいことに回せるお金は1割に満たない状態です（全国の多くと同じ水準）" : ""};
+            flexNote: (!warns.length && d.x != null && d.x >= 90 && d.x < 95) ? "黄・オレンジの指標はありません。ただ、新しいことに回せるお金は1割に満たない状態です" : ""};
   }
   function advice(name, d) {
     var a = adviceParts(name, d);
@@ -198,7 +198,8 @@
   }
   function sitB(v) { return "<b style='font-size:17px;'>" + v + "</b>"; }
   /* --- 「似ている自治体」との比較（2026-10-01）---
-     総務省の類似団体の区分（国勢調査をもとに、人口と産業構造＝産業別の就業人口の構成比で分けた、同じ区分の全国の市町村）。
+     総務省の類似団体の区分（国勢調査をもとに、人口と産業構造＝産業別の就業人口の構成比で分けた、同じ区分の全国の市町村。
+     政令指定都市・中核市・施行時特例市・特別区は、都市の種類ごとの区分）。
      市区町村だけ。同じ区分が10団体以上あるときだけ出す。比べた結果は「高め・低め・ほぼ同じ」だけ（順位は出さない） */
   var PEER_CACHE = {};
   function peerInfo(name, isPref) {
@@ -222,8 +223,13 @@
     var t = tol != null ? tol : Math.abs(med) * 0.03;
     return Math.abs(v - med) <= t ? "same" : v > med ? "hi" : "lo";
   }
+  // 総務省の類似団体：一般の市と町村は人口と産業構造で、政令指定都市・中核市・施行時特例市・特別区は都市の種類で分けられている
+  function peerGroupDesc(grp) {
+    return /^(都市|町村)/.test(grp) ? "総務省が、人口と産業（どんな産業で働く人が多いか）などで分けたグループです"
+                                    : "総務省が、都市の種類（政令指定都市・中核市・特別区など）で分けたグループです";
+  }
   function peerNoteText(info) {
-    return "※似ている自治体：" + info.grp + "（" + info.n + "自治体）。総務省が、人口と産業（どんな産業で働く人が多いか）などで分けたグループです";
+    return "※似ている自治体：" + info.grp + "（" + info.n + "自治体）。" + peerGroupDesc(info.grp);
   }
   // 「比べると：全国の中央値 91.5%／似ている自治体の中央値 94.0%」の1行
   function cmpRow(pairs) {
@@ -236,12 +242,16 @@
     var sameDir = (good && !peerBad) || (!good && peerBad);
     return "。" + (sameDir ? "似ている自治体と比べても、" : "ただ、似ている自治体と比べると、") + subject + (c === "hi" ? hiWord : loWord) + "です";
   }
-  // 国の基準（上限）に対する割合と、基準までの余裕（6割未満なら「余裕があります」、6割以上は「近づいています」）
-  function limitRoom(v, lim) {
+  // 国の基準（上限）に対する割合と、基準までの余裕（6割未満なら「余裕があります」、6割以上は「近づいています」）。
+  // heavy：カードの色や目安で「重め」などになっているときの言葉。そのときは「余裕があります」と言わず、
+  // 「国の基準の約◯%ですが、◯◯です」と2つの物差しを1文に並べる（2026-10-02：「余裕があります」と「重め」が同じ画面に出ていた）
+  function limitRoom(v, lim, heavy) {
     var r = v / lim, pct = r * 100;
-    return {room: r < 0.6, text: "国の基準（" + lim + "%）の" + (pct < 1 ? "1%未満" : "約" + Math.round(pct) + "%") + "で、" + (r < 0.6 ? "基準までは余裕があります" : "基準が近づいています")};
+    var head = "国の基準（" + lim + "%）の" + (pct < 1 ? "1%未満" : "約" + Math.round(pct) + "%");
+    if (r < 0.6 && heavy) return {room: false, heavy: true, text: head + "ですが、" + heavy};
+    return {room: r < 0.6, text: head + "で、" + (r < 0.6 ? "基準までは余裕があります" : "基準が近づいています")};
   }
-  function peerLine(name, medText, c) {
+  function peerLine(medText) {
     return "似ている自治体の中央値は" + medText + "です";   // 比べた結果（高め・低め）は「→」の行に書く（重複させない）
   }
   function situationBox(name, lines, state, stateColor, note, peerState) {
@@ -287,7 +297,6 @@
     var b = isPref ? "pref" : "muni";
     var area = isPref ? "全国の都道府県" : "全国の市区町村";
     var pct1 = function(v){ return (Math.round(v * 10) / 10).toFixed(1) + "%"; };
-    var withTrend = function(t){ return t || ""; };
     if (key === "flex" && cur.x != null) {
       var x = cur.x, c = colorX(x), med = DATA_STATS.x[b];
       var st = x >= 100 ? "毎年決まって入るお金だけでは、決まった支払いをまかなえていない状態です"
@@ -304,15 +313,15 @@
       if (pi1 && pc1) {
         return situationBox(name, [
           "毎年決まって入るお金（税や地方交付税など）の" + sitB(pct1(x)) + "が、毎年必ず出ていくお金に使われています",
-          withTrend(situationTrend(cur, "x", {tol:0.5, fmt:pct1, label:"経常収支比率"})),
+          situationTrend(cur, "x", {tol:0.5, fmt:pct1, label:"経常収支比率"}),
           cmpRow([["全国の中央値", pct1(med)], ["似ている自治体の中央値", pct1(pm1)]])
         ], x < 100 ? "新しいことに回せるのは" + pct1(100 - x) + "で、似ている自治体" + (pc1 === "same" ? "と同じくらいです" : pc1 === "lo" ? "より多めです" : "より少なめです") : st,
           (c === "#6dcfad" || c === "#7bb8e8") && x < 100 ? SIT_BLUE : SIT_RED, [note, peerNoteText(pi1)].filter(function(t){ return !!t; }).join("<br>"));
       }
       return situationBox(name, [
         "毎年決まって入るお金（税や地方交付税など）の" + sitB(pct1(x)) + "が、毎年必ず出ていくお金に使われています",
-        withTrend(situationTrend(cur, "x", {tol:0.5, fmt:pct1, label:"経常収支比率"})), area + "の中央値（" + pct1(med) + "）" + medCompare(x, med, 0.5),
-        pc1 && x < 100 ? "新しいことに回せるのは" + sitB(pct1(100 - x)) + "です。似ている自治体では、中央値で" + pct1(100 - pm1) + "です" : (pc1 ? peerLine(name, pct1(pm1), pc1) : "")
+        situationTrend(cur, "x", {tol:0.5, fmt:pct1, label:"経常収支比率"}), area + "の中央値（" + pct1(med) + "）" + medCompare(x, med, 0.5),
+        pc1 && x < 100 ? "新しいことに回せるのは" + sitB(pct1(100 - x)) + "です。似ている自治体では、中央値で" + pct1(100 - pm1) + "です" : (pc1 ? peerLine(pct1(pm1)) : "")
       ], st, (c === "#6dcfad" || c === "#7bb8e8") && x < 100 ? SIT_BLUE : SIT_RED, [note, pi1 ? peerNoteText(pi1) : ""].filter(function(t){ return !!t; }).join("<br>"), pst1);
     }
     if (key === "fiscalPower" && cur.f != null) {
@@ -329,15 +338,15 @@
       if (pi2 && pc2) {
         return situationBox(name, [
           "財政力指数は" + sitB(f.toFixed(2)) + "です",
-          withTrend(situationTrend(cur, "f", {tol:0.01, label:"財政力指数", fmt:function(v){ return v.toFixed(2); }})),
+          situationTrend(cur, "f", {tol:0.01, label:"財政力指数", fmt:function(v){ return v.toFixed(2); }}),
           cmpRow([["全国の中央値", medf != null ? medf.toFixed(2) : null], ["似ている自治体の中央値", pm2.toFixed(2)]])
         ], st2 + peerTail((cf === "#6dcfad" || cf === "#7bb8e8"), pc2, false, "税収などでまかなえる割合は", "高め", "低め"),
           (cf === "#6dcfad" || cf === "#7bb8e8") ? SIT_BLUE : SIT_RED, peerNoteText(pi2));
       }
       return situationBox(name, [
         "財政力指数は" + sitB(f.toFixed(2)) + "です",
-        withTrend(situationTrend(cur, "f", {tol:0.01, label:"財政力指数", fmt:function(v){ return v.toFixed(2); }})), area + "の中央値（" + (medf != null ? medf.toFixed(2) : "－") + "）" + medCompare(f, medf, 0.01),
-        pc2 ? peerLine(name, pm2.toFixed(2), pc2) : ""
+        situationTrend(cur, "f", {tol:0.01, label:"財政力指数", fmt:function(v){ return v.toFixed(2); }}), area + "の中央値（" + (medf != null ? medf.toFixed(2) : "－") + "）" + medCompare(f, medf, 0.01),
+        pc2 ? peerLine(pm2.toFixed(2)) : ""
       ], st2, (cf === "#6dcfad" || cf === "#7bb8e8") ? SIT_BLUE : SIT_RED, pi2 ? peerNoteText(pi2) : "", pst2);
     }
     if (key === "debt" && cur.d != null) {
@@ -356,18 +365,20 @@
         pc3 = peerCmp(d, pm3, 0.3);
         if (pc3) pst3 = "似ている自治体と比べると、収入のうち借金の返済に回る割合が" + (pc3 === "same" ? "同じくらいです" : pc3 === "hi" ? "大きめです" : "小さめです");
       }
+      // 10%以上（目安で「やや重い」）のときは「余裕があります」と言わない
+      var lr3 = limitRoom(d, 18, d >= 10 ? "返済の負担はやや重めです" : "");
       if (pi3 && pc3) {
         return situationBox(name, [
           "借金返済の重さは" + sitB(pct1(d)) + "です（収入のうち、借金の返済に回る割合）",
-          withTrend(situationTrend(cur, "d", {tol:0.3, fmt:pct1, label:"実質公債費比率"})),
+          situationTrend(cur, "d", {tol:0.3, fmt:pct1, label:"実質公債費比率"}),
           cmpRow([["全国の中央値", pct1(DATA_STATS.d[b])], ["似ている自治体の中央値", pct1(pm3)]])
-        ], d < 18 ? limitRoom(d, 18).text + peerTail(limitRoom(d, 18).room, pc3, true, "返済に回る割合は", "大きめ", "小さめ")
+        ], d < 18 ? lr3.text + peerTail(lr3.room, pc3, true, "返済に回る割合は", "大きめ", "小さめ")
                   : st3 + peerTail(false, pc3, true, "返済に回る割合は", "大きめ", "小さめ"), d < 18 ? SIT_BLUE : SIT_RED, peerNoteText(pi3));
       }
       return situationBox(name, [
         "借金返済の重さは" + sitB(pct1(d)) + "です（収入のうち、借金の返済に回る割合）",
-        withTrend(situationTrend(cur, "d", {tol:0.3, fmt:pct1, label:"実質公債費比率"})), rel,
-        pc3 ? peerLine(name, pct1(pm3), pc3) : ""
+        situationTrend(cur, "d", {tol:0.3, fmt:pct1, label:"実質公債費比率"}), rel,
+        pc3 ? peerLine(pct1(pm3)) : ""
       ], st3, d < 18 ? SIT_BLUE : SIT_RED, pi3 ? peerNoteText(pi3) : "", pst3);
     }
     if (key === "future") {
@@ -396,9 +407,11 @@
       }
       if (isPref && u < lim) {
         // 都道府県：国の基準との余裕＋都道府県の中での高め・低めを「→」の1行にまとめる
-        var pm4p = DATA_STATS.u.pref, pc4p = peerCmp(u, pm4p, 2), lr4p = limitRoom(u, lim);
-        var verd4p = lr4p.text + "。" + (lr4p.room && pc4p === "hi" ? "ただ、" : "") + "都道府県の中では、" + (pc4p === "same" ? "同じくらいの状態です" : pc4p === "hi" ? "高めの状態です" : "低めの状態です");
-        return situationBox(name, ["将来負担比率は" + sitB(pct1(u)) + "です", withTrend(tr4), cmpRow([["全国の都道府県の中央値", pct1(pm4p)]])],
+        var pm4p = DATA_STATS.u.pref, pc4p = peerCmp(u, pm4p, 2);
+        var lr4p = limitRoom(u, lim, cu === "#f0c46a" ? "都道府県の中ではやや重めです" : cu === "#f0876a" ? "都道府県の中では重めです" : "");
+        var verd4p = lr4p.heavy ? lr4p.text
+          : lr4p.text + "。" + (lr4p.room && pc4p === "hi" ? "ただ、" : "") + "都道府県の中では、" + (pc4p === "same" ? "同じくらいの状態です" : pc4p === "hi" ? "高めの状態です" : "低めの状態です");
+        return situationBox(name, ["将来負担比率は" + sitB(pct1(u)) + "です", tr4, cmpRow([["全国の都道府県の中央値", pct1(pm4p)]])],
           verd4p, (lr4p.room && pc4p !== "hi") ? SIT_BLUE : SIT_RED, "");
       }
       var pi4 = peerInfo(name, isPref), pl4 = "", pst4 = null;
@@ -407,18 +420,19 @@
         var pz4 = pv4.filter(function(v){ return v <= 0; }).length / (pv4.length || 1);
         var pm4 = peerMedian(pv4), pc4 = peerCmp(u, pm4, 2);
         if (pz4 > 0.5) { pl4 = "似ている自治体の半数以上は、実質ゼロです"; pst4 = "似ている自治体と比べると、将来に残る負担は大きめです"; }
-        else if (pc4) { pl4 = peerLine(name, pct1(pm4), pc4); pst4 = "似ている自治体と比べると、将来に残る負担は" + (pc4 === "same" ? "同じくらいです" : pc4 === "hi" ? "大きめです" : "小さめです"); }
+        else if (pc4) { pl4 = peerLine(pct1(pm4)); pst4 = "似ている自治体と比べると、将来に残る負担は" + (pc4 === "same" ? "同じくらいです" : pc4 === "hi" ? "大きめです" : "小さめです"); }
       }
       if (pi4 && pst4) {
         var pcz = pz4 > 0.5 ? "hi" : peerCmp(u, pm4, 2);
+        var lr4 = limitRoom(u, lim, cu === "#f0c46a" ? "全国の市区町村の中では一定の負担があります" : cu === "#f0876a" ? "全国の市区町村の中では重めです" : "");
         return situationBox(name, [
           "将来負担比率は" + sitB(pct1(u)) + "です",
-          withTrend(tr4),
+          tr4,
           cmpRow([pz4 > 0.5 ? ["似ている自治体", "半数以上が実質ゼロ"] : ["似ている自治体の中央値", pct1(pm4)]])
-        ], u < lim ? limitRoom(u, lim).text + peerTail(limitRoom(u, lim).room, pcz, true, "将来に残る負担は", "大きめ", "小さめ")
+        ], u < lim ? lr4.text + peerTail(lr4.room, pcz, true, "将来に残る負担は", "大きめ", "小さめ")
                    : st4 + peerTail(false, pcz, true, "将来に残る負担は", "大きめ", "小さめ"), col4, peerNoteText(pi4));
       }
-      return situationBox(name, ["将来負担比率は" + sitB(pct1(u)) + "です", withTrend(tr4), rel4 + (cmp4 ? "。" + cmp4 : ""), pl4], st4, col4, pi4 ? peerNoteText(pi4) : "", pst4);
+      return situationBox(name, ["将来負担比率は" + sitB(pct1(u)) + "です", tr4, rel4 + (cmp4 ? "。" + cmp4 : ""), pl4], st4, col4, pi4 ? peerNoteText(pi4) : "", pst4);
     }
     if (key === "reserve" && cur.sfs && cur.sfs > 0 && cur.r != null) {
       var rr = cur.r / cur.sfs * 100, rb = reserveBands(isPref), cr = colorR(rr, isPref);
@@ -435,19 +449,19 @@
               : "大きな災害などの急な出費には、貯金が少なめの状態です";
       if (pi5 && pc5) {
         return situationBox(name, [
-          "貯金（財政調整基金）は" + sitB(fmtOku(cur.r, true)) + perCap + "で、標準財政規模の" + sitB(pct1(rr)) + "です",
-          situationTrend(cur, "r", {tol:0.05, rel:true, times:true, label:"残高", fmt:function(v){ return fmtOku(v, true); }}),
+          "貯金（財政調整基金）は" + sitB(fmtOku(cur.r)) + perCap + "で、標準財政規模の" + sitB(pct1(rr)) + "です",
+          situationTrend(cur, "r", {tol:0.05, rel:true, times:true, label:"残高", fmt:function(v){ return fmtOku(v); }}),
           cmpRow([["全国の中央値", pct1(DATA_STATS.rr[b])], ["似ている自治体の中央値", pct1(pm5)]])
         ], st5 + peerTail(cr === "#6dcfad" || cr === "#7bb8e8", pc5, false, "貯金は", "多め", "少なめ"), (cr === "#6dcfad" || cr === "#7bb8e8") ? SIT_BLUE : SIT_RED,
-          "※総務省の調査（2017年）では、貯金の目安を標準財政規模の割合で決めている団体は、市町村では5〜10%、都道府県では5%以下が多い結果でした。目安は団体ごとに違います。<br>" + peerNoteText(pi5));
+          "※総務省の調査（平成29年）では、貯金の目安を標準財政規模の割合で決めている団体は、都道府県では5%以下、市町村では5〜20%が多い結果でした。目安は団体ごとに違います。<br>" + peerNoteText(pi5));
       }
       return situationBox(name, [
-        "貯金（財政調整基金）は" + sitB(fmtOku(cur.r, true)) + perCap + "で、標準財政規模の" + sitB(pct1(rr)) + "です",
-        situationTrend(cur, "r", {tol:0.05, rel:true, times:true, label:"残高", fmt:function(v){ return fmtOku(v, true); }}),
+        "貯金（財政調整基金）は" + sitB(fmtOku(cur.r)) + perCap + "で、標準財政規模の" + sitB(pct1(rr)) + "です",
+        situationTrend(cur, "r", {tol:0.05, rel:true, times:true, label:"残高", fmt:function(v){ return fmtOku(v); }}),
         area + "の中央値は、標準財政規模の" + pct1(DATA_STATS.rr[b]) + "です",
-        (function(){ if (!pi5 || pc5 == null) return ""; return peerLine(name, pct1(pm5), pc5); })()
+        (function(){ if (!pi5 || pc5 == null) return ""; return peerLine(pct1(pm5)); })()
       ], st5, (cr === "#6dcfad" || cr === "#7bb8e8") ? SIT_BLUE : SIT_RED,
-        "※総務省の調査（2017年）では、貯金の目安を標準財政規模の割合で決めている団体は、市町村では5〜10%、都道府県では5%以下が多い結果でした。目安は団体ごとに違います。" + (pi5 ? "<br>" + peerNoteText(pi5) : ""),
+        "※総務省の調査（平成29年）では、貯金の目安を標準財政規模の割合で決めている団体は、都道府県では5%以下、市町村では5〜20%が多い結果でした。目安は団体ごとに違います。" + (pi5 ? "<br>" + peerNoteText(pi5) : ""),
         pc5 ? "似ている自治体と比べると、貯金は" + (pc5 === "same" ? "同じくらいの備えです" : pc5 === "hi" ? "多めです" : "少なめです") : null);
     }
     if (key === "budget" && cur.eo && cur.ei) {
@@ -458,7 +472,7 @@
       return situationBox(name, [
         "歳出" + sitB(fmtOku(cur.eo)) + "、歳入" + sitB(fmtOku(cur.ei)) + perCapB,
         chg
-      ], cur.ei >= cur.eo ? "差し引き約" + fmtOku(diff, true) + "が残った状態です（翌年度に繰り越す分を含む）"
+      ], cur.ei >= cur.eo ? "差し引き約" + fmtOku(diff) + "が残った状態です（翌年度に繰り越す分を含む）"
                           : "歳出が歳入を上回った状態です。不足分は翌年度の収入を前倒しして埋めることになっています",
          cur.ei >= cur.eo ? SIT_BLUE : SIT_RED, "");
     }
@@ -470,7 +484,7 @@
         pm6 = peerMedian(peerVals(pi6, function(k){ return DB[k].edu; }));
         pc6 = peerCmp(cur.edu, pm6, 0.5);
         if (pc6) {
-          pl6 = peerLine(name, pct1(pm6), pc6);
+          pl6 = peerLine(pct1(pm6));
           pst6 = "似ている自治体と比べると、歳出に占める教育費の割合は" + (pc6 === "same" ? "同じくらいです" : pc6 === "hi" ? "大きめです" : "小さめです");
           // 民生費（福祉・子育て）の割合が大きいと、ほかの費目の割合は小さくなる（割合の合計は100%）
           var shM = function(k){ var e = DB[k], b0 = e.bd && e.bd.ex; return (b0 && b0.minsei != null && e.eo) ? b0.minsei / (e.eo * 1e5) * 100 : null; };
@@ -481,14 +495,14 @@
       }
       if (pi6 && pc6) {
         return situationBox(name, [
-          (cur.eo ? "使ったお金" + fmtOku(cur.eo) + "のうち、約" + sitB(fmtOku(eduOku, true) + "（" + pct1(cur.edu) + "）") : sitB(pct1(cur.edu))) + "を教育に使っています",
-          withTrend(situationTrend(cur, "edu", {tol:0.5, fmt:pct1, label:"教育費比率"})),
+          (cur.eo ? "使ったお金" + fmtOku(cur.eo) + "のうち、約" + sitB(fmtOku(eduOku) + "（" + pct1(cur.edu) + "）") : sitB(pct1(cur.edu))) + "を教育に使っています",
+          situationTrend(cur, "edu", {tol:0.5, fmt:pct1, label:"教育費比率"}),
           cmpRow([["全国の中央値", pct1(med6)], ["似ている自治体の中央値", pct1(pm6)]])
         ], "似ている自治体" + (pc6 === "same" ? "と同じくらいです" : pc6 === "hi" ? "より大きめです" : "より小さめです"), "#3a2a6e", peerNoteText(pi6));
       }
       return situationBox(name, [
-        (cur.eo ? "使ったお金" + fmtOku(cur.eo) + "のうち、約" + sitB(fmtOku(eduOku, true) + "（" + pct1(cur.edu) + "）") : sitB(pct1(cur.edu))) + "を教育に使っています",
-        withTrend(situationTrend(cur, "edu", {tol:0.5, fmt:pct1, label:"教育費比率"})), area + "の中央値は" + pct1(med6) + "です", pl6
+        (cur.eo ? "使ったお金" + fmtOku(cur.eo) + "のうち、約" + sitB(fmtOku(eduOku) + "（" + pct1(cur.edu) + "）") : sitB(pct1(cur.edu))) + "を教育に使っています",
+        situationTrend(cur, "edu", {tol:0.5, fmt:pct1, label:"教育費比率"}), area + "の中央値は" + pct1(med6) + "です", pl6
       ], null, null, pi6 ? peerNoteText(pi6) : "", pst6);
     }
     if (key === "childInvest" && cur.ch != null) {
@@ -498,14 +512,14 @@
       if (pi7 && pc7) {
         return situationBox(name, [
           "18歳未満の子ども1人あたり、年間約" + sitB(cur.ch.toFixed(1) + "万円") + "です（教育費と児童福祉費の合計）",
-          withTrend(situationTrend(cur, "ch", {tol:0.03, rel:true, times:true, label:"投資額", fmt:function(v){ return v.toFixed(1) + "万円"; }})),
+          situationTrend(cur, "ch", {tol:0.03, rel:true, times:true, label:"投資額", fmt:function(v){ return v.toFixed(1) + "万円"; }}),
           cmpRow([["全国の中央値", med7 != null ? med7.toFixed(1) + "万円" : null], ["似ている自治体の中央値", pm7.toFixed(1) + "万円"]])
         ], "似ている自治体" + (pc7 === "same" ? "と同じくらいです" : pc7 === "hi" ? "より大きめです" : "より小さめです"), "#3a2a6e", peerNoteText(pi7));
       }
       return situationBox(name, [
         "18歳未満の子ども1人あたり、年間約" + sitB(cur.ch.toFixed(1) + "万円") + "です（教育費と児童福祉費の合計）",
-        withTrend(situationTrend(cur, "ch", {tol:0.03, rel:true, times:true, label:"投資額", fmt:function(v){ return v.toFixed(1) + "万円"; }})), area + "の中央値は" + (med7 != null ? med7.toFixed(1) : "－") + "万円です",
-        pc7 ? peerLine(name, pm7.toFixed(1) + "万円", pc7) : ""
+        situationTrend(cur, "ch", {tol:0.03, rel:true, times:true, label:"投資額", fmt:function(v){ return v.toFixed(1) + "万円"; }}), area + "の中央値は" + (med7 != null ? med7.toFixed(1) : "－") + "万円です",
+        pc7 ? peerLine(pm7.toFixed(1) + "万円") : ""
       ], null, null, pi7 ? peerNoteText(pi7) : "", pc7 ? "似ている自治体と比べると、子ども1人あたりにかけている金額は" + (pc7 === "same" ? "同じくらいです" : pc7 === "hi" ? "大きめです" : "小さめです") : null);
     }
     return "";
@@ -515,8 +529,7 @@
   var BD_EX_LABEL = {minsei:"民生費（福祉・子育て）", somu:"総務費（役所の運営など）", eisei:"衛生費（ごみ処理・保健など）", doboku:"土木費（道路・公園など）",
     edu:"教育費", kosai:"公債費（借金の返済）", shobo:"消防費", norin:"農林水産業費", shoko:"商工費", saigai:"災害復旧費", keisatsu:"警察費", rodo:"労働費", gikai:"議会費"};
   var BD_ED_LABEL = {kyu:"学校給食費", sho:"小学校費", chu:"中学校費", koko:"高等学校費", shakai:"社会教育費（公民館・図書館など）", somu:"教育総務費", tokushi:"特別支援学校費", yochi:"幼稚園費", hoken:"保健体育費"};
-  function okuT(v) { return fmtOku(v / 100000, true); }   // 千円 → 「◯億円」「◯兆◯億円」
-  function oku(v) { return (Math.round(v / 10000) / 10).toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1}); }  // 千円 → 億円
+  function okuT(v) { return fmtOku(v / 100000); }   // 千円 → 「◯億円」「◯兆◯億円」
   function bdBox(title, rows, tail, tailColor) {
     if (!rows.length) return "";
     return "<div style='margin-top:12px;padding:12px 14px;background:#ffffffc0;border:1px solid #d8d5e8;border-radius:12px;'>" +
@@ -604,7 +617,7 @@
         var rows = [];
         ups.concat(downs).forEach(function(o){ rows.push("<div style='display:flex;justify-content:space-between;gap:8px;border-bottom:1px dotted #e0dcef;padding:4px 0;'><span style='flex:1;'>" + BD_EX_LABEL[o.k] + "</span><b style='font-size:17px;white-space:nowrap;color:#2a2a3a;'>" + (o.d >= 0 ? "＋" : "−") + okuT(Math.abs(o.d)) + "</b></div>"); });
         var topMove = dEo < 0 ? downs[0] : ups[0];
-        html += bdBox("前年度からの主な増減（歳出 " + (dEo >= 0 ? "＋" : "−") + fmtOku(Math.abs(dEo), true) + "）", rows,
+        html += bdBox("前年度からの主な増減（歳出 " + (dEo >= 0 ? "＋" : "−") + fmtOku(Math.abs(dEo)) + "）", rows,
           topMove ? "いちばん大きく" + (dEo < 0 ? "減った" : "増えた") + "のは" + BD_EX_LABEL[topMove.k].replace(/（.*）/, "") + "（" + (topMove.d >= 0 ? "＋" : "−") + okuT(Math.abs(topMove.d)) + "）です" : "", PTAIL);
       }
       var r2 = [];
@@ -639,7 +652,7 @@
 
   function prof(s) {
     if (s>=85) return {l:"絶好調みっちー",c:"#6dcfad",bg:"#d4f0e8",e:"⭐",m:"財政は非常に健全で、全国でもトップクラスの水準です。",img:"happy"};
-    if (s>=70) return {l:"元気なみっちー",c:"#7bb8e8",bg:"#e8f4fd",e:"💙",m:"財政はおおむね安定しています。引き続き堅実な運営が続けられています。",img:"normal"};
+    if (s>=70) return {l:"元気なみっちー",c:"#7bb8e8",bg:"#e8f4fd",e:"💙",m:"財政はおおむね安定しています。",img:"normal"};
     if (s>=50) return {l:"ちょっとしんどいみっちー",c:"#f0c46a",bg:"#fdf5d4",e:"⚠️",m:"財政にやや課題があります。",img:"tired"};
     if (s>=30) return {l:"ぐったりみっちー",c:"#f0876a",bg:"#fde8e0",e:"🆘",m:"財政状況はかなり厳しい状態です。",img:"sick"};
     return {l:"ひんし状態みっちー",c:"#d0505a",bg:"#ffe0e4",e:"🚨",m:"財政は非常に厳しい状態です。複数の指標が全国でも下位の水準にあります。",img:"critical"};
@@ -731,6 +744,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.5.3", date:"2026.10", items:["グラフの色と数字の表示を改善","順位の表示を改善（同じ値は同じ順位）","説明の修正"] },
     { version:"3.5.2", date:"2026.10", items:["詳細画面の「みっちーチェック」の表示を改善"] },
     { version:"3.5.1", date:"2026.10", items:["大きな金額を「兆」で表示するなど、金額を読みやすい表示に変更","似ている自治体が少ないときの説明を追加"] },
     { version:"3.5.0", date:"2026.10", items:["内訳の枠に、似ている自治体との比較を表示","総合スコアの内訳に説明を追加","説明の修正"] },
@@ -900,9 +914,6 @@
   function fiscalStatusBadge(d, isPref) {
     var st = fiscalStatusOf(d, isPref);
     var isRecon = st.recon, isEarly = st.early, isBond = st.bond;
-    var dd = d.d, uu = (d.u!=null && d.u!=="-" && d.u!=="－") ? d.u : null;
-    var jr = (d.jr!=null && d.jr!=="-" && d.jr!=="－") ? d.jr : null;
-    var rjr = (d.rjr!=null && d.rjr!=="-" && d.rjr!=="－") ? d.rjr : null;
     var yrLabel = fillYears("{FY}決算時点");
     var chips = "";
     if (isRecon) {
@@ -935,30 +946,23 @@
     var h = calcH(d.f,d.d,d.x,d.u,d.r,d.eo,d.__pref,d.sfs);
     var pr = prof(h);
     var fc = colorF(d.f);
-    var dc = d.d<10?"#6dcfad":d.d<18?"#7bb8e8":d.d<25?"#f0c46a":"#f0876a";
+    var dc = colorD(d.d);
     var xc = colorX(d.x);
     var uc = colorU(d.u, d.p === curName);
     var rc = colorR((d.sfs && d.sfs > 0) ? d.r / d.sfs * 100 : null, d.p === curName);
-    var gc = d.g>=0?"#6dcfad":d.g>=-0.5?"#f0c46a":"#f0876a";
+    var gc = colorG(d.g);   // 説明文の「目安」と同じ4色（±0.1%未満は青＝ほぼ横ばい）
     // 人口増減率だけ「年」（暦年）区切り、他の財政指標は「年度」区切りで総務省が別々に公表しているため、
     // 人口の方が新しいデータが先に出て年度がズレて見えることがある（2026-09-23）。
-    // ハードコードした年号ではなく、実際に読み込まれているデータの件数から動的に算出することで、
-    // 来年以降データを更新してもこの注記が古いまま残って矛盾する、という事故を防ぐ。
-    function reiwaNumToLabel(num) { return num === 1 ? "元" : String(num); }
-    var fiscalReiwaNumMain = 1;
-    for (var _fi = 1; _fi < 40; _fi++) { if (Object.prototype.hasOwnProperty.call(d, "f_r" + _fi)) fiscalReiwaNumMain++; else break; }
-    var popReiwaNumMain = 1;
-    for (var _pi = 1; _pi < 40; _pi++) { if (Object.prototype.hasOwnProperty.call(d, "pop_r" + _pi)) popReiwaNumMain++; else break; }
-    var gYearNoteHtml = (popReiwaNumMain !== fiscalReiwaNumMain) ?
-      ("<div style='font-size:11px;color:#8a8a9a;margin-top:2px;'>※財政指標は令和" + reiwaNumToLabel(fiscalReiwaNumMain) + "年度、人口は令和" + reiwaNumToLabel(popReiwaNumMain) + "年1月時点（区切り方が異なります）</div>") : "";
-    var ul = d.u<=0?"負担なし":d.u>=999?"再建中":d.u.toFixed(1)+"%";
+    // 年号は読み込んだデータから決まる（js/data.js の DATA_YEAR）ので、来年以降の更新でも注記が古いまま残らない。
+    var gYearNoteHtml = (DATA_YEAR.population !== DATA_YEAR.fiscal) ?
+      ("<div style='font-size:11px;color:#8a8a9a;margin-top:2px;'>※財政指標は" + reiwaText(DATA_YEAR.fiscal) + "度、人口は" + reiwaText(DATA_YEAR.population) + "1月時点（区切り方が異なります）</div>") : "";
+    var ul = d.u<=0?"負担なし":d.u.toFixed(1)+"%";
     var chc = "#a08be8";  /* 良し悪しを判定できない指標のため中立色 */
     var chl = d.ch!=null ? d.ch.toFixed(1)+"万円" : "－";
     var educ = "#a08be8";  /* 良し悪しを判定できない指標のため中立色 */
     var edul = d.edu!=null ? d.edu.toFixed(1)+"%" : "－";
     var fuc = (d.fu!=null && d.fk!=null) ? (d.fu > d.fk ? "#6dcfad" : (d.fk > d.fu ? "#f0876a" : "#a0a0a0")) : "#a0a0a0";
-    var eoc = d.eog!=null ? (d.eog>=0?"#6dcfad":d.eog>=-0.5?"#f0c46a":"#f0876a") : "#a0a0a0";
-    var eic = d.eig!=null ? (d.eig>=0?"#6dcfad":d.eig>=-0.5?"#f0c46a":"#f0876a") : "#a0a0a0";
+    var eoc = "#7a64d0", eic = "#7a64d0";  /* 歳出・歳入が増えた・減ったこと自体は良し悪しではないため中立色（2026-10-02） */
     var eol = d.eo ? fmtOku(d.eo) : "－";
     var eil = d.ei ? fmtOku(d.ei) : "－";
     var eogs = d.eog!=null ? (d.eog>=0?"+":"")+d.eog.toFixed(1)+"%" : "";
@@ -996,7 +1000,7 @@
         "<div class='stat' id='s1' role='button' tabindex='0' style='background:"+xc+"18;border-color:"+xc+"44;'><div class='si'>📊</div><div class='sl'>経常収支比率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>決まって出ていくお金の割合</div><div class='sv' style='color:"+xc+";'>"+d.x.toFixed(1)+"%</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s2' role='button' tabindex='0' style='background:"+uc+"18;border-color:"+uc+"44;'><div class='si'>🏦</div><div class='sl'>将来負担比率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>将来に残る負担の重さ</div><div class='sv' style='color:"+uc+";'>"+ul+"</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s3' role='button' tabindex='0' style='background:"+rc+"18;border-color:"+rc+"44;'><div class='si'>🐧</div><div class='sl'>財政調整基金</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>自治体の貯金</div><div class='sv' style='color:"+rc+";'>"+((d.sfs && d.sfs>0)?(d.r/d.sfs*100).toFixed(1)+"%":fmtOku(d.r))+"</div><div style='font-size:12px;color:#8a8a9a;margin-top:2px;'>("+fmtOku(d.r)+")</div><div class='su'>詳細を見る ▶</div></div>" +
-        "<div class='stat' id='s4' role='button' tabindex='0' style='background:"+gc+"18;border-color:"+gc+"44;'><div class='si'>👥</div><div class='sl'>人口増減率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>前年からの人口の増減</div><div class='sv' style='color:"+gc+";'>"+(d.g>=0?"+":"")+d.g.toFixed(1)+"%</div>"+gYearNoteHtml+"<div class='su'>詳細を見る ▶</div></div>" +
+        "<div class='stat' id='s4' role='button' tabindex='0' style='background:"+gc+"18;border-color:"+gc+"44;'><div class='si'>👥</div><div class='sl'>人口増減率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>前年からの人口の増減</div><div class='sv' style='color:"+gc+";'>"+(d.g>=0?"+":"")+d.g.toFixed(2)+"%</div>"+gYearNoteHtml+"<div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s5' role='button' tabindex='0' style='background:#7bb8e818;border-color:#7bb8e844;'><div class='si'>💹</div><div class='sl'>歳出／歳入</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>使ったお金／入ったお金</div><div class='sv' style='font-size:14px;line-height:1.7;'><span style='color:"+eoc+";display:block;'>💸 歳出 "+eol+" <small style='font-size:13px;'>"+eogs+"</small></span><span style='color:"+eic+";display:block;'>💰 歳入 "+eil+" <small style='font-size:13px;'>"+eigs+"</small></span></div></div>" +
         "<div class='stat' id='s6' role='button' tabindex='0' style='background:"+educ+"18;border-color:"+educ+"44;'><div class='si'>📚</div><div class='sl'>教育費比率</div><div style='font-size:12px;color:#7a7a90;line-height:1.35;margin-bottom:2px;'>歳出のうち教育に使った割合</div><div class='sv' style='color:"+educ+";'>"+edul+"</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s7' role='button' tabindex='0' style='background:"+chc+"18;border-color:"+chc+"44;'><div class='si'>👧</div><div class='sl'>子ども1人当たり投資額</div><div class='sv' style='color:"+chc+";'>"+chl+"</div><div class='su'>詳細を見る ▶</div></div>" +
@@ -1043,6 +1047,16 @@
     return Math.round(v).toLocaleString() + "万円";
   }
 
+  // 順位：自分より良い値の数＋1。同じ値なら同じ順位になる
+  // （2026-10-02：以前は並べた順の番号だったため、同じ値でも順位が違っていた。将来負担比率「－」の自治体どうしなど）
+  function tieRank(list, name, lowerBetter) {
+    var me = null, better = 0;
+    list.forEach(function(o){ if (o.k === name) me = o.v; });
+    if (me == null) return null;
+    list.forEach(function(o){ if (lowerBetter ? o.v < me : o.v > me) better++; });
+    return better + 1;
+  }
+
   var META_ONELINE = {
     fiscalPower: "自治体がどれだけ自前の税収でやりくりできているかを見る指標",
     debt: "自治体が借金返済にどれくらい財源を使っているかを見る指標",
@@ -1060,7 +1074,7 @@
     fiscalPower:{icon:"💪",label:"財政力指数",desc:"自治体の税収などで、国が計算した「標準的な行政に必要なお金」をどれだけまかなえるかを表す数字です（過去3年度の平均）。\n\n## 🧮 計算のしかた\n・基準財政収入額（税収などの見込み）÷ 基準財政需要額（標準的な行政に必要なお金）\n・足りない分は、地方交付税（国から配られるお金）で補われます\n\n## 📏 目安\n🟢 0.70以上 → 税収などでまかなえる割合が大きい\n🔵 0.45〜0.70 → 全国の中では標準的\n🟡 0.25〜0.45 → 地方交付税で補う割合が大きい\n🟠 0.25未満 → 地方交付税で補う割合が特に大きい\n・中央値：市区町村{MED:f:muni:2}／都道府県{MED:f:pref:2}\n・1.0以上は、おおむね普通交付税を受け取らない「不交付団体」にあたります（交付・不交付は各年度の値で決まるため、この平均と一致しないことがあります）\n・低いこと自体は、財政危機を意味しません。足りない分は地方交付税で補われる仕組みだからです\n・出典：総務省 主要財政指標一覧（{FY}）",unit:""},
     flex:{icon:"📊",label:"経常収支比率",desc:"毎年決まって入るお金（税や地方交付税など）のうち、毎年必ず出ていくお金（人件費・福祉の費用・借金の返済など）に使われた割合です。\n\n## 🛠️ 新しいことを始めるお金の出どころ\n・施設づくり → 借金（地方債）や国の補助金を使えます\n・災害からの復旧 → 借金を使えます\n・子育て支援など毎年かかるサービス → 原則、借金では払えません。毎年の収入でまかなう必要があります\n・急な出費 → 貯金（財政調整基金）を取り崩して対応できます\n\n## 📏 目安\n🟢 90%未満 → 全国の中では余裕があるほう\n🔵 90〜95% → 全国の中では標準的\n🟡 95〜98% → 新しいことに回せるお金が少ない\n🟠 98%以上 → 余力がほぼない\n・中央値：市区町村{MED:x:muni:1}%／都道府県{MED:x:pref:1}%\n・昭和44年（1969年）の自治省の資料では、「75%程度が妥当、80%を超えると財政の弾力性を失いつつある」とされていましたが、法律の基準ではありません。今は全国の6割以上が90%を超えています\n・出典：総務省 主要財政指標一覧（{FY}）、地方財政法 第5条",unit:"%"},
     future:{icon:"🏦",label:"将来負担比率",desc:"これから払う借金など（職員の退職金の見込みなども含む）が、毎年の収入（標準財政規模）の何%にあたるかを表す数字です。貯金など返済に充てられるお金は差し引いて計算します。\n\n## 📏 目安（市区町村）\n🟢 負担なし（「－」）\n🔵 60%未満\n🟡 60〜100%\n🟠 100%以上\n\n## 📏 目安（都道府県）\n🟢 100%未満\n🔵 100〜160%\n🟡 160〜250%\n🟠 250%以上\n・数字が小さいほど、将来払う借金が少ない状態です\n・「－」（実質ゼロ）は、返済に充てられるお金のほうが多い状態です\n・都道府県は高校・国道などを持つため、水準が高くなります（中央値{MED:u:pref:1}%）\n\n## 📜 国の基準\n・早期健全化の基準：市区町村350%以上、都道府県・政令市400%以上\n・出典：総務省 主要財政指標一覧（{FY}）、地方公共団体の財政の健全化に関する法律",unit:"%"},
-    reserve:{icon:"🐧",label:"財政調整基金残高",desc:"財政調整基金は、年度ごとの歳入不足や災害などの急な出費に備える貯金です。取り崩すと減るため、毎年の歳入不足を補い続けることはできません。\n\n## 🧮 比べ方\n・金額ではなく、標準財政規模（使い道を決められるお金の標準的な総額）に対する割合で比べます\n\n## 📏 目安（市区町村・中央値{MED:rr:muni:1}%）\n🟢 20%以上\n🔵 10〜20%（一般に適正とされる範囲）\n🟡 5〜10%\n🟠 5%未満\n\n## 📏 目安（都道府県・中央値{MED:rr:pref:1}%）\n🟢 10%以上\n🔵 5〜10%\n🟡 2.5〜5%\n🟠 2.5%未満\n・法律の基準はありません。総務省の平成29年の調査では、都道府県で5%以下、市町村で5〜20%とする団体が多い結果でした\n・多いほど良いとは限りません。積立の元は住民が納めた税金です\n・出典：総務省 基金残高等一覧（{FY}）",unit:"億円"},
+    reserve:{icon:"🐧",label:"財政調整基金残高",desc:"財政調整基金は、年度ごとの歳入不足や災害などの急な出費に備える貯金です。取り崩すと減るため、毎年の歳入不足を補い続けることはできません。\n\n## 🧮 比べ方\n・金額ではなく、標準財政規模（使い道を決められるお金の標準的な総額）に対する割合で比べます\n\n## 📏 目安（市区町村・中央値{MED:rr:muni:1}%）\n🟢 20%以上\n🔵 10〜20%\n🟡 5〜10%\n🟠 5%未満\n\n## 📏 目安（都道府県・中央値{MED:rr:pref:1}%）\n🟢 10%以上\n🔵 5〜10%\n🟡 2.5〜5%\n🟠 2.5%未満\n・法律の基準はありません。総務省の平成29年の調査では、都道府県で5%以下、市町村で5〜20%とする団体が多い結果でした\n・多いほど良いとは限りません。積立の元は住民が納めた税金です\n・出典：総務省 基金残高等一覧（{FY}）",unit:"億円"},
     growth:{icon:"👥",label:"人口増減率",desc:"住民基本台帳の人口が、前の年の1月1日から何%増えたか・減ったかを表す数字です。\n\n## 🧮 増減の内訳\n・自然増減（生まれた人と亡くなった人の差）\n・社会増減（転入と転出の差など）\n\n## 📏 目安\n🟢 増加（＋0.1%以上）\n🔵 ほぼ横ばい（±0.1%未満）\n🟡 減少（−0.5%まで）\n🟠 −0.5%を超える減少\n・人口が少ない自治体は、少しの転入・転出でも率が大きく動きます\n・出典：総務省 住民基本台帳に基づく人口、人口動態及び世帯数（{PY}）",unit:"%"},
     budget:{icon:"💹",label:"歳出／歳入",desc:"自治体が1年間に受け取ったお金（歳入）と、使ったお金（歳出）の、決算の合計額です。\n\n## 💰 歳入に含まれるもの\n・地方税（住民税・固定資産税など、自治体の税収）\n・地方交付税（国から配られるお金。使い道は自由）\n・国庫支出金・都道府県支出金（国や県からの補助金など。使い道が決まっている）\n・地方債（借金）\n・繰入金（基金からの取り崩しなど）\n・繰越金（前年度から繰り越したお金）\n・使用料・手数料、寄附金（ふるさと納税など）\n\n## 💸 歳出に含まれるもの\n・民生費（福祉・子育て）\n・総務費（役所の運営・戸籍など）\n・教育費（学校・給食・図書館など）\n・土木費（道路・公園・下水道など）\n・衛生費（ごみ処理・保健など）\n・公債費（借金の返済）\n・消防費、農林水産業費、商工費、災害復旧費 など\n\n## 📏 目安\n・歳入には借金（地方債）と前年度からの繰越金も入るため、ほぼすべての自治体で歳入が歳出を上回ります\n・→ 歳入が多いことは、財政に余裕がある証拠にはなりません\n・歳出が歳入を上回るのは珍しく、不足分は翌年度の収入を前倒しして埋めることになっています（繰上充用）\n・財政の余裕は、経常収支比率と財政調整基金で見ます\n・出典：総務省 決算状況調（{FY}）",unit:"億円"},
     education:{icon:"📚",label:"教育費比率",desc:"歳出のうち、教育に使ったお金の割合です。\n\n## 🧮 教育費に含まれるもの\n・小学校費・中学校費、学校給食費、社会教育費（公民館・図書館など）、教育総務費 など\n\n## 📏 目安\n・中央値：市区町村{MED:edu:muni:1}%／都道府県{MED:edu:pref:1}%\n・都道府県は高校・特別支援学校を持つため、高くなります\n・この数字には良し悪しがないため、色分けしていません\n・出典：総務省 決算状況調（{FY}）",unit:"%"},
@@ -1105,7 +1119,7 @@
     if (key === "fiscalStatus") {
       document.getElementById("shTitle").textContent = m.icon+" "+m.label;
       document.getElementById("shTop").innerHTML = "";
-      document.getElementById("shDesc").innerHTML = m.htmlDesc ? fiscalStatusLists(fillYears(m.htmlDesc)) : chipifyHeaders(fillYears(m.desc)).replace(/\n/g,"<br>");
+      document.getElementById("shDesc").innerHTML = fiscalStatusLists(fillYears(m.htmlDesc));
       document.getElementById("spSvg").innerHTML = "";
       document.getElementById("spSvg").style.height = "0px";
       document.getElementById("spLabels").innerHTML = "";
@@ -1124,26 +1138,15 @@
       document.getElementById("shTitle").textContent = m.icon+" "+m.label;
       var isPrefViewF = cur && curName === cur.p;
 
-      var medalFor = function(rank, isNational) {
-        if (rank === 1) return "🥇";
-        if (rank === 2) return "🥈";
-        if (rank === 3) return "🥉";
-        if (isNational && rank <= 10) return "🎖️";
-        return "";
-      };
-
       var rankHtmlF = "";
       if (DB && cur) {
         if (isPrefViewF) {
           var prefListF = [];
           Object.keys(DB).forEach(function(k){ var e=DB[k]; if (k===e.p && e.fu!=null) prefListF.push({k:k,v:e.fu}); });
-          prefListF.sort(function(a,b){ return b.v-a.v; });
-          var myRankPF = null;
-          for (var pfi2=0; pfi2<prefListF.length; pfi2++){ if (prefListF[pfi2].k===curName){ myRankPF=pfi2+1; break; } }
+          var myRankPF = tieRank(prefListF, curName, false);
           if (myRankPF) {
-            var medalPF = medalFor(myRankPF, true);
             rankHtmlF = "<div style='display:flex;width:fit-content;align-items:center;gap:6px;background:#6dcfad18;border:1.5px solid #6dcfad44;border-radius:12px;padding:6px 14px;margin:6px 0 18px;font-size:14px;font-weight:700;color:#2a8a6a;'>" +
-              (medalPF?medalPF+" ":"") + "全国 <span style='font-size:17px;'>" + myRankPF + "位</span>/" + prefListF.length + "都道府県中</div>";
+              mmMedalFor(myRankPF, true) + "全国 <span style='font-size:17px;'>" + myRankPF + "位</span>/" + prefListF.length + "都道府県中</div>";
           }
         } else {
           var natListF = [], prefListF2 = [];
@@ -1155,19 +1158,13 @@
             natListF.push({k:k, v:e.fu});
             if (e.p === cur.p) prefListF2.push({k:k, v:e.fu});
           });
-          natListF.sort(function(a,b){ return b.v-a.v; });
-          prefListF2.sort(function(a,b){ return b.v-a.v; });
-          var myRankNF=null, myRankPrefF=null;
-          for (var ni2=0; ni2<natListF.length; ni2++){ if (natListF[ni2].k===curName){ myRankNF=ni2+1; break; } }
-          for (var pfi3=0; pfi3<prefListF2.length; pfi3++){ if (prefListF2[pfi3].k===curName){ myRankPrefF=pfi3+1; break; } }
+          var myRankNF = tieRank(natListF, curName, false), myRankPrefF = tieRank(prefListF2, curName, false);
           var linesF = "";
           if (myRankNF) {
-            var medalNF = medalFor(myRankNF, true);
-            linesF += "<div style='display:flex;width:fit-content;align-items:center;gap:6px;background:#6dcfad18;border:1.5px solid #6dcfad44;border-radius:12px;padding:6px 14px;margin:0 0 6px;font-size:14px;font-weight:700;color:#2a8a6a;'>" + (medalNF?medalNF+" ":"") + "全国 <span style='font-size:17px;'>" + myRankNF + "位</span>/" + natListF.length + "自治体中</div>";
+            linesF += "<div style='display:flex;width:fit-content;align-items:center;gap:6px;background:#6dcfad18;border:1.5px solid #6dcfad44;border-radius:12px;padding:6px 14px;margin:0 0 6px;font-size:14px;font-weight:700;color:#2a8a6a;'>" + mmMedalFor(myRankNF, true) + "全国 <span style='font-size:17px;'>" + myRankNF + "位</span>/" + natListF.length + "自治体中</div>";
           }
           if (myRankPrefF) {
-            var medalPF2 = medalFor(myRankPrefF, false);
-            linesF += "<div style='display:flex;width:fit-content;align-items:center;gap:6px;background:#6dcfad18;border:1.5px solid #6dcfad44;border-radius:12px;padding:6px 14px;margin:0;font-size:14px;font-weight:700;color:#2a8a6a;'>" + (medalPF2?medalPF2+" ":"") + cur.p + "内 <span style='font-size:17px;'>" + myRankPrefF + "位</span>/" + prefListF2.length + "自治体中</div>";
+            linesF += "<div style='display:flex;width:fit-content;align-items:center;gap:6px;background:#6dcfad18;border:1.5px solid #6dcfad44;border-radius:12px;padding:6px 14px;margin:0;font-size:14px;font-weight:700;color:#2a8a6a;'>" + mmMedalFor(myRankPrefF, false) + cur.p + "内 <span style='font-size:17px;'>" + myRankPrefF + "位</span>/" + prefListF2.length + "自治体中</div>";
           }
           rankHtmlF = linesF ? (linesF + "<div style='margin-bottom:10px;'></div>") : "";
         }
@@ -1180,6 +1177,8 @@
       var noFuruData = !(fu > 0) && !(fk > 0);
       var diff = fu - fk;
       var mainColor = diff > 0 ? "#2a8a6a" : (diff < 0 ? "#c04030" : "#5a5a7a");
+      // 「黒字・赤字」は当アプリ独自の言い方（受入額 − 住民税控除額）。総務省「ふるさと納税に関する現況調査」は
+      // 2つを別々に公表していて、この言い方はしていない。説明文にも独自の言い方であることを書く（2026-10-02）
       var mainTerm = diff > 0 ? "黒字" : (diff < 0 ? "赤字" : "均衡");
       var relText;
       if (noFuruData) relText = "";
@@ -1228,11 +1227,16 @@
           topSummaryHtmlF += "<div style='font-size:15px;color:#5a5a70;margin-top:8px;line-height:1.7;'>📉 "+yrLabelsShortF[0]+"年度から下がってきており、直近の"+yrLabelsShortF[lastIdxF]+"年度はおよそ"+(1/ratioF).toFixed(1)+"分の1の"+fmtManOku(fuH[lastIdxF])+"です</div>";
         } else if (volatileFu) {
           topSummaryHtmlF += "<div style='font-size:15px;color:#5a5a70;margin-top:8px;line-height:1.7;'>📊 受入額は年によって変動が大きく、"+yrLabelsShortF[peakIdxF]+"年度が最も多い"+fmtManOku(maxFu)+"でした"+covidNoteF+"</div>";
+        } else if (ratioF >= 1.15) {
+          // 2026-10-02：以前は1.5倍未満の増加（例：1.4倍）も「横ばい」と書いていた
+          topSummaryHtmlF += "<div style='font-size:15px;color:#5a5a70;margin-top:8px;line-height:1.7;'>📈 "+yrLabelsShortF[0]+"年度から増えており、直近の"+yrLabelsShortF[lastIdxF]+"年度はおよそ"+ratioF.toFixed(1)+"倍の"+fmtManOku(fuH[lastIdxF])+"です</div>";
+        } else if (ratioF <= 0.87) {
+          topSummaryHtmlF += "<div style='font-size:15px;color:#5a5a70;margin-top:8px;line-height:1.7;'>📉 "+yrLabelsShortF[0]+"年度から下がってきており、直近の"+yrLabelsShortF[lastIdxF]+"年度はおよそ"+Math.round((1-ratioF)*10)+"割減の"+fmtManOku(fuH[lastIdxF])+"です</div>";
         } else {
-          topSummaryHtmlF += "<div style='font-size:15px;color:#5a5a70;margin-top:8px;line-height:1.7;'>➡️ 受入額はこの8年で大きな変化はなく、横ばい傾向です</div>";
+          topSummaryHtmlF += "<div style='font-size:15px;color:#5a5a70;margin-top:8px;line-height:1.7;'>➡️ 受入額はこの"+fuH.length+"年で大きな変化はなく、横ばい傾向です</div>";
         }
       }
-      topSummaryHtmlF += "<div style='font-size:14px;color:#9090a8;margin-top:8px;'>※受入額は返礼品等の経費を引く前の総額です</div>";
+      topSummaryHtmlF += "<div style='font-size:14px;color:#7a7a90;margin-top:8px;line-height:1.6;'>※「黒字・赤字」は、受入額から住民税控除額を引いた、当アプリ独自の見方です<br>※受入額は、返礼品などの費用を引く前の金額です<br>※住民税控除額による減収は、地方交付税を受け取っている自治体では、その75%が地方交付税で補われる仕組みです</div>";
       topSummaryHtmlF += "</div>";
 
       // (shTopの設定はグラフ構築後にまとめて行う)
@@ -1256,7 +1260,7 @@
         var areaStr = "M"+lineStr+" L"+pts[n-1][0].toFixed(1)+","+(Hm-2)+" L"+pts[0][0].toFixed(1)+","+(Hm-2)+" Z";
 
         // 最新値のピル位置を先に計算（重なり判定に使うため）
-        var lastX = pts[n-1][0], lastY = pts[n-1][1];
+        var lastX = pts[n-1][0];
         var lastLabel = fmtFuruShort(arr[n-1])+"円";
         var boxW = 18 + lastLabel.length*8;
         var boxX = Math.min(Math.max(lastX-boxW/2, 2), Wm-boxW-2);
@@ -1367,7 +1371,11 @@
         "全国の人がこの自治体に寄附した金額の合計（＝この自治体の収入）。返礼品や経費を引く前の総額です。<br><br>" +
         "<span style='display:inline-block;background:#f0876a18;color:#c05a30;border-radius:8px;padding:2px 8px;font-weight:700;font-size:15px;'>💸 住民税控除額</span><br>" +
         "逆に、この自治体に住む人が「他の自治体」に寄附したことで、この自治体に入るはずだった住民税が差し引かれた金額（＝この自治体にとっての減収）。<br><br>" +
-        "<strong>受入額 − 住民税控除額</strong> がプラスなら「黒字」、マイナスなら「赤字」と見ることができます。" +
+        "総務省は、この2つを別々に公表しています。当アプリでは、<strong>受入額 − 住民税控除額</strong> がプラスなら「黒字」、マイナスなら「赤字」と呼んでいます（当アプリ独自の言い方です）。<br><br>" +
+        "・受入額からは、返礼品の調達・送付や広報などの費用がかかります<br>" +
+        "・住民税控除額による減収は、地方交付税を受け取っている自治体では、その75%が地方交付税で補われる仕組みです（受け取っていない不交付団体は補われません）<br>" +
+        "・受け入れた寄附金は、地方交付税の計算では収入に数えられません<br>" +
+        "・出典：参議院事務局「立法と調査」No.371（2015年12月）" +
         "</div>" +
         "<div style='font-size:14px;color:#7a7a9a;margin-top:10px;text-align:right;'>📋 総務省「ふるさと納税に関する現況調査」| <a href='https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/080430_2_kojin.html' target='_blank'>総務省公式</a></div>";
 
@@ -1380,7 +1388,7 @@
     // 数値ではなく「－」で公表されており、取り込み時にnullになっている。これは欠測ではなく
     // 実質0%（負担なし）を意味するため、以後この値を扱う箇所ではnullを0として扱う。
     var val = key==="health"?calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs):key==="fiscalPower"?cur.f:key==="debt"?cur.d:key==="flex"?cur.x:key==="future"?(cur.u==null?0:cur.u):key==="reserve"?cur.r:key==="budget"?(cur.eo||0):key==="education"?(cur.edu||0):key==="childInvest"?(cur.ch||0):cur.g;
-    var seed = (Math.abs(val*137) + key.charCodeAt(0)*31) % 100;
+    var isPrefView = curName === cur.p;
     // 履歴キーの「_r」の後ろの数字は令和の年（年度）そのもの（pop_r1＝令和元年）。データは毎年
     // 追加していき、件数は全部数える（MAX_HIST）。グラフには直近の8点（履歴7＋最新1）だけを表示する（SHOW_HIST）。
     // ラベルは「R」＋キーの数字から作るので、年が増えてもラベルと値がずれない（2026-09-29）。
@@ -1419,8 +1427,13 @@
         if (key==="flex") return cur["x"+suffix];
         if (key==="future") { var uHistV = cur["u"+suffix]; return uHistV==null ? 0 : uHistV; }
         if (key==="health") {
-          var f=cur["f"+suffix], d=cur["d"+suffix], x=cur["x"+suffix];
-          return (f!=null&&d!=null&&x!=null)?calcH(f,d,x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs):null;
+          // その年度の5指標で計算する（2026-10-02：以前は将来負担比率と基金残高だけ最新の値を使っていて、
+          // 過去の点数がその年度の実際の指標と合っていなかった）。
+          // 標準財政規模は、過去の年度の値を持っていないため、いちばん近い年度の値を使う
+          // （sfs_r1＝最新の1年前の年度。それより前の年度は sfs_r1、無ければ最新の値）。グラフの注記にも書く
+          var f=cur["f"+suffix], d=cur["d"+suffix], x=cur["x"+suffix], rH=cur["r"+suffix];
+          var sfsH = cur.sfs_r1 != null ? cur.sfs_r1 : cur.sfs;
+          return (f!=null&&d!=null&&x!=null&&rH!=null)?calcH(f,d,x,cur["u"+suffix],rH,null,cur.__pref,sfsH):null;
         }
         return null;
       };
@@ -1446,10 +1459,9 @@
         vals.push(v3!=null ? parseFloat(parseFloat(v3).toFixed(decimals)) : null);
       }
       vals.push(gMain!=null ? parseFloat(gMain.toFixed(decimals)) : null);
-      var growthYrLabels = [];
-      for (var gy2=growthFrom; gy2<growthStartIdx+N2; gy2++) growthYrLabels.push("R"+gy2);
-      growthYrLabels.push("R"+(N2+growthStartIdx));
-      yrs = growthYrLabels.slice(0, growthYrLabels.length-1).concat(["R"+(N2+growthStartIdx)+"（最新）"]);
+      yrs = [];
+      for (var gy2=growthFrom; gy2<growthStartIdx+N2; gy2++) yrs.push("R"+gy2);
+      yrs.push("R"+(N2+growthStartIdx)+"（最新）");
     } else {
       // 過去の実績データが1件も無い場合：以前はサインカーブで「それっぽい」架空の推移を
       // 描いていたが、実データではないので誤解を招く。架空データは作らず、
@@ -1458,28 +1470,24 @@
     }
     var noRealHistory = (!hasHistory && !hasGrowthHistory);
     var reserveRatio = (cur && cur.sfs && cur.sfs > 0) ? (cur.r / cur.sfs * 100) : null;
-    var budgetColor = (cur && cur.eo!=null && cur.ei!=null) ? (cur.ei>=cur.eo?"#6dcfad":cur.ei>=cur.eo*0.99?"#7bb8e8":"#f0876a") : "#7bb8e8";
-    // 各色分けは「詳細画面の一言」(descHtml)の判定ロジックと基準を統一しています
+    // グラフの色は、トップ画面のカードと同じ関数で決める（2026-10-02：以前はここだけ古い基準が残っていて、
+    // カードは青なのにグラフは黄色、のように色が食い違っていた。都道府県の基金の色も市区町村の基準になっていた）
     var cmap = {
-      health: val>=85?"#6dcfad":val>=70?"#7bb8e8":val>=50?"#f0c46a":val>=30?"#f0876a":"#d0505a",
-      debt: val<10?"#6dcfad":val<18?"#7bb8e8":val<25?"#f0c46a":"#f0876a",
-      fiscalPower: val>=1.0?"#6dcfad":val>=0.7?"#7bb8e8":val>=0.5?"#f0c46a":"#f0876a",
-      flex: val<88?"#6dcfad":val<95?"#7bb8e8":"#f0876a",
-      future: val<=0?"#6dcfad":val<100?"#7bb8e8":val<uLimitOf(cur, isPrefView)?"#f0876a":"#d0505a",
+      health: HEALTH_LABELS[healthState(val)][1],
+      debt: colorD(val),
+      fiscalPower: colorF(val),
+      flex: colorX(val),
+      future: val >= uLimitOf(cur, isPrefView) ? "#d0505a" : colorU(val, isPrefView),
       reserve: colorR(reserveRatio, isPrefView),
-      growth: val>=0?"#6dcfad":val>=-0.5?"#f0c46a":"#f0876a",
-      budget: budgetColor,
-      education: "#a08be8",
-      childInvest: "#a08be8"
+      growth: colorG(val)
     };
-    var c = cmap[key]||"#a08be8";
+    var c = cmap[key]||"#a08be8";   // 教育費比率・子ども投資額・歳出／歳入は、良し悪しを判定しないので中立色
     // グラフの線色は薄い色（黄・水色など）だと数値の文字が読みにくいため、文字専用に濃い色を用意する（TEXT_COLOR_MAPは共通定義）
     var cText = TEXT_COLOR_MAP[c] || c;
     document.getElementById("shTitle").innerHTML = escapeHtml(m.icon+" "+m.label) + (META_ONELINE[key] ? "<div style='font-size:15px;font-weight:400;color:#222;margin-top:4px;'>"+escapeHtml(META_ONELINE[key])+"</div>" : "");
     // ランキング（自治体は同一都道府県内、都道府県は全国47都道府県内）
     var rankHtml = "";
     var rankableKeys = {fiscalPower:1,debt:1,flex:1,future:1,reserve:1,health:1};
-    var isPrefView = cur && curName === cur.p;
     if (rankableKeys[key] && cur && DB) {
       var lowerBetter = (key==="debt"||key==="flex"||key==="future");
       var getRankVal = function(e){
@@ -1504,23 +1512,13 @@
         if (v2==null || isNaN(v2)) return;
         list.push({k:k2, v:v2});
       });
-      var medalForGen = function(rank, isNational) {
-        if (rank === 1) return "🥇";
-        if (rank === 2) return "🥈";
-        if (rank === 3) return "🥉";
-        if (isNational && rank <= 10) return "🎖️";
-        return "";
-      };
       if (isPrefView) {
         if (list.length) {
-          list.sort(function(a,b){ return lowerBetter ? a.v-b.v : b.v-a.v; });
-          var myRank = null;
-          for (var ri=0; ri<list.length; ri++){ if (list[ri].k===curName){ myRank=ri+1; break; } }
+          var myRank = tieRank(list, curName, lowerBetter);
           if (myRank) {
             var pct = myRank / list.length;
             var rankColor = pct<=0.2 ? "#6dcfad" : pct<=0.5 ? "#7bb8e8" : pct<=0.8 ? "#f0c46a" : "#f0876a";
-            var medalG = medalForGen(myRank, true);
-            rankHtml = "<div style='display:flex;width:fit-content;align-items:center;gap:6px;background:"+rankColor+"18;border:1.5px solid "+rankColor+"44;border-radius:12px;padding:6px 14px;margin:6px 0 18px;font-size:14px;font-weight:700;color:"+rankColor+";'>"+(medalG?medalG+" ":"")+"全国 <span style='font-size:17px;'>"+myRank+"位</span>/"+list.length+"都道府県中</div>";
+            rankHtml = "<div style='display:flex;width:fit-content;align-items:center;gap:6px;background:"+rankColor+"18;border:1.5px solid "+rankColor+"44;border-radius:12px;padding:6px 14px;margin:6px 0 18px;font-size:14px;font-weight:700;color:"+rankColor+";'>"+mmMedalFor(myRank, true)+"全国 <span style='font-size:17px;'>"+myRank+"位</span>/"+list.length+"都道府県中</div>";
           }
         }
       } else {
@@ -1532,36 +1530,38 @@
           if (v3==null || isNaN(v3)) return;
           natListG.push({k:k3, v:v3});
         });
-        natListG.sort(function(a,b){ return lowerBetter ? a.v-b.v : b.v-a.v; });
-        if (list.length) list.sort(function(a,b){ return lowerBetter ? a.v-b.v : b.v-a.v; });
-        var myRankN=null, myRankP=null;
-        for (var ni=0; ni<natListG.length; ni++){ if (natListG[ni].k===curName){ myRankN=ni+1; break; } }
-        for (var pi2=0; pi2<list.length; pi2++){ if (list[pi2].k===curName){ myRankP=pi2+1; break; } }
+        var myRankN = tieRank(natListG, curName, lowerBetter), myRankP = tieRank(list, curName, lowerBetter);
         var linesG = "";
         if (myRankN) {
           var pctN = myRankN/natListG.length;
           var colorN = pctN<=0.2 ? "#6dcfad" : pctN<=0.5 ? "#7bb8e8" : pctN<=0.8 ? "#f0c46a" : "#f0876a";
-          var medalGN = medalForGen(myRankN, true);
-          linesG += "<div style='display:flex;width:fit-content;align-items:center;gap:6px;background:"+colorN+"18;border:1.5px solid "+colorN+"44;border-radius:12px;padding:6px 14px;margin:0 0 6px;font-size:14px;font-weight:700;color:"+colorN+";'>"+(medalGN?medalGN+" ":"")+"全国 <span style='font-size:17px;'>"+myRankN+"位</span>/"+natListG.length+"自治体中</div>";
+          linesG += "<div style='display:flex;width:fit-content;align-items:center;gap:6px;background:"+colorN+"18;border:1.5px solid "+colorN+"44;border-radius:12px;padding:6px 14px;margin:0 0 6px;font-size:14px;font-weight:700;color:"+colorN+";'>"+mmMedalFor(myRankN, true)+"全国 <span style='font-size:17px;'>"+myRankN+"位</span>/"+natListG.length+"自治体中</div>";
         }
         if (myRankP) {
           var pctP = myRankP/list.length;
           var colorP = pctP<=0.2 ? "#6dcfad" : pctP<=0.5 ? "#7bb8e8" : pctP<=0.8 ? "#f0c46a" : "#f0876a";
-          var medalGP = medalForGen(myRankP, false);
-          linesG += "<div style='display:flex;width:fit-content;align-items:center;gap:6px;background:"+colorP+"18;border:1.5px solid "+colorP+"44;border-radius:12px;padding:6px 14px;margin:0;font-size:14px;font-weight:700;color:"+colorP+";'>"+(medalGP?medalGP+" ":"")+cur.p+"内 <span style='font-size:17px;'>"+myRankP+"位</span>/"+list.length+"自治体中</div>";
+          linesG += "<div style='display:flex;width:fit-content;align-items:center;gap:6px;background:"+colorP+"18;border:1.5px solid "+colorP+"44;border-radius:12px;padding:6px 14px;margin:0;font-size:14px;font-weight:700;color:"+colorP+";'>"+mmMedalFor(myRankP, false)+cur.p+"内 <span style='font-size:17px;'>"+myRankP+"位</span>/"+list.length+"自治体中</div>";
         }
         rankHtml = linesG ? (linesG + "<div style='margin-bottom:10px;'></div>") : "";
       }
     }
 
+    // 将来負担比率が「－」（実質ゼロ）の団体は全部が同じ値なので、順位ではなく団体数を出す（2026-10-02）
+    if (key === "future" && (cur.u == null || cur.u <= 0)) {
+      var uZeroN = Object.keys(DB).filter(function(k){ var e = DB[k]; return (k === e.p) === isPrefView && (e.u == null || e.u <= 0); }).length;
+      rankHtml = "<div style='display:flex;width:fit-content;align-items:center;gap:6px;background:#6dcfad18;border:1.5px solid #6dcfad44;border-radius:12px;padding:6px 14px;margin:6px 0 18px;font-size:14px;font-weight:700;color:#2a8a6a;'>将来負担なし（全国で" + uZeroN.toLocaleString() + (isPrefView ? "都道府県" : "団体") + "）</div>";
+    }
     // 総合健全度スコアが近い自治体（自治体は同一都道府県内、都道府県は全国）
     var peersHtml = "";
     var curTypeLabel = "";
     if (key === "health" && cur && DB) {
       var myScore = calcH(cur.f,cur.d,cur.x,cur.u,cur.r,cur.eo,cur.__pref,cur.sfs);
       var peerType = function(e){
-        var fLv = e.f>=1.0 ? "財政力高め" : e.f>=0.6 ? "財政力標準" : "財政力低め";
-        var uLv = (e.u==null||e.u<=0) ? "借金なし" : e.u<100 ? "借金少なめ" : "借金重め";
+        // 財政力指数は説明文の目安（0.70以上／0.45以上／それ未満）、将来負担比率は「－」（実質ゼロ）／軽め／重め
+        // （2026-10-02：以前は別の区切り（1.0・0.6）で、カードが「標準的」の自治体に「財政力低め」と出ていた。
+        //   また将来負担比率「－」を「借金なし」と書いていたが、借金がないという意味ではない）
+        var fLv = e.f>=0.70 ? "財政力高め" : e.f>=0.45 ? "財政力標準" : "財政力低め";
+        var uLv = (e.u==null||e.u<=0) ? "将来負担なし" : futureBurdenHigh(e.u, !!e.__pref) ? "将来負担重め" : "将来負担軽め";
         return fLv+"・"+uLv;
       };
       var peerList = [];
@@ -1604,52 +1604,11 @@
       curTypeLabel = "<strong style='color:#6a3de8;'>"+myNum+"</strong> "+myType;
     }
 
-    var PREF_MUNI_REASONS = {
-      fiscalPower: {prefHigh:null, prefLow:null, muniHigh:"発電所など特定の大規模施設の立地に税収が大きく左右されやすい", muniLow:null},
-      debt: {prefHigh:"道路・河川・港湾など広域インフラ整備の借入負担が中心", prefLow:null, muniHigh:"学校・ごみ処理施設・上下水道など、住民に身近な施設整備の借入が中心", muniLow:"施設更新を計画的に平準化している自治体は、数値が安定しやすい"},
-      flex: {prefHigh:"公立小中学校教員給与の都道府県負担分が、人件費の割合を押し上げやすい", prefLow:null, muniHigh:"保育・介護・生活保護など、住民向けの扶助費の割合が大きい", muniLow:"高齢化率が低く扶助費の負担が軽い自治体は、数値が改善しやすい"},
-      future: {prefHigh:"道路や病院など大きな工事を担当することが多く、負担が積み上がりやすい", prefLow:null, muniHigh:"学校・公民館など身近な施設の建替えが中心で、人口規模が小さいと影響が出やすい", muniLow:"施設の統廃合・更新の平準化が進む自治体は、比較的低く抑えられる"},
-      reserve: {prefHigh:"予算規模が大きい分、基金の絶対額も大きくなりやすい", prefLow:"大型事業に基金を計画的に充当してきた都道府県は、残高が少なめになりやすい", muniHigh:"人口規模が小さい自治体ほど、標準財政規模に対する基金の比率が高く出やすい", muniLow:null},
-      growth: {prefHigh:"都市部への人口集中が起きやすい", prefLow:"多くの市区町村の減少傾向が積み重なり、県全体でも緩やかな減少になりやすい", muniHigh:null, muniLow:"人口が少ない自治体ほど、少数の転出だけでも減少率が大きく振れやすい"},
-      education: {prefHigh:"公立高校・特別支援学校の運営費や教員人件費（都道府県負担分）が中心", prefLow:"高校再編や広域連携が進んだ都道府県は、比較的抑えられやすい", muniHigh:"小中学校では単年度の校舎建設で数値が大きく変動しやすい", muniLow:"学校施設の更新を先送りしている自治体は、数値が低く出やすい"},
-      childInvest: {prefHigh:"高校・特別支援学校など、より広域的な教育インフラのコストが反映される", prefLow:"広域的な教育インフラの整備が一巡した都道府県は、数値が落ち着きやすい", muniHigh:"保育所・児童館など、より身近な子育て支援サービスのコストが中心", muniLow:null}
-    };
-    var PREF_MUNI_SIMPLE = {
-      // 2026-10-01：歳出の中身は「歳出・歳入とは？」と 🔍 の内訳で、データから示すため、ここの一般論は出さない
-    };
-    var pmrTagHtml = function(){
-      return isPrefView ? "<span style='background:#f0876a18;color:#f0876a;border:1px solid #f0876a44;border-radius:8px;padding:2px 8px;font-size:14px;font-weight:700;'>都道府県</span>" : "<span style='background:#7bb8e818;color:#7bb8e8;border:1px solid #7bb8e844;border-radius:8px;padding:2px 8px;font-size:14px;font-weight:700;'>市区町村</span>";
-    };
     var descSrc = fillYears(m.desc);
-    if (PREF_MUNI_REASONS[key] && cur) {
-      var pmr = PREF_MUNI_REASONS[key];
-      var highText = isPrefView ? pmr.prefHigh : pmr.muniHigh;
-      var lowText = isPrefView ? pmr.prefLow : pmr.muniLow;
-      var tag = pmrTagHtml();
-      var highIdx = descSrc.indexOf("📈");
-      var lowIdx = descSrc.indexOf("📉");
-      if (highIdx >= 0 && lowIdx >= 0 && (highText || lowText)) {
-        var firstIdx = Math.min(highIdx, lowIdx);
-        var secondIdx = Math.max(highIdx, lowIdx);
-        var beforeFirst = descSrc.slice(0, firstIdx);
-        var firstSection = descSrc.slice(firstIdx, secondIdx);
-        var secondSection = descSrc.slice(secondIdx);
-        var firstText = firstIdx === highIdx ? highText : lowText;
-        var secondText = secondIdx === highIdx ? highText : lowText;
-        if (firstText) firstSection = firstSection.replace(/など。/, tag+" "+firstText+"\nなど。");
-        if (secondText) secondSection = secondSection.replace(/など。/, tag+" "+secondText+"\nなど。");
-        descSrc = beforeFirst + firstSection + secondSection;
-      }
-    }
+    // 「目安」の見出しを目立たせる（「## 見出し」形式でない説明文＝総合スコア用）
     function chipifyHeaders(text) {
       text = text.replace(/目安[^\n]*/g, function(m){
         return "<span style='display:inline-block;background:#8b7ae818;color:#6b5b95;border:1px solid #8b7ae844;border-radius:14px;padding:3px 11px;font-size:14px;font-weight:700;'>"+m+"</span>";
-      });
-      text = text.replace(/📈[^\n]*/g, function(m){
-        return "<span style='display:inline-block;background:#f0876a18;color:#d9784f;border:1px solid #f0876a44;border-radius:14px;padding:3px 11px;font-size:14px;font-weight:700;'>"+m+"</span>";
-      });
-      text = text.replace(/📉[^\n]*/g, function(m){
-        return "<span style='display:inline-block;background:#5b9bd518;color:#4a86c8;border:1px solid #5b9bd544;border-radius:14px;padding:3px 11px;font-size:14px;font-weight:700;'>"+m+"</span>";
       });
       return text;
     }
@@ -1660,54 +1619,30 @@
         if (line === "") return "<div style='height:10px;'></div>";
         if (line.indexOf("## ") === 0) return "<div style='font-size:16px;font-weight:700;color:#3a2a6e;margin:6px 0 4px;'>" + line.slice(3) + "</div>";
         if (line.charAt(0) === "・") return "<div style='font-size:15px;color:#5a5a70;line-height:1.7;padding-left:1em;text-indent:-1em;'>" + line + "</div>";
-        if (/^(🟢|🔵|🟡|🟠)/.test(line)) return "<div style='font-size:16px;color:#2a2a3a;line-height:1.8;'>" + line + "</div>";
         return "<div style='font-size:16px;color:#2a2a3a;line-height:1.8;'>" + line + "</div>";
       }).join("");
     }
     var descHtml = descSrc.indexOf("\n## ") >= 0 ? renderDescMarkup(descSrc) : chipifyHeaders(descSrc).replace(/\n/g,"<br>");
-    if (PREF_MUNI_SIMPLE[key] && cur) {
-      var pms = PREF_MUNI_SIMPLE[key];
-      var pmsText = isPrefView ? pms.pref : pms.muni;
-      descHtml += "<br>"+pmrTagHtml()+" "+pmsText;
-    }
+    // 「🏠 ◯◯の状況」＋みっちーチェック＋グラフの置き場所＋「🔍 内訳から分かること」をまとめた枠
+    var sitBoxHtml = function(color) {
+      var sit = situationHtml(key, cur, isPrefView, curName);
+      var body = sit + (sit ? mitchieHitokoto(key, curName, isPrefView) + HK_CHART_SLOT : "") + breakdownHtml(key, cur, isPrefView, curName);
+      return body ? "<div style='background:"+color+"14;border:1px solid "+color+"55;border-radius:12px;padding:12px 14px;'>" + body + "</div>" : "";
+    };
     if (key === "reserve" && cur && cur.sfs && cur.sfs > 0) {
       var ratio = cur.r / cur.sfs * 100;
-      var rb = reserveBands(isPrefView);
-      var judge = ratio >= rb.hi ? "多いほう" : ratio >= rb.mid ? "標準的な水準" : ratio >= rb.lo ? "やや少なめ" : "少ないほう";
-      var judgeColor = colorR(ratio, isPrefView);
-      topSummaryHtml += "<div style='background:"+judgeColor+"14;border:1px solid "+judgeColor+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+judgeColor+";font-weight:700;'>"+curName+"</span>の財政調整基金は標準財政規模の<span style='color:"+judgeColor+";font-weight:700;'>"+ratio.toFixed(1)+"%</span>で、"+judge+"です。</div>";
-      if (ratio < rb.lo && cur.x >= 95) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (ratio < rb.lo && futureBurdenHigh(cur.u, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (ratio < rb.lo && cur.f < 0.5) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (ratio < rb.lo) { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-      else if (ratio < rb.mid && cur.x >= 95) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (ratio < rb.mid) { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-      else if (ratio >= rb.hi && cur.u <= 0) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (ratio >= rb.hi && cur.x < 90) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (ratio >= rb.hi && cur.d > 25) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (ratio >= rb.hi) { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-          topSummaryHtml += "</div>";
+      topSummaryHtml += sitBoxHtml(colorR(ratio, isPrefView));
       if (KK && KK[curName] && KK[curName].ka4 != null) {
         var ka4v = KK[curName].ka4;
-        var ka4Med = isPrefView ? KK_MEDIANS.ka4.pref : KK_MEDIANS.ka4.muni;
-        var rHigh = ratio >= rb.hi;
-        var ka4Near = Math.abs(ka4v - ka4Med) <= ka4Med * 0.1;
-        var ka4High = ka4v > ka4Med;
-        var analysisR, ka4Judge;
-        if (true) {   // 2026-09-30：全国並みのときも出す（「クロスチェックで分かること」は全国並みの場合の文もある）
-        ka4Judge = ka4Near ? "全国の中央値とほぼ同水準" : ka4High ? "全国の中央値より高め" : "全国の中央値より低め";
         topSummaryHtml += kkCrossBox("🔗 公会計と比べてみると",
           "財政調整基金残高", ratio.toFixed(1)+"%", reserveLevelLabel(ratio, isPrefView),
-          "純資産比率", ka4v+"%", ka4Judge,
+          "純資産比率", ka4v+"%", kkMedianJudge(ka4v, isPrefView ? KK_MEDIANS.ka4.pref : KK_MEDIANS.ka4.muni),
           crossInsight("ka4", cur, KK[curName], isPrefView),
-          false, (function(){ function ratioAt(sfx){ var rv=sfx?cur["r_r"+sfx]:cur.r; var sv=sfx?cur["sfs_r"+sfx]:cur.sfs; return (rv!=null&&sv)?rv/sv*100:null; } var nR=countHist("r",1), arrR=[]; for (var ri=Math.max(1,nR-SHOW_HIST+1); ri<=nR; ri++) arrR.push(ratioAt(ri)); arrR.push(ratioAt(null)); return withTrendMeaning("r", trendSincePhrase(arrR, nR+1, "%", 1)); })(),
-          (function(){ var e=KK[curName]; return withTrendMeaning("ka4", trendSincePhrase(histArr(e, "ka4", "kk"), DATA_YEAR.kokaikei, "%", 1)); })());
+          false, "純資産比率", trendWithMeaning("ka4", kkTrendText(KK[curName], "ka4", "")));
         topSummaryHtml += KK_CROSSCHECK_CAVEAT;
-        }
       }
     }
-if (key === "growth" && cur && cur.pop) {
+    if (key === "growth" && cur && cur.pop) {
       // 人口の説明文（2026-09-29 作り直し）
       // 以前は「前年比の増減率」1年分だけで警告を出し、推移も増減率どうしの差で
       // 「大きく減少」と書いていたため、人口が長期的に増えている自治体でも
@@ -1739,7 +1674,7 @@ if (key === "growth" && cur && cur.pop) {
       var latestLv = popCarry ? null : gLevel(cur.g);
       var isUpLv = function(lv){ return lv === "upSlight" || lv === "up" || lv === "upLarge"; };
       var isDownLv = function(lv){ return lv === "downSlight" || lv === "down" || lv === "downLarge"; };
-      var popColor = popCarry ? "#a08be8" : latestLv === "flat" ? "#7bb8e8" : isUpLv(latestLv) ? "#6dcfad" : cur.g >= -0.5 ? "#f0c46a" : "#f0876a";
+      var popColor = popCarry ? "#a08be8" : colorG(cur.g);   // トップ画面のカードと同じ色
       // ハードコードした年号ではなく、実際に読み込まれているデータの件数から
       // 現在値の対象年（令和何年か）を動的に算出する（来年以降の更新で年号が取り残されないように）。
       // 人口(pop)の年号なので、g基準ではなく pop 自身の実データ件数(countHist("pop",1))を基準に算出する。
@@ -1838,28 +1773,8 @@ if (key === "growth" && cur && cur.pop) {
       if (cur.pop < 3000) {
         topSummaryHtml += "<div style='font-size:15px;color:#5a5a70;margin-top:8px;line-height:1.7;'>⚠️ "+curName+"は人口が少ない（"+popStr+"人）ため、少数の転入・転出だけでも増減率が大きく振れやすい点にご注意ください。</div>";
       }
-      // ---- ひとこと（累計と直近の組み合わせで選ぶ） ----
-      var cumUp = cumLv && isUpLv(cumLv), cumDown = cumLv && isDownLv(cumLv);
-      // 前年と同じ値で公表されている場合は、直近1年の代わりに長期の年平均で判定する
-      var gForMsg = cur.g;
-      if (popCarry) { latestLv = cumLv || null; gForMsg = cumAnnual != null ? cumAnnual : 0; }
-      var msg;
-      if (isUpLv(latestLv) && cumDown) msg = "✨ 直近は増加に転じています→長い目で見ると減少してきたため、この流れが続くかどうかに注目です";
-      else if (isUpLv(latestLv) && cur.f >= 0.7) msg = "✨ 人口が増えている＋財政力も安定→人が集まることで税収も増え、好循環が生まれやすい状態です";
-      else if (isUpLv(latestLv)) msg = "✨ 人口が増加中→住民が増えると税収も増えやすく、財政の安定にもつながりやすくなります";
-      else if (latestLv === "flat" && cumUp) msg = "➡️ これまで人口が増えてきた地域で、直近は伸びが一服しています。この先の動きに注目です";
-      else if (latestLv === "flat" && cumDown) msg = "➡️ 直近は下げ止まっていますが、長い目で見ると人口は減ってきています。この先の動きに注目です";
-      else if (latestLv === "flat") msg = "➡️ 人口はほぼ横ばいで、大きな変化はありません";
-      else if (gForMsg < -1.0 && cur.x >= 95) msg = "⚠️ 人口の減少が大きい＋固定費の割合も高い→人口が減っても決まった支出はすぐには減らしにくく、財政への影響が出やすい組み合わせです";
-      else if (gForMsg < -1.0 && cur.f < 0.5) msg = "⚠️ 人口の減少が大きい＋自前の税収も少ない→人口減少による税収への影響に注意が必要な状態です";
-      else if (gForMsg < -0.5) msg = "⚠️ 人口が減少している→住民1人あたりの行政コストが上がりやすく、財政への影響に注意が必要です";
-      else if (cumUp) msg = "➡️ 直近は緩やかに減少していますが、長い目で見ると人口が増えてきた地域です。一時的な動きかどうかに注目です";
-      else if (cumLv === "downLarge") msg = "⚠️ 直近1年の減少は緩やかですが、長い目で見ると人口は大きく減ってきています";
-      else msg = "⚠️ 人口は緩やかな減少傾向です。緩やかな減少でも、長く続くと税収や行政サービスに影響します";
-      // 2026-10-01：「この先の動きに注目」などの予想・評価の文は出さない（msg は使わない）
-          topSummaryHtml += "</div>";
+      topSummaryHtml += "</div>";
     }
-    // 各項目の判定メッセージ
     if (key === "health" && cur) {
       var h2 = calcH(cur.f, cur.d, cur.x, cur.u, cur.r, cur.eo, cur.__pref, cur.sfs);
       var hj = h2>=85?"絶好調な状態":h2>=70?"おおむね安定した状態":h2>=50?"やや課題がある状態":h2>=30?"かなり厳しい状態":"非常に危機的な状態";
@@ -1888,130 +1803,33 @@ if (key === "growth" && cur && cur.pop) {
       }
     }
     if (key === "debt" && cur) {
-      // 都道府県は10〜14%が標準的（中央値11%）なので、市区町村と同じ目安だと大半が「注意」になってしまう（2026-09-30）
-      var dj = cur.d<10?"健全な水準":(isPrefView && cur.d<14)?"都道府県では標準的な水準":cur.d<18?"注意が必要な水準":cur.d<25?"要改善の水準（18%以上は借入に国などの許可が必要）":cur.d<35?"早期健全化基準（25%）を超えています":"財政再生基準（35%）を超えています";
-      var dc2 = cur.d<10?"#6dcfad":cur.d<18?"#7bb8e8":cur.d<25?"#f0c46a":"#f0876a";
-      topSummaryHtml += "<div style='background:"+dc2+"14;border:1px solid "+dc2+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+dc2+";font-weight:700;'>"+curName+"</span>の実質公債費比率は<span style='color:"+dc2+";font-weight:700;'>"+cur.d+"%</span>で、"+dj+"。</div>";
-      if (cur.d >= 18 && cur.f < 0.5) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.d >= 18 && cur.x >= 95) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.d >= 18) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.d < 10 && cur.f >= 0.7 && cur.x < 90) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.d < 10 && cur.f >= 0.7) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.d < 10 && reserveIsAmple(cur, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.d < 10 && cur.x >= 95) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.d < 10) { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-      else if (cur.d < 18 && cur.x >= 95) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.d < 18 && cur.f >= 0.7) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else { /* 2026-10-01：推測・評価の文は削除 */ }
-          topSummaryHtml += "</div>";
+      topSummaryHtml += sitBoxHtml(colorD(cur.d));
       if (KK && KK[curName] && KK[curName].ka7 != null) {
         var ka7v = KK[curName].ka7;
-        var ka7Med = isPrefView ? KK_MEDIANS.ka7.pref : KK_MEDIANS.ka7.muni;
-        var dHigh = cur.d >= 18;
-        var ka7Near = Math.abs(ka7v - ka7Med) <= ka7Med * 0.1;
-        var ka7High = ka7v > ka7Med;
-        var analysisD, ka7Judge;
-        if (ka7Near) {
-          ka7Judge = "全国の中央値とほぼ同水準";
-          analysisD = "";
-        } else if (!dHigh && !ka7High) {
-          ka7Judge = "全国の中央値より低め";
-          analysisD = "";
-        } else if (dHigh && ka7High) {
-          ka7Judge = "全国の中央値より高め";
-          analysisD = "";
-        } else if (!dHigh && ka7High) {
-          ka7Judge = "全国の中央値より高め";
-          var ka7TrendA = kkMetricTrend(KK[curName], "ka7", ka7v);
-          analysisD = ka7TrendA === "declining" ? "" : "";
-        } else {
-          ka7Judge = "全国の中央値より低め";
-          var ka7TrendB = kkMetricTrend(KK[curName], "ka7", ka7v);
-          analysisD = ka7TrendB === "declining" ? "" : "";
-        }
-        var dTrendPhraseF = withTrendMeaning("d", trendSincePhrase(histArr(cur, "d", "fiscal"), DATA_YEAR.fiscal, "%", 1));
-        var ka7EntryF = KK[curName];
-        var ka7TrendPhraseF = withTrendMeaning("ka7", trendSincePhrase(histArr(ka7EntryF, "ka7", "kk"), DATA_YEAR.kokaikei, "万円", 1));
         topSummaryHtml += kkCrossBox("🔗 公会計と比べてみると",
           "実質公債費比率", cur.d+"%", debtLevelLabel(cur.d, isPrefView),
-          "住民一人当たり負債額", ka7v+"万円", ka7Judge,
+          "住民一人当たり負債額", ka7v+"万円", kkMedianJudge(ka7v, isPrefView ? KK_MEDIANS.ka7.pref : KK_MEDIANS.ka7.muni),
           crossInsight("ka7", cur, KK[curName], isPrefView),
-          false, dTrendPhraseF, ka7TrendPhraseF);
+          false, "住民一人当たり負債額", trendWithMeaning("ka7", kkTrendText(KK[curName], "ka7", "")));
         topSummaryHtml += KK_CROSSCHECK_CAVEAT;
       }
     }
     if (key === "fiscalPower" && cur) {
-      // 言葉と色は下の説明文の「目安」・トップのカードの色（colorF）とそろえる（2026-09-30）
-      var fj = cur.f>=1.0?"おおむね普通交付税が交付されない水準（1.0以上）":cur.f>=0.7?"税収基盤が強い水準":cur.f>=0.45?"全国の中で標準的な水準":cur.f>=0.25?"交付税への依存が大きい水準":"税収基盤が特に弱い水準";
-      var fc2 = cur.f>=1.0?"#6dcfad":colorF(cur.f);
-      topSummaryHtml += "<div style='background:"+fc2+"14;border:1px solid "+fc2+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+fc2+";font-weight:700;'>"+curName+"</span>の財政力指数は<span style='color:"+fc2+";font-weight:700;'>"+cur.f.toFixed(2)+"</span>で、"+fj+"です。</div>";
-      if (cur.f < 0.45 && cur.x >= 95) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.f < 0.45 && futureBurdenHigh(cur.u, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.f < 0.45) { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-      else if (cur.f >= 1.0 && cur.x < 90) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.f >= 1.0 && reserveIsAmple(cur, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.f >= 1.0 && cur.x >= 95) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.f >= 1.0) { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-      else if (cur.x >= 95) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.f >= 0.7) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-          topSummaryHtml += "</div>";
+      topSummaryHtml += sitBoxHtml(colorF(cur.f));
     }
     if (key === "flex" && cur) {
-      // 言葉と色は説明文の「目安」・トップのカードの色（colorX）とそろえる（2026-09-30）
-      var xj = cur.x<90?"全国の中では余裕があるほう":cur.x<95?"標準的な水準":cur.x<98?"新しい取り組みに回せるお金が少ない水準":"余力がほぼない水準";
-      var xc2 = colorX(cur.x);
-      topSummaryHtml += "<div style='background:"+xc2+"14;border:1px solid "+xc2+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+xc2+";font-weight:700;'>"+curName+"</span>の経常収支比率は<span style='color:"+xc2+";font-weight:700;'>"+cur.x.toFixed(1)+"%</span>で、"+xj+"です。</div>";
-      if (cur.x >= 100) {
-        { /* 2026-10-01：推測・評価の文は削除 */ }
-      }
-      if (cur.x >= 95 && cur.f < 0.5) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.x >= 95 && reserveIsLow(cur, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.x >= 95 && futureBurdenHigh(cur.u, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.x >= 95) { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-      else if (cur.x < 90 && reserveIsAmple(cur, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.x < 90 && cur.f >= 1.0) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.x < 90) { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-      else if (cur.x < 95 && cur.f >= 0.7) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-          topSummaryHtml += "</div>";
+      topSummaryHtml += sitBoxHtml(colorX(cur.x));
     }
     if (key === "future" && cur) {
-      // 都道府県は100〜160%が標準的で、早期健全化基準も400%（市区町村は350%、政令市は400%）。以前は市区町村の目安のまま表示していた（2026-09-30）
-      // 色と言葉は、トップ画面のカードの色（score.js の colorU）とそろえる
-      var uLimit = uLimitOf(cur, isPrefView);
-      var uc2 = cur.u>=uLimit ? "#d0505a" : colorU(cur.u, isPrefView);
-      var uPre = isPrefView ? "都道府県では" : "";
-      // 言葉は下の説明文の「目安」と同じにする
-      var ul2 = (cur.u==null||cur.u<=0) ? "将来負担は実質ゼロ"
-              : cur.u>=uLimit ? "早期健全化基準（"+uLimit+"%）を超えています"
-              : isPrefView ? (uc2==="#6dcfad" ? "都道府県では低い水準" : uc2==="#7bb8e8" ? "都道府県では標準的な水準" : uc2==="#f0c46a" ? "都道府県ではやや重い水準" : "都道府県では重い水準")
-              : (uc2==="#7bb8e8" ? "軽い水準" : uc2==="#f0c46a" ? "一定の負担がある水準" : "要注意の水準");
-      var uv = cur.u<=0?"0%":cur.u>=999?"再建中":cur.u.toFixed(1)+"%";
-      topSummaryHtml += "<div style='background:"+uc2+"14;border:1px solid "+uc2+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+uc2+";font-weight:700;'>"+curName+"</span>の将来負担比率は<span style='color:"+uc2+";font-weight:700;'>"+uv+"</span>で、"+ul2+"です。</div>";
-      if (futureBurdenHigh(cur.u, isPrefView) && reserveIsLow(cur, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (futureBurdenHigh(cur.u, isPrefView) && cur.x >= 95) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (futureBurdenHigh(cur.u, isPrefView) && cur.f < 0.5) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (futureBurdenHigh(cur.u, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.u <= 0 && reserveIsAmple(cur, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.u <= 0 && cur.f >= 1.0) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.u <= 0) { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-      else if (reserveIsAmple(cur, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.x >= 95) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (uc2 === "#f0c46a") { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-      else { /* 2026-09-30：「◯◯市の状況」で説明するため出さない */ }
-          topSummaryHtml += "</div>";
+      // 枠の色は、トップ画面のカードの色（score.js の colorU）。早期健全化基準（市区町村350%・都道府県と政令市400%）以上は赤
+      topSummaryHtml += sitBoxHtml(cur.u >= uLimitOf(cur, isPrefView) ? "#d0505a" : colorU(cur.u, isPrefView));
 
       var kkCrossBoxShownF = false;
       var futureEntry = KK ? KK[curName] : null;
       var futureBoxCount = 0;
       ["ka3","ka1","ka6"].forEach(function(code){
         if (futureEntry && futureEntry[code] != null) {
-          var boxHtml = buildFutureComboBox(code, futureEntry[code], isPrefView, cur, curName, futureEntry, false, futureBoxCount+1);
+          var boxHtml = buildFutureComboBox(code, futureEntry[code], isPrefView, cur, futureEntry, false, futureBoxCount+1);
           if (boxHtml) { topSummaryHtml += boxHtml; kkCrossBoxShownF = true; futureBoxCount++; }
         }
       });
@@ -2032,90 +1850,7 @@ if (key === "growth" && cur && cur.pop) {
       topSummaryHtml += "</div>";
     }
     if (key === "budget" && cur && cur.eo && cur.ei) {
-      // 決算の歳入には借入金や前年度からの繰越も入るため、ほぼすべての自治体で歳入が歳出を上回る。
-      // 「黒字基調」と書くと財政に余裕があるように読めてしまうので、事実だけを書く（2026-09-30）
-      var bj = cur.ei>=cur.eo?"歳入が歳出を上回っています":cur.ei>=cur.eo*0.99?"ほぼ均衡しています":"歳出が歳入を上回っています";
-      var bc2 = cur.ei>=cur.eo?"#6dcfad":cur.ei>=cur.eo*0.99?"#7bb8e8":"#f0876a";
-      topSummaryHtml += "<div style='background:"+bc2+"14;border:1px solid "+bc2+"55;border-radius:12px;padding:12px 14px;'>" +
-        "<div style='font-size:16px;color:#2a2a3a;line-height:1.7;'><span style='color:"+bc2+";font-weight:700;'>"+curName+"</span>の歳出は<span style='color:"+bc2+";font-weight:700;'>"+fmtOku(cur.eo)+"</span>、歳入は<span style='color:"+bc2+";font-weight:700;'>"+fmtOku(cur.ei)+"</span>で、"+bj+"。</div>";
-      if (cur.ei >= cur.eo) { /* 2026-10-01：推測・評価の文は削除 */ }
-      var budgetHistCountEarly = countHist("eo", budgetStartIdx);
-      var eoHist = [];
-      for (var ehi=budgetStartIdx; ehi<budgetStartIdx+budgetHistCountEarly; ehi++){ if (cur["eo_r"+ehi]!=null) eoHist.push(cur["eo_r"+ehi]); }
-      if (eoHist.length >= 2) {
-        var eoAvg = eoHist.reduce(function(a,b){return a+b;},0) / eoHist.length;
-        var eoRatio = eoAvg > 0 ? cur.eo / eoAvg : 1;
-        if (eoRatio >= 1.3) {
-          { /* 2026-10-01：推測・評価の文は削除 */ }
-        } else if (eoRatio <= 0.7) {
-          { /* 2026-10-01：推測・評価の文は削除 */ }
-        }
-      }
-      if (cur.ei < cur.eo && cur.x >= 95) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.ei < cur.eo && reserveIsLow(cur, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.ei < cur.eo && futureBurdenHigh(cur.u, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.ei < cur.eo) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.ei >= cur.eo && cur.x >= 95) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.ei >= cur.eo && cur.f >= 1.0) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else if (cur.ei >= cur.eo && reserveIsAmple(cur, isPrefView)) { /* 2026-10-01：推測・評価の文は削除 */ }
-      else { /* 2026-10-01：推測・評価の文は削除 */ }
-          topSummaryHtml += "</div>";
-    }
-    // 「◯◯市の状況」（2026-09-30）：最初の一文（「◯◯は△△で、□□な水準です」）を置き換える
-    if ((key === "flex" || key === "fiscalPower" || key === "debt" || key === "future" || key === "reserve" || key === "budget") && cur) {
-      // みっちーチェック（2026-10-02）：「◯◯の状況」のすぐ下
-      var sitOnly = situationHtml(key, cur, isPrefView, curName);
-      var sitHtml = sitOnly + ((sitOnly && typeof mitchieHitokoto === "function") ? mitchieHitokoto(key, curName, isPrefView) + HK_CHART_SLOT : "") + breakdownHtml(key, cur, isPrefView, curName);
-      var firstLineRe = /<div style='font-size:16px;color:#2a2a3a;line-height:1\.7;'>[\s\S]*?<\/div>/;
-      if (sitHtml && firstLineRe.test(topSummaryHtml)) topSummaryHtml = topSummaryHtml.replace(firstLineRe, function(){ return sitHtml; });
-    }
-    // 過去の実績値と現在値を比べて、増減幅・度合いを一言添える（healthは合成値のため対象外。
-    // growthは「増減率どうしの差」だと実態とずれるため、上の人口ボックス内で人口の実数から説明する）
-    // future/debt/reserveはクロスチェックボックス内の「推移」欄で同じ情報を表示するため、ここでは省略する）
-    // 状況の欄で推移（途中の動きも見た文）を書く項目は、ここでは出さない
-    if (key !== "health" && key !== "future" && key !== "debt" && key !== "reserve" && key !== "growth" && key !== "flex" && key !== "fiscalPower" && key !== "education" && key !== "childInvest" && key !== "budget" && (hasHistory || hasGrowthHistory) && vals.length >= 2) {
-      var validIdxT = [];
-      for (var ti=0; ti<vals.length; ti++){ if (vals[ti]!=null) validIdxT.push(ti); }
-      if (validIdxT.length >= 2) {
-        var oldValT = vals[validIdxT[0]];
-        var newValT = vals[validIdxT[validIdxT.length-1]];
-        var tdMain = trendDescribe(oldValT, newValT, META[key].unit, key==="fiscalPower"?2:1, key==="flex" ? [1, 3, 5] : null);
-        if (tdMain && tdMain.tier !== "横ばい") {
-          var trendIcon = tdMain.dir === "増加" ? "📈" : "📉";
-          topSummaryHtml += "<div style='font-size:15px;color:#5a5a70;margin-top:8px;line-height:1.7;'>" + trendIcon + " " + META[key].label + "はこの" + validIdxT.length + "年で" + tdMain.text + "しています。" + "</div>";
-        }
-      }
-    }
-    // ピーク・底の年度が新型コロナウイルス対応期間（R2〜R4）と重なる場合は注記を添える
-    // ※構造的・長期的な指標（財政力指数・実質公債費比率・経常収支比率・将来負担比率・総合健全度スコア）は
-    //   コロナで短期的に動く理由が薄いため対象外。財政調整基金・人口増減率・教育費・子ども投資額のみ対象。
-    // 経常収支比率(flex)は、R3年度に全国的な落ち込み（改善）が確認できたため、底のみ対象にする
-    // （総務省公表値でも「令和3年度は前年度比5.7pt低下」と明記されており、地方交付税増加等の影響と考えられる）
-    var covidReasonsPeak = {
-      reserve: "コロナ対応の給付金などで積み増しがあった影響が考えられます",
-      growth: "コロナ禍での転出入の変化の影響が考えられます"
-    };
-    var covidReasonsTrough = {
-      reserve: "コロナ対応での取り崩しの影響が考えられます",
-      growth: "コロナ禍での転出入の変化の影響が考えられます",
-      flex: "地方交付税等の増加により、一時的に比率が改善した影響が考えられます"
-    };
-    var trendYrLabelsCovid = (covidReasonsPeak[key] || covidReasonsTrough[key]) ? (hasHistory ? yrs.map(function(y){ return y.replace("（最新）",""); }) : hasGrowthHistory ? growthYrLabels.slice(0, vals.length) : null) : null;
-    // 2026-09-30：コロナの時期と重なることを理由にした推測は、データで確かめられないため出さない
-    if (false && trendYrLabelsCovid && vals.length >= 2) {
-      var validIdxCovid = [];
-      for (var vci=0; vci<vals.length; vci++){ if (vals[vci]!=null) validIdxCovid.push(vci); }
-      if (validIdxCovid.length >= 2) {
-        var peakICovid = validIdxCovid[0], troughICovid = validIdxCovid[0];
-        validIdxCovid.forEach(function(vci){ if (vals[vci]>vals[peakICovid]) peakICovid=vci; if (vals[vci]<vals[troughICovid]) troughICovid=vci; });
-        var lastValidCovid = validIdxCovid[validIdxCovid.length-1];
-        var covidYrsSet = {"R2":1,"R3":1,"R4":1};
-        if (covidReasonsPeak[key] && peakICovid !== lastValidCovid && covidYrsSet[trendYrLabelsCovid[peakICovid]]) {
-          topSummaryHtml += "<div style='font-size:14px;color:#7a7a90;margin-top:6px;'>📅 "+trendYrLabelsCovid[peakICovid]+"年度が最も高い年です。新型コロナウイルス対応の時期と重なり、"+covidReasonsPeak[key]+"</div>";
-        } else if (covidReasonsTrough[key] && troughICovid !== lastValidCovid && covidYrsSet[trendYrLabelsCovid[troughICovid]]) {
-          topSummaryHtml += "<div style='font-size:14px;color:#7a7a90;margin-top:6px;'>📅 "+trendYrLabelsCovid[troughICovid]+"年度が最も低い年です。新型コロナウイルス対応の時期と重なり、"+covidReasonsTrough[key]+"</div>";
-        }
-      }
+      topSummaryHtml += sitBoxHtml(cur.ei>=cur.eo ? "#6dcfad" : cur.ei>=cur.eo*0.99 ? "#7bb8e8" : "#f0876a");
     }
     document.getElementById("shTop").innerHTML = rankHtml + topSummaryHtml; if (typeof hkPlaceChart === "function") hkPlaceChart(); document.getElementById("shDesc").innerHTML = ((key==="debt"||key==="future"||key==="reserve") ? legalStatusBoxHtml(key, cur, isPrefView, curName) : "") + ((rankHtml || topSummaryHtml) ? "<div style='border-top:1px dashed #d8d5e8;margin:22px 0;'></div><div style='font-size:16px;font-weight:700;color:#3a6ee8;margin-bottom:8px;'>"+m.label+"とは？</div>" : "") + descHtml;
     var shElAfter = document.querySelector("#ovEl .sh");
@@ -2238,7 +1973,8 @@ if (key === "growth" && cur && cur.pop) {
         }
         return l||"";
       }
-      function fmtB(v){ return v>=10000 ? Math.round(v/1000)/10+"兆" : v+"億"; }
+      // 1兆円未満はカードや文章と同じ書き方（「6,917億」）。1兆円以上は幅に収まるよう「3.1兆」
+      function fmtB(v){ return v>=10000 ? Math.round(v/1000)/10+"兆" : fmtOku(v).replace(/円$/, ""); }
       var eoLine=mkLine(eoVals), eiLine=mkLine(eiVals);
       var svgH = H+20;
       var dots2="";
@@ -2272,7 +2008,7 @@ if (key === "growth" && cur && cur.pop) {
       // 凡例
       var budgetFromNum = budgetStartIdx + Math.max(0, budgetHistCount - SHOW_HIST);
       var budgetNoteFrom = budgetFromNum===1 ? "元" : String(budgetFromNum);
-      var budgetNote = budgetHistCount>0 ? ("※令和"+budgetNoteFrom+"〜"+(budgetHistCount+budgetStartIdx)+"年の実績値") : "";
+      var budgetNote = budgetHistCount>0 ? ("※令和"+budgetNoteFrom+"〜"+(budgetHistCount+budgetStartIdx)+"年度の実績値") : "";
       var legend="<text x='"+P+"' y='"+(svgH-2)+"' font-size='10' fill='#a08be8'>■ 歳出</text><text x='"+(P+50)+"' y='"+(svgH-2)+"' font-size='10' fill='#7bb8e8'>■ 歳入</text><text x='"+P+"' y='"+(svgH+9)+"' font-size='8' fill='#aaa'>"+budgetNote+"</text>";
       var spSvg = document.getElementById("spSvg");
       spSvg.setAttribute("viewBox","0 0 "+W+" "+(svgH+10));
@@ -2295,31 +2031,27 @@ if (key === "growth" && cur && cur.pop) {
     var W=300,H=100,P=20,Ptop=26;
     function px(i){return chartVals.length>1 ? P+(i/(chartVals.length-1))*(W-P*2) : W/2;}
     function py(v){return H-P-((v-mn)/rng)*(H-Ptop-P);}
-    var area="", line="", dots="";
+    var line="", dots="";
     // 実際の年が飛んでいる箇所（chartGap[j]===true）はそこで線を切り、
     // 年が連続している区間だけを線でつなぐ（歯抜けの2点をいきなり直線で結ばない）。
-    var segStartIdx = null, prevIdx = null;
     for(var j=0;j<chartVals.length;j++){
-      if(prevIdx===null || chartGap[j]){
-        if (segStartIdx!==null) area+=" L"+px(prevIdx)+","+H+" L"+px(segStartIdx)+","+H+" Z";
-        area += (area?" ":"") + "M"+px(j)+","+py(chartVals[j]);
-        line += (line?" ":"") + "M"+px(j)+","+py(chartVals[j]);
-        segStartIdx = j;
-      } else {
-        area += " L"+px(j)+","+py(chartVals[j]);
-        line += " L"+px(j)+","+py(chartVals[j]);
-      }
-      prevIdx = j;
+      line += (line?" ":"") + ((j===0 || chartGap[j]) ? "M" : "L") + px(j)+","+py(chartVals[j]);
     }
-    if (segStartIdx!==null) area+=" L"+px(prevIdx)+","+H+" L"+px(segStartIdx)+","+H+" Z";
+    // 数字の書き方は文章と同じ桁数にそろえる（財政力指数・人口増減率は小数2桁、ほかの%は1桁）。
+    // 単位は最新の値だけに付ける（全部に付けると、隣の数字と重なって読めないため）
+    var lblDecimals = (key==="fiscalPower"||key==="growth") ? 2 : (key==="health" ? 0 : 1);
+    var fmtLbl = function(v, withUnit) {
+      if (m.unit==="億円") return v>=10000 ? Math.round(v/1000)/10+"兆" : v+(withUnit?"億":"");
+      return v.toFixed(lblDecimals) + ((withUnit && m.unit==="%") ? "%" : "");
+    };
     for(var k=0;k<chartVals.length;k++){
       var last=k===chartVals.length-1;
       dots+="<circle cx='"+px(k)+"' cy='"+py(chartVals[k])+"' r='"+(last?5:3)+"' fill='"+(last?c:"white")+"' stroke='"+c+"' stroke-width='2'/>";
-      var dispVal = (m.unit==="億円" && chartVals[k]>=10000) ? Math.round(chartVals[k]/1000)/10+"兆" : chartVals[k]+(m.unit==="%"?"%":m.unit==="億円"?"億":"");
+      var dispVal = fmtLbl(chartVals[k], last);
       var prevV = k>0 ? chartVals[k-1] : null;
       var nextV = k<chartVals.length-1 ? chartVals[k+1] : null;
       var isValley = (prevV==null || chartVals[k] <= prevV) && (nextV==null || chartVals[k] <= nextV) && (prevV!=null || nextV!=null);
-      var lblAnchor = k===0 ? "start" : "middle";
+      var lblAnchor = "middle";
       if(last && isValley) dots+="<text x='"+px(k)+"' y='"+(py(chartVals[k])+19)+"' text-anchor='"+lblAnchor+"' font-size='12' fill='"+cText+"' font-weight='700'>"+dispVal+"</text>";
       else if(last) dots+="<text x='"+px(k)+"' y='"+(py(chartVals[k])-9)+"' text-anchor='"+lblAnchor+"' font-size='12' fill='"+cText+"' font-weight='700'>"+dispVal+"</text>";
       else if(isValley) dots+="<text x='"+px(k)+"' y='"+(py(chartVals[k])+16)+"' text-anchor='"+lblAnchor+"' font-size='9' fill='"+cText+"' opacity='0.9'>"+dispVal+"</text>";
@@ -2336,7 +2068,10 @@ if (key === "growth" && cur && cur.pop) {
     if ((hasHistory || hasGrowthHistory) && chartYrs.length >= 1) {
       var noteFrom = reiwaLabelForNote(chartYrs[0]);
       var noteTo = reiwaLabelForNote(chartYrs[chartYrs.length - 1]);
-      noteText = (hasGrowthHistory && key==="growth") ? ("※令和"+noteFrom+"〜"+noteTo+"年の実績値（市・都道府県）") : ("※令和"+noteFrom+"〜"+noteTo+"年の実績値");
+      // 人口は「年」（1月1日時点）、財政は「年度」。総合スコアは各年度の指標から計算した点数
+      noteText = key==="growth" ? ("※令和"+noteFrom+"〜"+noteTo+"年の実績値（各年1月1日時点）")
+               : key==="health" ? "※各年度の指標で計算（基金は直近の標準財政規模比）"
+               : ("※令和"+noteFrom+"〜"+noteTo+"年度の実績値");
     } else {
       // 過去の実績データが無い場合、以前はここに「※元〜4年は参考値（推計）」と出して
       // 架空の推計線を描いていたが、実データではないため廃止。注記はspLabels側の
@@ -2382,7 +2117,7 @@ if (key === "growth" && cur && cur.pop) {
         medHtml = "<path d='" + mLine + "' fill='none' stroke='#9a96a8' stroke-width='1.5' stroke-dasharray='4,3'/>";
       }
       setChartLegend(medHtml ? (isPrefView ? "全国の都道府県の中央値" : "全国の市区町村の中央値") : "", !!covidHtml);
-      spSvgEl.innerHTML = "<defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='"+c+"' stop-opacity='0.2'/><stop offset='100%' stop-color='"+c+"' stop-opacity='0'/></linearGradient></defs>"+covidHtml+"<text x='"+P+"' y='10' font-size='10' fill='"+noteColor+"'>"+noteText+"</text>"+medHtml+"<path d='"+line+"' fill='none' stroke='"+c+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+dots;
+      spSvgEl.innerHTML = covidHtml+"<text x='"+P+"' y='10' font-size='10' fill='"+noteColor+"'>"+noteText+"</text>"+medHtml+"<path d='"+line+"' fill='none' stroke='"+c+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+dots;
     }
     }
     document.getElementById("ovEl").classList.remove("hidden");

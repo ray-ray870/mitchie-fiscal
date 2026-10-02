@@ -42,8 +42,9 @@
     var fullList = keys.map(function(k){ return {k:k, v:mmScoreOf(k)}; })
       .filter(function(o){ return o.v != null; });
     fullList.sort(function(a,b){ return b.v - a.v; });
+    // 同じ点数は同じ順位（自分より点数が高い自治体の数＋1）
     var blockRankMap = {};
-    fullList.forEach(function(o, i){ blockRankMap[o.k] = i + 1; });
+    fullList.forEach(function(o, i){ blockRankMap[o.k] = (i > 0 && fullList[i-1].v === o.v) ? blockRankMap[fullList[i-1].k] : i + 1; });
     var list = fullList.filter(function(o){ return healthState(o.v) === zoneKey; });
     if (!list.length) return "<p style='font-size:14px;color:#777;text-align:center;padding:10px 0;'>該当する自治体はありません</p>";
     var reg = mmLoad();
@@ -54,7 +55,7 @@
     var html = "<p style='font-size:15px;font-weight:700;color:"+lbl[1]+";margin:10px 0 2px;'>「"+lbl[0]+"」の自治体（"+list.length+"件）</p>";
     if (regionName) html += "<p style='font-size:13px;color:#777;margin:0 0 10px;'>※"+regionName+"ブロック内での順位です</p>";
     for (var i=0; i<list.length; i++){
-      html += nkPrefRow(list, i, mineSet, null, true, blockRankMap[list[i].k]);
+      html += nkPrefRow(list, i, mineSet, true, blockRankMap[list[i].k]);
     }
     return html;
   }
@@ -64,20 +65,23 @@
     return nkDistHtmlFromKeys(muniKeys, "全国の分布（市区町村）");
   }
 
-  function nkPrefRow(list, idx, mineSet, natRank, showPref, rankOverride){
+  function nkPrefRow(list, idx, mineSet, showPref, rankOverride){
     var o = list[idx];
     var mine = !!mineSet[o.k];
     var zoneColor = prof(o.v).c;
-    var natRankHtml = natRank ? "<div class='nk-pref-nat'>全国"+natRank+"位</div>" : "";
     var prefHtml = "";
     if (showPref && DB && DB[o.k] && DB[o.k].p && DB[o.k].p !== o.k) {
       prefHtml = "<div class='nk-pref-sub'>"+DB[o.k].p+"</div>";
     }
-    var rankNum = rankOverride != null ? rankOverride : (idx+1);
+    var rankNum = rankOverride;
+    if (rankNum == null) {   // 同じ点数は同じ順位
+      rankNum = 1;
+      for (var ri = 0; ri < list.length; ri++) { if (list[ri].v > o.v) rankNum++; }
+    }
     return "<div class='nk-pref-row"+(mine?" mine":"")+"'>"+
       "<span class='nk-pref-zone' style='background:"+zoneColor+";'></span>"+
       "<span class='nk-pref-rank'>"+rankNum+"位</span>"+
-      "<span class='nk-pref-name' data-pref='"+o.k+"'>"+o.k+(mine?" <span class='nk-mine-chip'>Myみっちー</span>":"")+prefHtml+natRankHtml+"</span>"+
+      "<span class='nk-pref-name' data-pref='"+o.k+"'>"+o.k+(mine?" <span class='nk-mine-chip'>Myみっちー</span>":"")+prefHtml+"</span>"+
       "<span class='nk-pref-score'>"+o.v+"点</span>"+
       "</div>";
   }
