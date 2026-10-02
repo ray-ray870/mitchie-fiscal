@@ -731,6 +731,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.5.2", date:"2026.10", items:["詳細画面の「みっちーチェック」の表示を改善"] },
     { version:"3.5.1", date:"2026.10", items:["大きな金額を「兆」で表示するなど、金額を読みやすい表示に変更","似ている自治体が少ないときの説明を追加"] },
     { version:"3.5.0", date:"2026.10", items:["内訳の枠に、似ている自治体との比較を表示","総合スコアの内訳に説明を追加","説明の修正"] },
     { version:"3.4.0", date:"2026.10", items:["人口や産業が似ている自治体との比較を表示","説明の修正"] },
@@ -2062,7 +2063,7 @@ if (key === "growth" && cur && cur.pop) {
     }
     // 「◯◯市の状況」（2026-09-30）：最初の一文（「◯◯は△△で、□□な水準です」）を置き換える
     if ((key === "flex" || key === "fiscalPower" || key === "debt" || key === "future" || key === "reserve" || key === "budget") && cur) {
-      // みっちーのひと言（2026-10-02）：「◯◯の状況」のすぐ下
+      // みっちーチェック（2026-10-02）：「◯◯の状況」のすぐ下
       var sitOnly = situationHtml(key, cur, isPrefView, curName);
       var sitHtml = sitOnly + ((sitOnly && typeof mitchieHitokoto === "function") ? mitchieHitokoto(key, curName, isPrefView) + HK_CHART_SLOT : "") + breakdownHtml(key, cur, isPrefView, curName);
       var firstLineRe = /<div style='font-size:16px;color:#2a2a3a;line-height:1\.7;'>[\s\S]*?<\/div>/;
