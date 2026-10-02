@@ -10,12 +10,14 @@
     ka7: {muni: 62.7, pref: 104.2},
     ka9: {muni: 3.9, pref: 4.1}
   };
-  // 2つの値を比べて「◯◯→◯◯（+/-◯◯）と着実に増加」のような自然文を作る汎用関数
-  // グラフの線色（黄・水色など薄い色）をそのまま文字色に使うと読みにくいため、文字専用の濃い色を対応表として持つ（財政・公会計グラフ共通）
   var TEXT_COLOR_MAP = {"#6dcfad":"#1f7a5c","#7bb8e8":"#2a5a9a","#f0c46a":"#96690a","#f0876a":"#a8502e","#d0505a":"#a02030","#a08be8":"#5a3fa0"};
-  // getVal(i): i=0が現在値、i=1が1年前(_r1)...という関数を受け取り、
-  // 直近で同じ方向に動き続けている区間を遡って探し、「R3年度から減少傾向」のような文言を返す
-  // 推移フレーズに、指標ごとの意味づけメッセージを付け加える
+  /* --- 「比べてみると」の枠に出す、相手の指標の推移（2026-10-02 作り直し）---
+     「◯◯の状況」と同じ仕組み（js/data.js の trendJP）で文を作る。
+     以前は別の仕組みで作っていて、同じ画面の「状況」が「ほぼ変わりませんでした」なのに、
+     枠の中では「増加。〜の方向で推移」と出るなど、食い違うことがあった。
+     また、値の無い年を0として比べていたため、始まりの年や向きを間違えることがあった。
+     ・その画面の指標の推移は「状況」に書いてあるので、枠には相手の指標の推移だけを出す
+     ・最後の動きの向きに合わせて、意味の一文（TREND_MEANING）を添える。横ばいのときは添えない */
   var TREND_MEANING = {
     u:   {"増加":"将来世代への負担が重くなる方向で推移しています。", "減少":"将来世代への負担が軽くなる方向で推移しています。"},
     d:   {"増加":"毎年の返済負担が重くなる方向で推移しています。", "減少":"毎年の返済負担が軽くなる方向で推移しています。"},
@@ -27,90 +29,40 @@
     ka6: {"増加":"住民1人あたりの行政コストが増える方向で推移しています。", "減少":"住民1人あたりの行政コストが減る方向で推移しています。"},
     ka7: {"増加":"住民1人あたりの負債が増える方向で推移しています。", "減少":"住民1人あたりの負債が減る方向で推移しています。"}
   };
-  function withTrendMeaning(metricKey, phrase) {
-    if (!phrase) return phrase;
-    // 最新の向きで判定する（「R4年度に一度増加しましたが、R5年度は減少」なら減少。2026-09-30：以前は
-    // 先に出てくる「増加」で判定していて、最新が減少なのに増加の意味の文が付いていた）
-    var dir = phrase.lastIndexOf("増加") > phrase.lastIndexOf("減少") ? "増加" : "減少";
+  function trendWithMeaning(metricKey, text) {
+    if (!text) return null;
+    var head = text.split("（")[0];
+    if (/横ばい|変わりません/.test(head)) return {icon: "➡️", text: text};
+    var up = head.lastIndexOf("増") > head.lastIndexOf("減");
     var m = TREND_MEANING[metricKey];
-    return m ? phrase + "。" + m[dir] : phrase;
+    return {icon: up ? "📈" : "📉", text: text + (m ? "。" + m[up ? "増加" : "減少"] : "")};
   }
-  // valsArr: 古い年→新しい年の順で並んだ配列（例:[R1,R2,R3,R4,R5,現在]）をそのまま渡す
-  function trendSincePhrase(valsArr, currentYear, unit, decimals) {
-    var start = 0;
-    while (start < valsArr.length && valsArr[start] == null) start++;
-    var vals = valsArr.slice(start);
-    if (vals.length < 2) return null;
-    var n = vals.length;
-    var yrLabels = [];
-    for (var k=0; k<n; k++) {
-      var yrNum = currentYear - (n-1-k);
-      yrLabels.push(yrNum <= 0 ? ("H"+(30+yrNum)) : ("R"+yrNum));
-    }
-    var lastDir = null, startIdx = n-1;
-    for (var j=n-1; j>0; j--) {
-      var d = vals[j] - vals[j-1];
-      var dir = d>0 ? 1 : d<0 ? -1 : 0;
-      if (dir === 0) break;
-      if (lastDir === null) { lastDir = dir; startIdx = j-1; }
-      else if (dir === lastDir) { startIdx = j-1; }
-      else break;
-    }
-    if (lastDir === null) return null;
-    var dirWord = lastDir > 0 ? "増加" : "減少";
-    var runSteps = (n - 1) - startIdx; // 同方向が何年連続したか
-    if (runSteps >= 2) {
-      // 2年以上連続で同じ方向に動いている→従来通り「傾向」と言ってよい
-      return yrLabels[startIdx] + "年度から" + dirWord + "傾向";
-    }
-    // 直近1年だけの変化。「傾向」と言い切ると誤解を招くため、
-    // 直前に逆方向の動き（反転）があれば、それも合わせて一言で説明する
-    if (startIdx > 0) {
-      var prevDiff = vals[startIdx] - vals[startIdx - 1];
-      var prevDir = prevDiff > 0 ? 1 : prevDiff < 0 ? -1 : 0;
-      if (prevDir !== 0 && prevDir !== lastDir) {
-        var prevDirWord = prevDir > 0 ? "増加" : "減少";
-        var lastValStr = unit ? (vals[n-1] + unit + "に") : "";
-        return yrLabels[startIdx] + "年度に一度" + prevDirWord + "しましたが、" + yrLabels[n-1] + "年度は" + lastValStr + dirWord;
-      }
-    }
-    return yrLabels[startIdx] + "年度から" + yrLabels[n-1] + "年度にかけて" + dirWord;
+  // 公会計の指標の推移の文。label を渡すと「◯◯は、」で始まる
+  function kkTrendText(entry, code, label) {
+    if (!entry || entry[code] == null) return "";
+    var arr = histArr(entry, code, "kk"), pts = [];
+    for (var i = 0; i < arr.length; i++) pts.push({y: i, v: arr[i]});   // 0＝平成30年度
+    var unit = KK_META[code].unit;
+    var fmt = function(x){ return unit === "百万円" ? (x !== 0 && Math.abs(x) < 100 ? (x < 0 ? "-" : "") + (Math.abs(x) * 100).toLocaleString() + "万円" : fmtOku(x / 100)) : (Math.round(x * 10) / 10) + unit; };
+    var opt = (code === "ka9") ? {tol:0.3, fmt:fmt} : (unit === "%") ? {tol:1, fmt:fmt} : {tol:0.03, rel:true, fmt:fmt};
+    if (code === "ka8") opt = {tol:Math.max(Math.abs(entry[code]) * 0.1, 10), fmt:fmt};
+    opt.label = label;
+    return trendJP(pts, opt);
   }
-  // pointSteps を渡すと、割合（%）ではなく差（ポイント）で度合いを決める。
-  // 経常収支比率のように90%前後で動く指標は、96.8→91.1%（5.7ポイント）でも割合では6%しか変わらず
-  // 「微減」になってしまうため（2026-09-30）
-  function trendDescribe(oldVal, newVal, unit, decimals, pointSteps) {
-    if (oldVal == null || newVal == null) return null;
-    decimals = decimals == null ? 1 : decimals;
-    var diff = newVal - oldVal;
-    var pct = oldVal !== 0 ? Math.abs(diff) / Math.abs(oldVal) : 0;
-    var dir = diff > 0 ? "増加" : diff < 0 ? "減少" : "横ばい";
-    var tier;
-    if (pointSteps) {
-      var ad = Math.abs(diff);
-      tier = ad < pointSteps[0] ? "横ばい" : ad < pointSteps[1] ? "微" + dir.charAt(0) : ad < pointSteps[2] ? "着実に" + dir : "大きく" + dir;
+  // 財政の指標の推移の文（「◯◯の状況」と同じ幅で「横ばい」を判定する）
+  function finTrendText(e, field) {
+    var pct1 = function(v){ return (Math.round(v * 10) / 10).toFixed(1) + "%"; };
+    if (field === "u") {
+      var t = situationTrend(e, "u", {tol:2, fmt:pct1}, true);
+      return (t && t.indexOf("0.0%〜0.0%") >= 0) ? "" : t;   // ずっと実質ゼロなら出さない
     }
-    else if (pct < 0.03) tier = "横ばい";
-    else if (pct < 0.10) tier = "微" + dir.charAt(0);
-    else if (pct < 0.30) tier = "着実に" + dir;
-    else tier = "大きく" + dir;
-    var sign = diff >= 0 ? "+" : "";
-    var oldStr = oldVal.toFixed(decimals);
-    var newStr = newVal.toFixed(decimals);
-    var diffStr = sign + diff.toFixed(decimals);
-    return { text: oldStr+unit+"→"+newStr+unit+"（"+diffStr+unit+"）と"+tier, tier: tier, dir: dir, diff: diff, pct: pct };
+    if (field === "d") return situationTrend(e, "d", {tol:0.3, fmt:pct1});
+    if (field === "r") return situationTrend(e, "r", {tol:0.05, rel:true, times:true, fmt:function(v){ return fmtOku(v); }});
+    return "";
   }
-  // 住民一人当たりの指標（資産額・行政コストなど）が伸びていない理由を、
-  // 実際の人口動向(g)とその指標自身の過去推移(_r4=最も古い年)から判定する
-  // 指標の過去(_r4=最も古い年)と現在を比べて、増加/横ばい/減少を判定する
-  function kkMetricTrend(entry, code, curVal) {
-    if (!entry) return null;
-    var oldVal = entry[code + "_r1"];
-    if (oldVal == null || curVal == null) return null;
-    var pctChange = oldVal !== 0 ? (curVal - oldVal) / Math.abs(oldVal) : 0;
-    if (pctChange <= -0.05) return "declining";
-    if (pctChange >= 0.05) return "growing";
-    return "flat";
+  // 公会計の値が、全国（都道府県は都道府県）の中央値と比べてどうか。差が10%以内は「ほぼ同水準」
+  function kkMedianJudge(kkVal, med) {
+    return Math.abs(kkVal - med) <= med * 0.1 ? "全国の中央値とほぼ同水準" : kkVal > med ? "全国の中央値より高め" : "全国の中央値より低め";
   }
 
   // 人口の少ない市区町村（pop が maxPop 未満）の中央値（万円）。「人口が少ないと1人あたりが大きく出る」の裏づけの数字
@@ -126,48 +78,6 @@
     "<div style='font-size:15px;color:#6b5b80;line-height:1.7;'>起債計画や基金の使い方によって、この2つの指標の動き方は自治体ごとに大きく異なります。この自治体の具体的な背景は、自治体の実施計画や財政状況資料集で確認できます。</div>" +
     "<div style='font-size:14px;color:#888;margin-top:6px;line-height:1.6;'>※「軽め」「重め」「高め」「低め」は総務省の公式区分ではなく、当アプリが分かりやすさのために設けた独自の目安です。</div>" +
     "</div>";
-  // 将来負担比率×(老朽化率/資産額/行政コスト)の判定ロジックを1箇所にまとめる（財政タブ・公会計タブ両方から呼ばれる）
-  var FUTURE_COMBO_META = {
-    ka3: {label:"有形固定資産減価償却率", fullLabel:"有形固定資産減価償却率（老朽化率）", unit:"%", nearNoun:"老朽化率"},
-    ka1: {label:"住民一人当たり資産額", fullLabel:"住民一人当たり資産額", unit:"万円", nearNoun:"資産額"},
-    ka6: {label:"住民一人当たり行政コスト", fullLabel:"住民一人当たり行政コスト", unit:"万円", nearNoun:"行政コスト"}
-  };
-  function buildFutureComboBody(code, kkVal, med, uHigh, entry, uLabel) {
-    var m = FUTURE_COMBO_META[code];
-    var near = Math.abs(kkVal - med) <= med * 0.1;
-    var high = kkVal > med;
-    var judge, fact, analysis;
-    if (near) {
-      judge = "全国の中央値とほぼ同水準";
-      fact = "<strong style='color:#c0623a;'>[公会計]</strong>" + m.label + "は中央値とほぼ同水準です。<strong style='color:#3a9970;'>[財政]</strong>将来への借金は" + (uHigh?"重め":"軽め") + "です。";
-      analysis = "";
-      return {judge:judge, analysis:analysis};
-    }
-    if (code === "ka3") {
-      if (!uHigh && !high) { judge="全国の中央値より低め"; fact="<strong style='color:#3a9970;'>[財政]</strong>将来への借金・<strong style='color:#c0623a;'>[公会計]</strong>施設の老朽化、どちらの面から見ても軽い状態です。"; analysis=""; }
-      else if (uHigh && high) { judge="全国の中央値より高め"; fact="<strong style='color:#3a9970;'>[財政]</strong>将来への借金・<strong style='color:#c0623a;'>[公会計]</strong>施設の老朽化、どちらの面から見ても重い状態です。"; analysis=""; }
-      else if (!uHigh && high) {
-        judge = "全国の中央値より高め";
-        fact = "<strong style='color:#3a9970;'>[財政]</strong>将来への借金は軽めですが、<strong style='color:#c0623a;'>[公会計]</strong>施設の老朽化は進んでいます。";
-        var ka1Trend = kkMetricTrend(entry, "ka1", entry ? entry.ka1 : null);
-        analysis = ka1Trend === "growing"
-          ? ""
-          : "";
-      }
-      else { judge="全国の中央値より低め"; fact="<strong style='color:#3a9970;'>[財政]</strong>将来への借金は重めですが、<strong style='color:#c0623a;'>[公会計]</strong>施設の老朽化は進んでいません。"; analysis=""; }
-    } else if (code === "ka1") {
-      if (!uHigh && high) { judge="全国の中央値より高め"; fact="<strong style='color:#c0623a;'>[公会計]</strong>資産規模は大きめですが、<strong style='color:#3a9970;'>[財政]</strong>将来への借金は軽めです。"; analysis="借金に頼らず資産を築けています。"; }
-      else if (uHigh && high) { judge="全国の中央値より高め"; fact="<strong style='color:#c0623a;'>[公会計]</strong>資産規模・<strong style='color:#3a9970;'>[財政]</strong>将来への借金、どちらも大きめです。"; analysis=""; }
-      else if (uHigh && !high) { judge="全国の中央値より低め"; fact="<strong style='color:#c0623a;'>[公会計]</strong>資産規模は控えめですが、<strong style='color:#3a9970;'>[財政]</strong>将来への借金は重めです。"; analysis=""; }
-      else { judge="全国の中央値より低め"; fact="<strong style='color:#c0623a;'>[公会計]</strong>資産規模・<strong style='color:#3a9970;'>[財政]</strong>将来への借金、どちらも小さめです。"; analysis="資産の規模と将来世代への負担のバランスは取れている状態です。"; }
-    } else {
-      if (!uHigh && !high) { judge="全国の中央値より低め"; fact="<strong style='color:#c0623a;'>[公会計]</strong>行政コスト・<strong style='color:#3a9970;'>[財政]</strong>将来への借金、どちらも軽めです。"; analysis="コンパクトな運営と言えます。"; }
-      else if (uHigh && high) { judge="全国の中央値より高め"; fact="<strong style='color:#c0623a;'>[公会計]</strong>行政コスト・<strong style='color:#3a9970;'>[財政]</strong>将来への借金、どちらも重めです。"; analysis=""; }
-      else if (!uHigh && high) { judge="全国の中央値より高め"; fact="<strong style='color:#c0623a;'>[公会計]</strong>行政コストは高めですが、<strong style='color:#3a9970;'>[財政]</strong>将来への借金は軽めです。"; analysis="手厚いサービスを借金に頼らず提供できています。"; }
-      else { judge="全国の中央値より低め"; fact="<strong style='color:#c0623a;'>[公会計]</strong>行政コストは抑えめですが、<strong style='color:#3a9970;'>[財政]</strong>将来への借金は重めです。"; analysis=""; }
-    }
-    return {judge:judge, analysis:analysis};
-  }
   /* --- クロスチェックで分かること（2026-09-30）---
      財政の指標（毎年のやりくり・借金などの残り）と、公会計の指標（施設の古さ・量・資産と負債のバランス）は
      見ているものが違う。2つを組み合わせて、片方だけでは分からないことを書く。
@@ -254,27 +164,23 @@
     return "";
   }
 
-  function buildFutureComboBox(code, kkVal, isPrefView, curObj, curNameStr, entry, reverseOrder, boxNumber) {
+  // 将来負担比率 ×（老朽化率・資産額・行政コスト）の枠。財政タブ・公会計タブの両方から呼ばれる
+  function buildFutureComboBox(code, kkVal, isPrefView, curObj, entry, reverseOrder, boxNumber) {
     if (kkVal == null) return "";   // 将来負担比率が「－」（負担なし）の団体も表示する（2026-09-30）
-    var m = FUTURE_COMBO_META[code];
+    var m = KK_META[code];
     var med = isPrefView ? KK_MEDIANS[code].pref : KK_MEDIANS[code].muni;
-    var uHigh = futureBurdenHigh(curObj.u, isPrefView);
-    var uLabel = futureLevelLabel(curObj.u, isPrefView);
-    var r = buildFutureComboBody(code, kkVal, med, uHigh, entry, uLabel);
-    var uValsArr = histArr(curObj, "u", "fiscal");
-    var uTrendPhrase = withTrendMeaning("u", trendSincePhrase(uValsArr, DATA_YEAR.fiscal));
-    // _r1＝平成30年度 … _r5＝令和4年度、主値＝令和5年度（2026-09-29：以前は _r5 が抜けていて、年が1つずれていた）
-    var kkValsArr = histArr(entry, code, "kk");
-    var kkTrendPhrase = entry ? withTrendMeaning(code, trendSincePhrase(kkValsArr, DATA_YEAR.kokaikei)) : null;
     var numMark = boxNumber ? ["①","②","③","④","⑤"][boxNumber-1] || "" : "";
     var heading = reverseOrder ? ("🔗 財政と比べてみると" + numMark) : ("🔗 公会計と比べてみると" + numMark);
     return kkCrossBox(heading,
-      "将来負担比率", (curObj.u == null || curObj.u <= 0) ? "0%（負担なし）" : curObj.u+"%", uLabel,
-      m.label, kkVal+m.unit, r.judge,
+      "将来負担比率", (curObj.u == null || curObj.u <= 0) ? "0%（負担なし）" : curObj.u+"%", futureLevelLabel(curObj.u, isPrefView),
+      m.label, kkVal+m.unit, kkMedianJudge(kkVal, med),
       crossInsight(code, curObj, entry, isPrefView),
-      reverseOrder, uTrendPhrase, kkTrendPhrase);
+      reverseOrder,
+      reverseOrder ? "将来負担比率" : m.label,
+      reverseOrder ? trendWithMeaning("u", finTrendText(curObj, "u")) : trendWithMeaning(code, kkTrendText(entry, code, "")));
   }
-  function kkCrossBox(heading, zaiLabel, zaiVal, zaiJudge, kkLabel, kkVal, kkJudge, analysisText, reverse, zaiTrendPhrase, kkTrendPhrase) {
+  // trendLabel・trend：相手の指標の名前と、その推移（trendWithMeaning の結果）
+  function kkCrossBox(heading, zaiLabel, zaiVal, zaiJudge, kkLabel, kkVal, kkJudge, analysisText, reverse, trendLabel, trend) {
     var zaiCard = "<div style='flex:1;background:white;border-radius:10px;padding:10px 10px;text-align:center;display:flex;flex-direction:column;justify-content:center;'>" +
         "<div style='font-size:14px;color:#3a9970;font-weight:700;margin-bottom:3px;'>[財政] " + zaiLabel + "</div>" +
         "<div style='font-size:17px;font-weight:700;color:#2a2a3a;'>" + zaiVal + "</div>" +
@@ -286,13 +192,8 @@
         "<div style='font-size:14px;color:#666;'>" + kkJudge + "</div>" +
       "</div>";
     var xMark = "<div style='width:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#222;'>×</div>";
-    var trendHtml = "";
-    if (zaiTrendPhrase || kkTrendPhrase) {
-      trendHtml = "<div style='margin-top:12px;padding-top:10px;border-top:1px dashed #6dcfad55;'>";
-      if (zaiTrendPhrase) trendHtml += "<div style='font-size:15px;color:#3a5a4a;margin-bottom:4px;line-height:1.7;'>" + (zaiTrendPhrase.indexOf("増加")>-1?"📈":"📉") + " <strong>" + zaiLabel + "</strong>：" + zaiTrendPhrase + "</div>";
-      if (kkTrendPhrase) trendHtml += "<div style='font-size:15px;color:#3a5a4a;line-height:1.7;'>" + (kkTrendPhrase.indexOf("増加")>-1?"📈":"📉") + " <strong>" + kkLabel + "</strong>：" + kkTrendPhrase + "</div>";
-      trendHtml += "</div>";
-    }
+    var trendHtml = trend ? "<div style='margin-top:12px;padding-top:10px;border-top:1px dashed #6dcfad55;'>" +
+      "<div style='font-size:15px;color:#3a5a4a;line-height:1.7;'>" + trend.icon + " <strong>" + trendLabel + "</strong>：" + trend.text + "</div></div>" : "";
     var analysisHtml = analysisText ? (
       "<div style='background:#fdf8ec;border-radius:10px;padding:10px 12px;'>" +
         "<div style='font-size:16px;font-weight:700;color:#c08a1a;margin-bottom:4px;'>🔍 クロスチェックで分かること</div>" +
@@ -313,45 +214,17 @@
     if (!cur || entryV == null) return "";   // その年度の値が公表されていない自治体は比べない（2026-10-01）
     if (code === "ka4" && cur.sfs && cur.sfs > 0) {
       var ratioRec = cur.r / cur.sfs * 100;
-      var rb = reserveBands(isPref);
-      var ka4Med = isPref ? KK_MEDIANS.ka4.pref : KK_MEDIANS.ka4.muni;
-      var rHighRec = ratioRec >= rb.hi;
-      var ka4NearRec = Math.abs(entryV - ka4Med) <= ka4Med * 0.1;
-      var ka4HighRec = entryV > ka4Med;
-      var judgeRec, analysisRec;
-      if (!rHighRec && !ka4HighRec) { judgeRec = reserveLevelLabel(ratioRec, isPref); analysisRec = ""; }
-      else if (rHighRec && ka4HighRec) { judgeRec = reserveLevelLabel(ratioRec, isPref); analysisRec = ""; }
-      else if (rHighRec && !ka4HighRec) { judgeRec = reserveLevelLabel(ratioRec, isPref); analysisRec = "貯金と長期的な財産形成は別物です。"; }
-      else { judgeRec = reserveLevelLabel(ratioRec, isPref); analysisRec = "日々の備えと長期的な財産形成は別物です。"; }
-      function ratioAtRec(sfx){ var rv=sfx?cur["r_r"+sfx]:cur.r; var sv=sfx?cur["sfs_r"+sfx]:cur.sfs; return (rv!=null&&sv)?rv/sv*100:null; }
-      var rTrendPhrase = withTrendMeaning("r", trendSincePhrase((function(){ var a=[]; for (var k=1;k<DATA_YEAR.fiscal;k++) a.push(ratioAtRec(k)); a.push(ratioAtRec(null)); return a; })(), DATA_YEAR.fiscal, "%", 1));
-      var ka4TrendPhrase = entry ? withTrendMeaning("ka4", trendSincePhrase(histArr(entry, "ka4", "kk"), DATA_YEAR.kokaikei, "%", 1)) : null;
-      return kkCrossBox("🔗 財政と比べてみると", "財政調整基金残高", ratioRec.toFixed(1)+"%", judgeRec, "純資産比率", entryV+"%", (ka4NearRec?"全国の中央値とほぼ同水準":ka4HighRec?"全国の中央値より高め":"全国の中央値より低め"), crossInsight("ka4", cur, entry, isPref), true, rTrendPhrase, ka4TrendPhrase) + KK_CROSSCHECK_CAVEAT;
+      return kkCrossBox("🔗 財政と比べてみると", "財政調整基金残高", ratioRec.toFixed(1)+"%", reserveLevelLabel(ratioRec, isPref),
+        "純資産比率", entryV+"%", kkMedianJudge(entryV, isPref ? KK_MEDIANS.ka4.pref : KK_MEDIANS.ka4.muni),
+        crossInsight("ka4", cur, entry, isPref), true, "財政調整基金残高", trendWithMeaning("r", finTrendText(cur, "r"))) + KK_CROSSCHECK_CAVEAT;
     }
     if (code === "ka7" && cur.d != null) {
-      var ka7Med = isPref ? KK_MEDIANS.ka7.pref : KK_MEDIANS.ka7.muni;
-      var dHighRec = cur.d >= 18;
-      var ka7NearRec = Math.abs(entryV - ka7Med) <= ka7Med * 0.1;
-      var ka7HighRec = entryV > ka7Med;
-      var judgeD, analysisD2;
-      if (!dHighRec && !ka7HighRec) { judgeD = debtLevelLabel(cur.d, isPref); analysisD2 = ""; }
-      else if (dHighRec && ka7HighRec) { judgeD = "重め"; analysisD2 = ""; }
-      else if (!dHighRec && ka7HighRec) {
-        judgeD = debtLevelLabel(cur.d, isPref);
-        var ka7TrendC = kkMetricTrend(entry, "ka7", entryV);
-        analysisD2 = ka7TrendC === "declining" ? "" : "";
-      }
-      else {
-        judgeD = "重め";
-        var ka7TrendD = kkMetricTrend(entry, "ka7", entryV);
-        analysisD2 = ka7TrendD === "declining" ? "" : "";
-      }
-      var dTrendPhrase = withTrendMeaning("d", trendSincePhrase(histArr(cur, "d", "fiscal"), DATA_YEAR.fiscal, "%", 1));
-      var ka7TrendPhrase = entry ? withTrendMeaning("ka7", trendSincePhrase(histArr(entry, "ka7", "kk"), DATA_YEAR.kokaikei, "万円", 1)) : null;
-      return kkCrossBox("🔗 財政と比べてみると", "実質公債費比率", cur.d+"%", judgeD, "住民一人当たり負債額", entryV+"万円", (ka7NearRec?"全国の中央値とほぼ同水準":ka7HighRec?"全国の中央値より高め":"全国の中央値より低め"), crossInsight("ka7", cur, entry, isPref), true, dTrendPhrase, ka7TrendPhrase) + KK_CROSSCHECK_CAVEAT;
+      return kkCrossBox("🔗 財政と比べてみると", "実質公債費比率", cur.d+"%", debtLevelLabel(cur.d, isPref),
+        "住民一人当たり負債額", entryV+"万円", kkMedianJudge(entryV, isPref ? KK_MEDIANS.ka7.pref : KK_MEDIANS.ka7.muni),
+        crossInsight("ka7", cur, entry, isPref), true, "実質公債費比率", trendWithMeaning("d", finTrendText(cur, "d"))) + KK_CROSSCHECK_CAVEAT;
     }
     if (code === "ka3" || code === "ka1" || code === "ka6") {
-      var boxHtmlRec = buildFutureComboBox(code, entryV, isPref, cur, curName, entry, true);
+      var boxHtmlRec = buildFutureComboBox(code, entryV, isPref, cur, entry, true);
       return boxHtmlRec ? (boxHtmlRec + KK_CROSSCHECK_CAVEAT) : "";
     }
     return "";
@@ -390,18 +263,13 @@
   };
   var KK_ORDER = ["ka1","ka2","ka3","ka4","ka5","ka6","ka7","ka8","ka9"];
 
-  function loadKokaikei(cb){
-    // kokaikei.jsonは起動時に一括で先読み済みのため、ここでは待つだけでよい
-    cb();
-  }
-
   function kkFmt(v, unit){
     if (v == null) return "―";
     if (unit === "百万円") {
       // 1億円未満は「-0.0億円」にならないよう、万円で出す（2026-10-01）
       if (v !== 0 && Math.abs(v) < 100) return (v > 0 ? "+" : "-") + (Math.abs(v) * 100).toLocaleString() + "万円";
       var oku = v / 100;
-      return (oku>=0?"+":"") + fmtOku(oku, true);
+      return (oku>=0?"+":"") + fmtOku(oku);
     }
     return v + unit;
   }
@@ -476,17 +344,11 @@
   /* --- 公会計の詳細画面：推移・例え・意味（2026-09-30）---
      財政タブの「◯◯市の状況」と同じ考え方。書くのは指標の定義から言えることと、その町自身の推移だけ。
      （以前あった「人口が増えており積極的な投資による可能性」「大型の更新投資を行った可能性」などの推測はやめた） */
-  function kkSituationExtra(code, entry, isPref) {
+  function kkSituationExtra(code, entry) {
     var v = entry[code];
     if (v == null) return "";
-    var arr = histArr(entry, code, "kk"), pts = [];
-    for (var i = 0; i < arr.length; i++) pts.push({y: i, v: arr[i]});   // 0＝平成30年度
-    var meta = KK_META[code], unit = meta.unit;
-    var fmt = function(x){ return unit === "百万円" ? (x !== 0 && Math.abs(x) < 100 ? (x < 0 ? "-" : "") + (Math.abs(x) * 100).toLocaleString() + "万円" : fmtOku(x / 100)) : (Math.round(x * 10) / 10) + unit; };
-    var opt = (code === "ka9") ? {tol:0.3, fmt:fmt} : (unit === "%") ? {tol:1, fmt:fmt} : {tol:0.03, rel:true, fmt:fmt};
-    if (code === "ka8") opt = {tol:Math.max(Math.abs(v) * 0.1, 10), fmt:fmt};
-    opt.label = meta.label;
-    var trend = trendJP(pts, opt);
+    var meta = KK_META[code];
+    var trend = kkTrendText(entry, code, meta.label);
     var fact = null, mean = null;
     var wari = function(x){ return Math.round(x / 10); };
     // 2026-10-01：例え（100円とすると…）は出さない。数字の意味（定義どおりの事実）と「→」の一文だけ
@@ -500,8 +362,8 @@
     if (code === "ka6") { mean = entry.ka9 != null ? "この費用のうち、利用する人が料金などで払っているのは約" + (Math.round(entry.ka9 * 10) / 10) + "%（受益者負担比率）で、残りは税金や国からのお金などでまかなわれています" : null; }
     if (code === "ka7") mean = "地方債の返済や、将来払う退職手当などで、主にこれからの税金などから支払われます";
     if (code === "ka8") mean = v < 0
-      ? "その年度は、行政サービス・施設整備・基金への積み立てなどの支出が収入を上回り、差を借入金や手元の資金で補った状態です"
-      : "その年度は、行政サービス・施設整備・基金への積み立てなどを、その年の収入でまかなえた状態です";
+      ? "その年度は、行政サービス・施設整備などの支出が収入を上回り、差を借入金や手元の資金で補った状態です"
+      : "その年度は、行政サービス・施設整備などを、その年の収入でまかなえた状態です";
     if (code === "ka9") mean = "費用の残り約" + (Math.round((100 - v) * 10) / 10) + "%は、税金や国からのお金などでまかなわれている状態です";
     var S = "font-size:16px;color:#2a2a3a;line-height:1.8;";
     return (trend ? "<div style='" + S + "'>" + trend + "。</div>" : "") +
@@ -542,7 +404,7 @@
       fillYears("{KY}") + "の値は、総務省の公表資料にありません。グラフには、公表されている年度の値を表示しています。</div>" : "";
     var cmpHtml = cmpLine ? ("<div style='background:#a08be814;border:1px solid #a08be840;border-radius:12px;padding:12px 14px;margin:0 0 14px;'>" +
       "<div style='font-size:16px;font-weight:700;color:#3a2a6e;margin-bottom:6px;'>🏠 " + escapeHtml(nm) + "の状況</div>" +
-      "<div style='font-size:16px;color:#2a2a3a;line-height:1.8;'>" + cmpLine + "</div>" + kkSituationExtra(code, entry, isPref) + (typeof mitchieHitokoto === "function" ? mitchieHitokoto(code, nm, isPref) + HK_CHART_SLOT : "") + "</div>") : "";   // みっちーのひと言（2026-10-02）：状況のすぐ下
+      "<div style='font-size:16px;color:#2a2a3a;line-height:1.8;'>" + cmpLine + "</div>" + kkSituationExtra(code, entry) + (typeof mitchieHitokoto === "function" ? mitchieHitokoto(code, nm, isPref) + HK_CHART_SLOT : "") + "</div>") : "";   // みっちーのひと言（2026-10-02）：状況のすぐ下
     var ka8NoteHtml = (code === "ka8") ? "<div style='background:#a08be814;border:1px solid #a08be840;border-radius:12px;padding:12px 14px;margin-top:16px;font-size:15px;color:#5a4a80;line-height:1.7;'>自治体の通常の行政活動や公共施設などへの投資に、どれだけお金を使い、どれだけ収入があったかを見る指標です。総務省の「統一的な基準による財務書類」に基づいています。国の「プライマリーバランス」と似た考え方ですが、計算方法は異なります。</div>" : "";
     document.getElementById("shDesc").innerHTML = descHtml + ka8NoteHtml;
     var kkSpWrapEl = document.getElementById("spWrap");
@@ -569,7 +431,6 @@
       kkVals.push(kkV);
       kkYrLabels.push(yrNum <= 0 ? ("H" + (30 + yrNum)) : ("R" + yrNum));
     }
-    var kkCovidNote = "";
     // 3年以上続けて無い場合は「平成30年度〜令和4年度」のようにまとめる
     var kkMissingContig = kkMissingNums.length >= 3 && kkMissingNums[kkMissingNums.length - 1] - kkMissingNums[0] === kkMissingNums.length - 1;
     var kkMissingText = kkMissingContig ? (kkMissingYrs[0] + "〜" + kkMissingYrs[kkMissingYrs.length - 1]) : kkMissingYrs.join("・");
@@ -577,37 +438,7 @@
       ("<div style='font-size:14px;color:#7a7a90;line-height:1.6;margin-top:8px;'>ℹ️ " + kkMissingText +
        "は、総務省の公表データに" + escapeHtml(nm) + "の値が無いため、グラフに表示していません。</div>") : "";
     if (kkVals.length >= 2) {
-      var kkPeakI = 0, kkTroughI = 0;
-      for (var kpi=1; kpi<kkVals.length; kpi++){ if (kkVals[kpi]>kkVals[kkPeakI]) kkPeakI=kpi; if (kkVals[kpi]<kkVals[kkTroughI]) kkTroughI=kpi; }
-      var kkLastI = kkVals.length-1;
-      var kkCovidYrsSet = {"R2":1,"R3":1,"R4":1};
-      // 資産系（ka1/ka3/ka4/ka5/ka7/ka9）はゆっくり動く指標のため対象外。
-      // 行政コスト(ka6)・業務投資活動収支(ka8)・受益者負担比率(ka9)のみ、コロナ対応費が直接出やすいため対象にする。
-      // 行政コスト(ka6)は「高い年」のみ対象（コロナ対応費で増えた場合のみ理屈が通るため）。
-      // 業務投資活動収支(ka8)は方向を問わない収支への影響として両方向を対象にする。
-      // 受益者負担比率(ka9)は「低い年」のみ対象（施設休館等で使用料収入が減った場合のみ理屈が通るため）。
-      var kkCovidReasonsPeak = {
-        ka6: "コロナ対応費が直接計上された影響が考えられます",
-        ka8: "コロナ対応費の収支への影響が考えられます"
-      };
-      var kkCovidReasonsTrough = {
-        ka8: "コロナ対応費の収支への影響が考えられます",
-        ka9: "公共施設の休館・利用制限により使用料収入が減った影響が考えられます"
-      };
-      // 2026-09-30：コロナの時期と重なることを理由にした推測、最初と最後の2点だけで決めた推移は出さない
-      // （推移は上の「📅」の欄で、途中の動きも見て書く）
-      if (false && kkCovidReasonsPeak[code] && kkPeakI !== kkLastI && kkCovidYrsSet[kkYrLabels[kkPeakI]]) {
-        kkCovidNote = "<div style='font-size:14px;color:#7a7a90;margin-top:6px;'>📅 "+kkYrLabels[kkPeakI]+"年度が最も高い年です。新型コロナウイルス対応の時期と重なり、"+kkCovidReasonsPeak[code]+"</div>";
-      } else if (false && kkCovidReasonsTrough[code] && kkTroughI !== kkLastI && kkCovidYrsSet[kkYrLabels[kkTroughI]]) {
-        kkCovidNote = "<div style='font-size:14px;color:#7a7a90;margin-top:6px;'>📅 "+kkYrLabels[kkTroughI]+"年度が最も低い年です。新型コロナウイルス対応の時期と重なり、"+kkCovidReasonsTrough[code]+"</div>";
-      }
-      var kkHasCross = (code==="ka4"||code==="ka7"||code==="ka3"||code==="ka1"||code==="ka6");
-      var kkTd = true ? null : trendDescribe(kkVals[0], kkVals[kkVals.length-1], meta.unit, 1);
-      if (kkTd && kkTd.tier !== "横ばい") {
-        var kkTrendIcon = kkTd.dir === "増加" ? "📈" : "📉";
-        kkCovidNote += "<div style='font-size:14px;color:#7a7a90;margin-top:6px;'>" + kkTrendIcon + " " + meta.label + "はこの" + kkVals.length + "年で" + kkTd.text + "しています。" + "</div>";
-      }
-      document.getElementById("shTop").innerHTML = missingHtml + cmpHtml + kkCovidNote + kkReciprocalCross(code, entry[code], isPref, entry); if (typeof hkPlaceChart === "function") hkPlaceChart();
+      document.getElementById("shTop").innerHTML = missingHtml + cmpHtml + kkReciprocalCross(code, entry[code], isPref, entry); if (typeof hkPlaceChart === "function") hkPlaceChart();
       var kkC = kkColor(code, entry[code], entry, isPref);
       var kkCText = TEXT_COLOR_MAP[kkC] || kkC;
       var Wk=300, Hk=100, Pk=20, PtopK=26;
@@ -628,9 +459,8 @@
       var kkMn=Math.min.apply(null,kkScale), kkMx=Math.max.apply(null,kkScale), kkRng=(kkMx-kkMn)||1;
       function pxk(i){ return Pk+(i/(kkVals.length-1))*(Wk-Pk*2); }
       function pyk(v){ return Hk-Pk-((v-kkMn)/kkRng)*(Hk-PtopK-Pk); }
-      var kkArea="M"+pxk(0)+","+pyk(kkVals[0]), kkLine="M"+pxk(0)+","+pyk(kkVals[0]);
-      for (var ki=1; ki<kkVals.length; ki++){ kkArea+=" L"+pxk(ki)+","+pyk(kkVals[ki]); kkLine+=" L"+pxk(ki)+","+pyk(kkVals[ki]); }
-      kkArea += " L"+pxk(kkVals.length-1)+","+Hk+" L"+pxk(0)+","+Hk+" Z";
+      var kkLine="M"+pxk(0)+","+pyk(kkVals[0]);
+      for (var ki=1; ki<kkVals.length; ki++){ kkLine+=" L"+pxk(ki)+","+pyk(kkVals[ki]); }
       var kkDots = "";
       for (var kj=0; kj<kkVals.length; kj++){
         var kkLast = kj === kkVals.length-1;
@@ -638,8 +468,10 @@
         var kkPrevV = kj>0 ? kkVals[kj-1] : null;
         var kkNextV = kj<kkVals.length-1 ? kkVals[kj+1] : null;
         var kkIsValley = (kkPrevV==null || kkVals[kj]<=kkPrevV) && (kkNextV==null || kkVals[kj]<=kkNextV) && (kkPrevV!=null || kkNextV!=null);
+        // 単位（万円・億円の「円」）は最新の値だけに付ける（全部に付けると、隣の数字と重なって読めないため）
         var kkLbl = kkFmt(kkVals[kj], meta.unit);
-        var kkAnchor = kj===0 ? "start" : "middle";
+        if (!kkLast) kkLbl = meta.unit === "万円" ? String(kkVals[kj]) : meta.unit === "百万円" ? kkLbl.replace(/円$/, "") : kkLbl;
+        var kkAnchor = "middle";
         if (kkLast && kkIsValley) kkDots += "<text x='"+pxk(kj)+"' y='"+(pyk(kkVals[kj])+19)+"' text-anchor='"+kkAnchor+"' font-size='12' fill='"+kkCText+"' font-weight='700'>"+kkLbl+"</text>";
         else if (kkLast) kkDots += "<text x='"+pxk(kj)+"' y='"+(pyk(kkVals[kj])-9)+"' text-anchor='"+kkAnchor+"' font-size='12' fill='"+kkCText+"' font-weight='700'>"+kkLbl+"</text>";
         else if (kkIsValley) kkDots += "<text x='"+pxk(kj)+"' y='"+(pyk(kkVals[kj])+16)+"' text-anchor='"+kkAnchor+"' font-size='9' fill='"+kkCText+"' opacity='0.9'>"+kkLbl+"</text>";
@@ -657,7 +489,7 @@
         kkMedHtml = "<path d='" + kkML + "' fill='none' stroke='#9a96a8' stroke-width='1.5' stroke-dasharray='4,3'/>";
       }
       setChartLegend(kkMedHtml ? (isPref ? "全国の都道府県の中央値" : "全国の市区町村の中央値") : "", !!kkCovid);
-      kkSpSvg.innerHTML = "<defs><linearGradient id='gKk' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='"+kkC+"' stop-opacity='0.2'/><stop offset='100%' stop-color='"+kkC+"' stop-opacity='0'/></linearGradient></defs>" + kkCovid + kkMedHtml + "<path d='"+kkLine+"' fill='none' stroke='"+kkC+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+kkDots;
+      kkSpSvg.innerHTML = kkCovid + kkMedHtml + "<path d='"+kkLine+"' fill='none' stroke='"+kkC+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+kkDots;
       var kkYrLabelsHtml = kkYrLabels.map(function(y,i){
         var pct = (Pk+(i/(kkYrLabels.length-1))*(Wk-Pk*2))/Wk*100;
         return "<span style='left:"+pct+"%;'>"+y+"</span>";
@@ -801,8 +633,7 @@
       "<div style='position:absolute;top:0;left:0;width:100%;height:100%;'>" + svg + "</div>" +
       "</div>";
     var legendRow = "<div style='text-align:right;margin-top:10px;'><span style='display:inline-block;text-align:left;font-size:10px;color:#6b6862;line-height:1.6;'>" +
-      "<svg width='24' height='6' style='display:inline-block;vertical-align:middle;'><line x1='1' y1='3' x2='23' y2='3' stroke='#6b6862' stroke-width='2' stroke-dasharray='4,3'/></svg> 比較基準<br>（全国中央値、収支のみ類似団体中央値）</span>" +
-      "</div>";
+      "<svg width='24' height='6' style='display:inline-block;vertical-align:middle;'><line x1='1' y1='3' x2='23' y2='3' stroke='#6b6862' stroke-width='2' stroke-dasharray='4,3'/></svg> 比較基準<br>（全国の中央値。収支は±0の線）</span>" +
       "</div>";
     var vertexGrid = "<div style='display:grid;grid-template-columns:92px 1fr 92px;align-items:center;justify-items:center;gap:6px;max-width:460px;margin:0 auto;'>" +
       "<div></div><div>" + axisLabelHtml(0) + "</div><div></div>" +
@@ -856,7 +687,8 @@
          純資産比率      ＝資産のうち、負債（借金＝地方債のほか退職手当引当金なども含む）でまかなっていない部分の割合
          将来世代負担比率 ＝資産のうち、将来返す借金（地方債）でまかなっている部分の割合
          有形固定資産減価償却率＝施設などが耐用年数のうちどれだけ過ぎたか（平均）
-         業務・投資活動収支＝行政サービス（業務活動）と、施設整備・基金への積み立てなど（投資活動）を合わせた収支。
+         業務・投資活動収支＝行政サービス（業務活動）と、施設整備など（投資活動）を合わせた収支。
+                           基金への積み立て・取り崩しと、借金の利息の支払いは除いて計算する（総務省の指標の定義）。
                            赤字の差額は、借入金（財務活動）や前年度からの手元の資金で補われる
      ・全国の中央値との差が5%以内は「全国並み」（詳細画面の「ほぼ同水準」と同じ基準）
      ・最後に、もとにした指標と年度（出典）を必ず書く */
@@ -877,7 +709,6 @@
     var dLight = d && d.d != null && d.d < 10;           // 財政タブ：実質公債費比率が緑（軽い）
     var dHeavy = d && d.d != null && d.d >= 18;          // 財政タブ：黄・オレンジ（重い）
     var xHeavy = d && d.x != null && d.x >= 95;          // 財政タブ：経常収支比率が黄・オレンジ
-    var kkSrc = {}, finSrc = {};
     var bullets = [];
 
     // 借金などでまかなった資産の割合（純資産比率・将来世代負担比率）
@@ -889,14 +720,13 @@
     else if (a4 > 0 && ka4 >= 80) debtLine = "資産の" + Math.floor(ka4 / 10) + "割以上を、借金などに頼らずまかなっています";
     else if (a4 > 0 || a5 < 0) debtLine = "資産のうち借金などでまかなった割合" + (a5 < 0 ? "も、将来の住民が返済を受け持つ割合も" : "は") + "、" + than + "小さめです" +
       ((isPref && ka4 != null && ka4 < 50) ? "（都道府県は全体に負債の割合が大きく、" + nm + "も資産の半分以上は負債です）" : "");
-    if (debtLine) { bullets.push({icon:"🏦", t:debtLine, p:1}); if (a4 !== 0) kkSrc["純資産比率"]=1; if (a5 !== 0) kkSrc["将来世代負担比率"]=1; }
+    if (debtLine) bullets.push({icon:"🏦", t:debtLine, p:1});
 
     // 施設の古さ（有形固定資産減価償却率）
     if (a3 !== 0 && ka3 != null) {
       var wari = "約" + Math.round(ka3 / 10) + "割";
       bullets.push({icon:"🏚️", t: a3 > 0 ? "施設は平均して耐用年数の" + wari + "が過ぎていて、" + than + "古くなっています"
                                            : "施設は" + than + "新しめです（平均して耐用年数の" + wari + "が経過）", p:2});
-      kkSrc["有形固定資産減価償却率"]=1;
     }
 
     // 財政タブとの組み合わせ（両方から言えることがはっきりある場合だけ）
@@ -905,14 +735,13 @@
     if (debtBig && dLight) finLine = {icon:"💳", t:"ただし、毎年の借金返済の重さ（実質公債費比率）は軽い水準です", p:1.5};
     else if (debtBig && dHeavy) finLine = {icon:"💳", t:"毎年の借金返済の重さ（実質公債費比率）も重い水準です", p:1.5};
     else if (debtSmall && xHeavy) finLine = {icon:"📊", t:"一方、毎年の収入の約" + Math.round(d.x) + "%が決まった支出に回っています（経常収支比率）", p:1.5};
-    if (finLine) { bullets.push(finLine); finSrc[finLine.icon === "📊" ? "経常収支比率" : "実質公債費比率"]=1; }
+    if (finLine) bullets.push(finLine);
 
     // その年の収支（業務・投資活動収支）
     if (ka8 != null) {
       bullets.push({icon:"⚖️", t: ka8 < 0
-        ? fillYears("{KY}") + "は、行政サービス・施設整備・基金への積み立てなどの支出が収入を上回り、差を借入金や手元の資金で補いました"
-        : fillYears("{KY}") + "は、行政サービス・施設整備・基金への積み立てなどを、その年の収入でまかなえています", p:3});
-      kkSrc["業務・投資活動収支"]=1;
+        ? fillYears("{KY}") + "は、行政サービス・施設整備などの支出が収入を上回り、差を借入金や手元の資金で補いました"
+        : fillYears("{KY}") + "は、行政サービス・施設整備などを、その年の収入でまかなえています", p:3});
     }
 
     // 見出し（いちばん大事な「だから何？」）
@@ -937,7 +766,7 @@
     // 見出しに関係する要点を優先して最大3つ（財政タブとの組み合わせは見出しの根拠なので必ず残す）
     var shown = bullets.slice(0, 3);
     // 出典は表示した要点に使った指標だけ
-    kkSrc = {}; finSrc = {};
+    var kkSrc = {}, finSrc = {};
     shown.forEach(function(b){
       if (b.icon === "🏦") { if (a4 !== 0) kkSrc["純資産比率"]=1; if (a5 !== 0) kkSrc["将来世代負担比率"]=1; }
       if (b.icon === "🏚️") kkSrc["有形固定資産減価償却率"]=1;
@@ -1000,7 +829,7 @@
     finTab.classList.remove("active", "fk-tab-fin-active");
     finBody.classList.add("hidden");
     kkBody.classList.remove("hidden");
-    loadKokaikei(function(){ kkRender(nm, d); });
+    kkRender(nm, d);   // kokaikei.json は起動時に読み込み済み
   }
 
   function fkInitTabs(nm, d){
@@ -1063,9 +892,27 @@ document.addEventListener("keydown", function (e) {
     s.x = hkCmp(name, isPref, function(k){ return DB[k].x; }, "x", 1);
     s.f = hkCmp(name, isPref, function(k){ return DB[k].f; }, "f", 0.01);
     s.d = hkCmp(name, isPref, function(k){ return DB[k].d; }, "d", 0.3);
-    s.u = hkCmp(name, isPref, function(k){ var e = DB[k]; return e.u == null ? null : (e.u <= 0 ? 0 : e.u); }, null, 2);
+    // 将来負担比率：「－」（実質ゼロ）の自治体も0として数える（将来負担比率の画面と同じ比べ方。
+    // 2026-10-02：以前は実質ゼロの自治体を除いて比べていたため、画面どうしで「多め」「少なめ」が食い違うことがあった）。
+    // 比べる相手の半数以上が実質ゼロのときは、中央値は0。自分が実質ゼロのときは出さない
+    s.u = (DB[name].u == null || DB[name].u <= 0) ? null
+        : hkCmp(name, isPref, function(k){ var e = DB[k]; return (e.u == null || e.u <= 0) ? 0 : e.u; }, null, 2);
     s.r = hkCmp(name, isPref, function(k){ var e = DB[k]; return (e.sfs && e.sfs > 0 && e.r != null) ? e.r / e.sfs * 100 : null; }, null, function(m){ return m * 0.05; });
-    s.ka3 = null; s.ka3x = null; s.ka1 = null; s.ka8neg = false;
+    // 実質公債費比率がカードで緑（10%未満＝返済の負担が軽い）かどうか
+    s.dLight = DB[name].d != null && colorD(DB[name].d) === "#6dcfad";
+    /* 「多め・少なめ」などと言ってよいか（2026-10-02）：
+       似ている自治体と比べた結果が、トップ画面のカードの色（国の基準や目安から見た水準）と逆のときは言わない。
+       例：貯金が似ている自治体より少なめでも、カードが緑（厚めに備えている）なら「貯金も少なめだね→借金をすることになる」とは言えない */
+    var e0 = DB[name], G = "#6dcfad", B = "#7bb8e8";
+    var cR = (e0.sfs && e0.sfs > 0 && e0.r != null) ? colorR(e0.r / e0.sfs * 100, isPref) : null;
+    var cX = e0.x != null ? colorX(e0.x) : null, cF = e0.f != null ? colorF(e0.f) : null;
+    s.rLo = s.r === "lo" && cR !== G;                 // 貯金が少なめ（カードが緑でない）
+    s.rHi = s.r === "hi" && (cR === G || cR === B);   // 貯金が多め（カードが緑・青）
+    s.xHi = s.x === "hi" && cX !== G;                 // 決まって出ていくお金の割合が高め（緑でない）
+    s.xLo = s.x === "lo" && (cX === G || cX === B);   // 低め＝余裕が多め（緑・青）
+    s.fLo = s.f === "lo" && cF !== G;                 // 税収などでまかなえる割合が低め（緑でない）
+    s.fHi = s.f === "hi" && (cF === G || cF === B);   // 高め（緑・青）
+    s.ka3 = null; s.ka3x = null; s.ka1 = null; s.ka8neg = false; s.ka8pos = false;
     if (kk) {
       var b = isPref ? "pref" : "muni";
       if (kk.ka3 != null && KK_MEDIANS.ka3) { var m3 = KK_MEDIANS.ka3[b]; s.ka3 = Math.abs(kk.ka3 - m3) <= m3 * 0.05 ? "same" : kk.ka3 > m3 ? "hi" : "lo"; }
@@ -1074,35 +921,85 @@ document.addEventListener("keydown", function (e) {
       var gm = KK._groupMedians && KK._groupMedians[b] && kk.grp ? KK._groupMedians[b][kk.grp] : null;
       if (kk.ka1 != null && gm && gm.ka1 != null && gm._n > 1) s.ka1 = Math.abs(kk.ka1 - gm.ka1) <= Math.abs(gm.ka1) * 0.05 ? "same" : kk.ka1 > gm.ka1 ? "hi" : "lo";
       s.ka8neg = kk.ka8 != null && kk.ka8 < 0;
+      s.ka8pos = kk.ka8 != null && kk.ka8 >= 0;   // 画面の「（その年度は黒字）」と同じ判定
     }
     return s;
   }
   // [①事実, ②だから, ③そうなると（つなぎの言葉つき）]
   function hkLines(key, s) {
     var R = "貯金（財政調整基金）", U = "これから返す分（将来負担比率）", A3 = "（有形固定資産減価償却率）", A1 = "（住民一人当たり資産額）";
-    if (key === "flex" && s.x === "hi") {
-      if (s.r === "lo") return [R + "も少なめだね", "急にお金が必要になったら、ほかの予算を回すか、借金をすることになるよ。", ["そうなると", "予定していたサービスや工事が先送りになったり、将来の返済が増えたりするんだ。"]];
-      if (s.r === "hi") return [R + "は多めだね", "急な出費は貯金から出せるよ。", ["でも", "使った分だけ貯金は減るから、毎年の決まった支払いには使い続けられないんだ。"]];
+    var X = "毎年決まって出ていくお金の割合（経常収支比率）", F = "税収などでまかなえる割合（財政力指数）";
+    // ②③の文は、同じ組み合わせなら、どの画面でも同じ文を使う
+    var T_SHORT = ["急にお金が必要になったら、ほかの予算を回すか、借金をすることになるよ。", ["そうなると", "予定していたサービスや工事が先送りになったり、将来の返済が増えたりするんだ。"]];
+    var T_SAVE  = ["急な出費は貯金から出せるよ。", ["でも", "使った分だけ貯金は減るから、毎年の決まった支払いには使い続けられないんだ。"]];
+    var T_ROOM  = ["急な出費は、新しいことに回せるお金の中から出すことになるよ。", ["そうなると", "その年は、新しいことを始めにくくなるんだ。"]];
+    var T_BOTH  = ["急な出費があっても、新しいことに回せるお金と貯金の両方から出せるよ。", ["でも", "どちらも使えば減るし、決まった支払いが増えると、新しいことに回せるお金は少なくなるんだ。"]];
+    var T_GRANT = ["国の交付金の額が変わると、街の予算がそのまま動きやすいよ。", ["そうなると", "交付金が減った年は、サービスや工事を見直すことになるんだ。"]];
+    var T_GSAVE = ["国の交付金が減った年は、貯金で差を埋められるよ。", ["でも", "貯金は使えば減るから、ずっとは埋め続けられないんだ。"]];
+    var T_TAX   = ["税収が減った年は、ほかの予算を回すか、借金をすることになるよ。", ["そうなると", "予定していたサービスや工事が先送りになったり、将来の返済が増えたりするんだ。"]];
+    var T_TSAVE = ["税収が減った年は、貯金で差を埋められるよ。", ["でも", "貯金は使えば減るから、ずっとは埋め続けられないんだ。"]];
+    var L = function(first, t){ return [first, t[0], t[1]]; };
+    if (key === "flex") {
+      if (s.xHi && s.rLo) return L(R + "も少なめだね", T_SHORT);
+      if (s.xHi && s.rHi) return L(R + "は多めだね", T_SAVE);
+      if (s.xLo && s.rLo) return L(R + "は少なめだね", T_ROOM);
+      if (s.xLo && s.rHi) return L(R + "も多めだね", T_BOTH);
     }
-    if (key === "fiscalPower" && s.f === "lo") {
-      if (s.r === "lo") return [R + "も少なめだね", "国の交付金の額が変わると、街の予算がそのまま動きやすいよ。", ["そうなると", "交付金が減った年は、サービスや工事を見直すことになるんだ。"]];
-      if (s.r === "hi") return [R + "は多めだね", "国の交付金が減った年は、貯金で差を埋められるよ。", ["でも", "貯金は使えば減るから、ずっとは埋め続けられないんだ。"]];
+    if (key === "fiscalPower") {
+      if (s.fLo && s.rLo) return L(R + "も少なめだね", T_GRANT);
+      if (s.fLo && s.rHi) return L(R + "は多めだね", T_GSAVE);
+      if (s.fHi && s.rLo) return L(R + "は少なめだね", T_TAX);
+      if (s.fHi && s.rHi) return L(R + "も多めだね", T_TSAVE);
+    }
+    // 財政調整基金の画面：経常収支比率との組み合わせを先に、無ければ財政力指数との組み合わせ
+    if (key === "reserve") {
+      if (s.rLo && s.xHi) return L(X + "も高めだね", T_SHORT);
+      if (s.rHi && s.xHi) return L(X + "は高めだね", T_SAVE);
+      if (s.rLo && s.xLo) return L(X + "は低めだね", T_ROOM);
+      if (s.rHi && s.xLo) return L(X + "は低めだね", T_BOTH);
+      if (s.rLo && s.fLo) return L(F + "も低めだね", T_GRANT);
+      if (s.rHi && s.fLo) return L(F + "は低めだね", T_GSAVE);
+      if (s.rLo && s.fHi) return L(F + "は高めだね", T_TAX);
+      if (s.rHi && s.fHi) return L(F + "も高めだね", T_TSAVE);
     }
     if (key === "debt") {
-      if (s.d === "hi" && s.u === "hi") return [U + "も多めだね", "収入のうち返済に回る分が大きい状態が、この先も続くよ。", ["そうなると", "新しいサービスや施設に回せるお金が少ない年が続くんだ。"]];
+      // 「返済に回る分が大きい状態」と言えるのは、返済の負担が軽い（カードが緑）とは言えないときだけ
+      // （2026-10-02：似ている自治体より高めでも、10%未満なら同じ画面の「状況」は「余裕があります」なので出さない）
+      if (s.d === "hi" && s.u === "hi" && !s.dLight) return [U + "も多めだね", "収入のうち返済に回る分が大きい状態が、この先も続くよ。", ["そうなると", "新しいサービスや施設に回せるお金が少ない年が続くんだ。"]];
       if (s.d === "hi" && s.u === "lo") return [U + "は少なめだね", "新しく借りなければ、返済に回る分は小さくなっていくよ。", ["そうなると", "その分をほかのことに使えるようになるんだ。"]];
-      if (s.d === "lo" && s.u === "hi") return [U + "は多めだね", "この先、返済などに回すお金が必要になるよ。", ["そうなると", "今ほかに使えているお金が、その分減るんだ。"]];
+      // 返済が似ている自治体より低め、または返済の負担が軽い（カードが緑）のに、これから返す分は多め
+      if ((s.d === "lo" || s.dLight) && s.u === "hi") return [U + "は多めだね", "この先、返済などに回すお金が必要になるよ。", ["そうなると", "今ほかに使えているお金が、その分減るんだ。"]];
     }
     if (key === "future") {
       if (s.u === "hi" && s.ka3x === "hi") return ["施設も古め" + A3 + "だね", "建て替えるなら、今ある借金などに上乗せすることになるよ。", ["そうなると", "毎年の返済が増えて、子育てや道路などに使えるお金がその分減るんだ。"]];
       if (s.u === "hi" && s.ka3x === "lo") return ["施設は新しめ" + A3 + "だね", "建て替えのお金は当面かかりにくいけど、返済は続くよ。", ["その間は", "収入の一部が返済に回り続けるんだ。"]];
+      if (s.u === "hi" && s.ka3x === "same") return ["施設の古さは全国並み" + A3 + "だね", "建て替えや修理のお金は、これからかかるよ。", ["そうなると", "今ある借金などに上乗せするか、ほかの予算を回すことになるんだ。"]];
+      if (s.u === "lo" && s.ka3x === "lo") return ["施設も新しめ" + A3 + "だね", "建て替えのお金は当面かかりにくいよ。", ["その間は", "建て替えのための借金を増やさずにすむんだ。"]];
       if (s.u === "lo" && s.ka3x === "hi") return ["施設は古め" + A3 + "だね", "建て替えや修理のお金がこれからかかるよ。", ["そうなると", "新しく借りるか、ほかの予算を回すか、施設を減らすかを選ぶことになるんだ。"]];
     }
+    var A3F = "施設も古め" + A3 + "だね";
+    var T_REBUILD = ["全部を建て替えると、たくさんのお金がかかるよ。", ["そうなると", "どの施設を残して、どれをまとめるか・やめるかを決めることになるんだ。街の「公共施設等総合管理計画」に書いてあるよ。"]];
     if (key === "ka3" && s.ka3 === "hi") {
-      if (s.ka1 === "hi") return ["持っている施設やインフラも多め" + A1 + "だね", "全部を建て替えると、たくさんのお金がかかるよ。", ["そうなると", "どの施設を残して、どれをまとめるか・やめるかを決めることになるんだ。街の「公共施設等総合管理計画」に書いてあるよ。"]];
+      if (s.ka1 === "hi") return L("持っている施設やインフラも多め" + A1 + "だね", T_REBUILD);
       if (s.ka1 === "lo") return ["持っている施設やインフラは少なめ" + A1 + "だね", "建て替えが必要になる数は、多く持つ街より少ないよ。", ["それでも", "古くなった分の修理や建て替えのお金はかかるんだ。"]];
     }
-    if (key === "ka8" && s.ka8neg && s.r === "lo") return [R + "も少なめだね", "足りない分は借金で埋めることになりやすいよ。", ["そうなると", "将来の返済が増えるんだ。"]];
+    if (key === "ka3" && s.ka3 === "lo") {
+      if (s.ka1 === "hi") return ["持っている施設やインフラは多め" + A1 + "だね", "建て替えは当面少なくても、毎年の手入れのお金は多くかかるよ。", ["そうなると", "年がたてば古くなって、建て替えのお金が多くかかるんだ。"]];
+      if (s.ka1 === "lo") return ["持っている施設やインフラは少なめ" + A1 + "だね", "建て替えや手入れのお金は、多く持つ街より少ないよ。", ["それでも", "年がたてば古くなって、建て替えのお金はかかるんだ。"]];
+    }
+    // 住民一人当たり資産額の画面：施設の古さ（全国の中央値と比べる）との組み合わせ
+    if (key === "ka1") {
+      if (s.ka1 === "hi" && s.ka3 === "hi") return L(A3F, T_REBUILD);
+      if (s.ka1 === "hi" && s.ka3 === "lo") return ["施設は新しめ" + A3 + "だね", "建て替えのお金は当面かかりにくいよ。", ["でも", "持っている数が多い分、毎年の手入れのお金は多くかかるんだ。"]];
+      if (s.ka1 === "lo" && s.ka3 === "hi") return ["施設は古め" + A3 + "だね", "建て替えや修理のお金がこれからかかるよ。", ["それでも", "建て替えが必要になる数は、多く持つ街より少ないんだ。"]];
+      if (s.ka1 === "lo" && s.ka3 === "lo") return ["施設も新しめ" + A3 + "だね", "建て替えのお金は当面かかりにくいよ。", ["それに", "持っている数も少ないから、毎年の手入れのお金も少なめなんだ。"]];
+    }
+    // 業務・投資活動収支の画面：貯金との組み合わせ
+    if (key === "ka8") {
+      if (s.ka8neg && s.rLo) return [R + "も少なめだね", "足りない分は借金で埋めることになりやすいよ。", ["そうなると", "将来の返済が増えるんだ。"]];
+      if (s.ka8neg && s.rHi) return [R + "は多めだね", "足りない分は、貯金から出すこともできるよ。", ["でも", "使った分だけ貯金は減るから、赤字が続くと出し続けられないんだ。"]];
+      if (s.ka8pos && s.rHi) return [R + "も多めだね", "急な出費があっても、借金に頼らずに出しやすいよ。", ["でも", "大きな工事をした年は赤字になることもあるから、毎年黒字とは限らないんだ。"]];
+    }
     return null;
   }
   function mitchieHitokoto(key, name, isPref) {

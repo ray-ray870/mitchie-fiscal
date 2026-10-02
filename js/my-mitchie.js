@@ -6,12 +6,14 @@
   function mmIsPrefKey(k){ return !!(DB && DB[k] && DB[k].p === k); }
   function mmScoreOf(k){ var e=DB&&DB[k]; if(!e) return null; var s=calcH(e.f,e.d,e.x,e.u,e.r,e.eo,e.__pref,e.sfs); return isNaN(s)?null:s; }
 
+  // 順位は「自分より点数が高い自治体の数＋1」。同じ点数なら同じ順位になる
+  // （2026-10-02：以前は並べた順の番号だったため、同じ点数でも順位が違っていた）
   function mmRankIn(keys, targetKey){
-    var list=[];
-    keys.forEach(function(k){ var s=mmScoreOf(k); if(s==null) return; list.push({k:k,v:s}); });
-    list.sort(function(a,b){ return b.v-a.v; });
-    for (var i=0;i<list.length;i++){ if (list[i].k===targetKey) return {rank:i+1,total:list.length}; }
-    return null;
+    var my = mmScoreOf(targetKey);
+    if (my == null || keys.indexOf(targetKey) < 0) return null;
+    var total = 0, better = 0;
+    keys.forEach(function(k){ var s=mmScoreOf(k); if(s==null) return; total++; if (s > my) better++; });
+    return {rank:better+1,total:total};
   }
   function mmRankNationalCity(cityKey){
     if (!DB) return null;

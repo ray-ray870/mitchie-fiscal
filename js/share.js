@@ -52,14 +52,6 @@
     return true;
   }
 
-  function shareHealthState(score) {
-    if (score>=85) return "happy";
-    if (score>=70) return "normal";
-    if (score>=50) return "tired";
-    if (score>=30) return "sick";
-    return "critical";
-  }
-
   function shareRankBoxHtml(cityName, d){
     var isPref = (d.p === cityName);
     var html = "<div class='sc-rank-box'>";
@@ -77,22 +69,23 @@
   }
 
   function buildShareCardHTML(cityName, d, h, pr) {
-    var state = shareHealthState(h);
-    var STATE_LABELS = {happy:["絶好調",pr.c],normal:["元気",pr.c],tired:["ちょっとしんどい",pr.c],sick:["ぐったり",pr.c],critical:["ひんし",pr.c]};
     var fc = colorF(d.f);
-    var dc = d.d<10?"#6dcfad":d.d<18?"#7bb8e8":d.d<25?"#f0c46a":"#f0876a";
+    var dc = colorD(d.d);
     var xc = colorX(d.x);
-    var uc = colorU(d.u, d.p === curName);
-    var rc = colorR((d.sfs && d.sfs > 0) ? d.r / d.sfs * 100 : null, d.p === curName);
-    var gc = d.g>=0?"#6dcfad":d.g>=-0.5?"#f0c46a":"#f0876a";
+    var isPref = (d.p === cityName);
+    var uc = colorU(d.u, isPref);
+    // 財政調整基金は、画面のカードと同じく標準財政規模に対する割合で色と棒の長さを決める
+    var rr = (d.sfs && d.sfs > 0 && d.r != null) ? d.r / d.sfs * 100 : null;
+    var rc = colorR(rr, isPref);
+    var gc = colorG(d.g);
 
     var bars = [
       {label:"財政力指数", disp:d.f.toFixed(2), pct:Math.min(d.f/1.2*100,100), color:fc},
       {label:"実質公債費比率", disp:d.d.toFixed(1)+"%", pct:Math.max(100-(d.d/25*100),0), color:dc},
       {label:"経常収支比率", disp:d.x.toFixed(1)+"%", pct:Math.max(100-((d.x-70)/30*100),0), color:xc},
       {label:"将来負担比率", disp:(d.u<=0?"0":d.u.toFixed(0))+"%", pct:d.u<=0?100:Math.max(100-(d.u/200*100),0), color:uc},
-      {label:"財政調整基金", disp:fmtOku(d.r, true), pct:d.eo? Math.min((d.r/d.eo*100)/15*100,100) : 50, color:rc},
-      {label:"人口増減率", disp:(d.g>=0?"+":"")+d.g.toFixed(1)+"%", pct:Math.max(Math.min(50+d.g*20,100),0), color:gc}
+      {label:"財政調整基金", disp:fmtOku(d.r), pct:rr != null ? Math.min(rr/reserveBands(isPref).hi*100,100) : 50, color:rc},
+      {label:"人口増減率", disp:(d.g>=0?"+":"")+d.g.toFixed(2)+"%", pct:Math.max(Math.min(50+d.g*20,100),0), color:gc}
     ];
     var barsHtml = bars.map(function(b){
       return "<div class='sc-bar-row'><div class='sc-bar-label'><span>"+b.label+"</span><span style='font-weight:700;color:"+b.color+";'>"+b.disp+"</span></div>" +
@@ -100,7 +93,7 @@
     }).join("");
 
     var summary = adviceSummary(cityName, d);
-    var stateLabel = STATE_LABELS[state][0];
+    var stateLabel = HEALTH_LABELS[healthState(h)][0];
 
     return (
       "<div class='share-card'>" +
@@ -109,7 +102,7 @@
       "<div class='sc-pref'>"+d.p+"</div>" +
       "<div class='sc-top'>" +
         "<div class='sc-top-left'>" +
-          "<img src='data:image/png;base64,"+IMGS[pr.img]+"' alt='\"+pr.l+\"' style='width:190px;height:190px;object-fit:contain;'>" +
+          "<img src='data:image/png;base64,"+IMGS[pr.img]+"' alt='"+pr.l+"' style='width:190px;height:190px;object-fit:contain;'>" +
           "<div class='sc-score-sub'>総合財政健全度スコア</div>" +
           "<div class='sc-score' style='color:"+pr.c+";'>"+h+"<span style='font-size:30px;'>/100</span></div>" +
           "<div class='sc-state-label' style='color:"+pr.c+";'>"+stateLabel+"</div>" +

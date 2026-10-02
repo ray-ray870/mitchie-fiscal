@@ -90,6 +90,7 @@
       var diffHtml = "";
       if (fu!=null && fk!=null) {
         var diff = fu - fk;
+        // 「黒字・赤字」は当アプリ独自の言い方（総務省は受入額と住民税控除額を別々に公表している）
         var diffLabel = diff>0 ? "黒字" : (diff<0 ? "赤字" : "収支同額");
         var diffColor = diff>0 ? "#6dcfad" : (diff<0 ? "#f0876a" : "#a0a0a0");
         diffHtml = "<br><span style='font-size:10px;color:"+diffColor+";font-weight:700;'>"+diffLabel+" "+fmtManOku(Math.abs(diff))+"</span>";
@@ -116,7 +117,7 @@
       var key = healthState(s);
       var lab = HEALTH_LABELS[key];
       var mark = multi && i===bestHI ? "🏆 " : (multi && i===worstHI && bestHI!==worstHI ? "😥 " : "");
-      return "<td class='compare-cell-detail' data-city='"+e.name+"' data-metric='health' style='color:"+lab[1]+";font-weight:700;font-size:"+scoreFontSize+";'>"+mark+s+"<br><img src='data:image/png;base64,"+IMGS[key]+"' alt='\"+HEALTH_LABELS[key][0]+\"' style='width:"+imgSize+";height:"+imgSize+";object-fit:contain;margin-top:3px;'><br><span style='font-size:"+labelFontSize+";color:"+lab[1]+";font-weight:700;'>"+lab[0]+"</span></td>";
+      return "<td class='compare-cell-detail' data-city='"+e.name+"' data-metric='health' style='color:"+lab[1]+";font-weight:700;font-size:"+scoreFontSize+";'>"+mark+s+"<br><img src='data:image/png;base64,"+IMGS[key]+"' alt='"+lab[0]+"' style='width:"+imgSize+";height:"+imgSize+";object-fit:contain;margin-top:3px;'><br><span style='font-size:"+labelFontSize+";color:"+lab[1]+";font-weight:700;'>"+lab[0]+"</span></td>";
     }).join("");
 
     var headCells = entries.map(function(e){
@@ -125,23 +126,23 @@
 
     var rows = "<tr><td>総合スコア</td>"+scoreCells+"</tr>";
     rows += buildCompareRow("財政力指数", entries, function(e){return e.d.f;},
-      function(v){ return v>=1.0?"#6dcfad":v>=0.7?"#7bb8e8":v>=0.5?"#f0c46a":"#f0876a"; },
+      function(v){ return colorF(v); },
       function(v){ return v.toFixed(2); }, true, "fiscalPower");
     rows += buildCompareRow("実質公債費比率", entries, function(e){return e.d.d;},
-      function(v){ return v<10?"#6dcfad":v<18?"#7bb8e8":v<25?"#f0c46a":"#f0876a"; },
+      function(v){ return colorD(v); },
       function(v){ return v.toFixed(1)+"%"; }, false, "debt");
     rows += buildCompareRow("経常収支比率", entries, function(e){return e.d.x;},
-      function(v){ return v<88?"#6dcfad":v<95?"#7bb8e8":"#f0876a"; },
+      function(v){ return colorX(v); },
       function(v){ return v.toFixed(1)+"%"; }, false, "flex");
     rows += buildCompareRow("将来負担比率", entries, function(e){return e.d.u==null?0:e.d.u;},
       function(v,e){ return colorU(v, e && e.d && e.d.__pref); },
       function(v){ return (v<=0?"0":v.toFixed(0))+"%"; }, false, "future");
     rows += buildCompareRow("財政調整基金", entries, function(e){ return (e.d.sfs && e.d.sfs>0 && e.d.r!=null) ? (e.d.r/e.d.sfs*100) : 0; },
-      function(v,e){ var rb = reserveBands(e && e.d && e.d.__pref); return v>=rb.hi?"#6dcfad":v>=rb.lo?"#f0c46a":"#f0876a"; },
+      function(v,e){ return colorR(v, e && e.d && e.d.__pref); },
       function(v){ return v.toFixed(1)+"%"; }, true, "reserve");
     rows += buildCompareRow("人口増減率", entries, function(e){return e.d.g;},
-      function(v){ return v>=0?"#6dcfad":v>=-0.5?"#f0c46a":"#f0876a"; },
-      function(v){ return (v>=0?"+":"")+v.toFixed(1)+"%"; }, true, "growth");
+      function(v){ return colorG(v); },
+      function(v){ return (v>=0?"+":"")+v.toFixed(2)+"%"; }, true, "growth");
     rows += buildFurusatoRow(entries);
 
     return "<div class='compare-title'><span>📊 比較リスト（"+entries.length+"自治体）</span><span class='close' id='compareCloseBtn'>✕ 閉じる</span></div>" +
@@ -218,4 +219,3 @@
     }
   }
 
-  // ===== 診断結果 画像シェア機能 =====

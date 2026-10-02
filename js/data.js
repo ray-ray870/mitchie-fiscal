@@ -146,14 +146,6 @@
     a.push(e[prefix]);
     return a;
   }
-  // 最新値の直前の count 年分の履歴（空欄は除く）。「過去平均」の計算に使う
-  function recentHist(e, prefix, count) {
-    var a = [];
-    for (var k = DATA_YEAR.fiscal - count; k <= DATA_YEAR.fiscal - 1; k++) {
-      if (k >= 1 && e[prefix + "_r" + k] != null) a.push(e[prefix + "_r" + k]);
-    }
-    return a;
-  }
   function countHistSlots(e, prefix) {
     var n = 0;
     while (e && Object.prototype.hasOwnProperty.call(e, prefix + "_r" + (n + 1))) n++;
