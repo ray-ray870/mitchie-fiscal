@@ -912,7 +912,7 @@ document.addEventListener("keydown", function (e) {
     s.xLo = s.x === "lo" && (cX === G || cX === B);   // 低め＝余裕が多め（緑・青）
     s.fLo = s.f === "lo" && cF !== G;                 // 税収などでまかなえる割合が低め（緑でない）
     s.fHi = s.f === "hi" && (cF === G || cF === B);   // 高め（緑・青）
-    s.ka3 = null; s.ka3x = null; s.ka1 = null; s.ka8neg = false;
+    s.ka3 = null; s.ka3x = null; s.ka1 = null; s.ka8neg = false; s.ka8pos = false;
     if (kk) {
       var b = isPref ? "pref" : "muni";
       if (kk.ka3 != null && KK_MEDIANS.ka3) { var m3 = KK_MEDIANS.ka3[b]; s.ka3 = Math.abs(kk.ka3 - m3) <= m3 * 0.05 ? "same" : kk.ka3 > m3 ? "hi" : "lo"; }
@@ -921,6 +921,7 @@ document.addEventListener("keydown", function (e) {
       var gm = KK._groupMedians && KK._groupMedians[b] && kk.grp ? KK._groupMedians[b][kk.grp] : null;
       if (kk.ka1 != null && gm && gm.ka1 != null && gm._n > 1) s.ka1 = Math.abs(kk.ka1 - gm.ka1) <= Math.abs(gm.ka1) * 0.05 ? "same" : kk.ka1 > gm.ka1 ? "hi" : "lo";
       s.ka8neg = kk.ka8 != null && kk.ka8 < 0;
+      s.ka8pos = kk.ka8 != null && kk.ka8 >= 0;   // 画面の「（その年度は黒字）」と同じ判定
     }
     return s;
   }
@@ -976,11 +977,29 @@ document.addEventListener("keydown", function (e) {
       if (s.u === "lo" && s.ka3x === "lo") return ["施設も新しめ" + A3 + "だね", "建て替えのお金は当面かかりにくいよ。", ["その間は", "建て替えのための借金を増やさずにすむんだ。"]];
       if (s.u === "lo" && s.ka3x === "hi") return ["施設は古め" + A3 + "だね", "建て替えや修理のお金がこれからかかるよ。", ["そうなると", "新しく借りるか、ほかの予算を回すか、施設を減らすかを選ぶことになるんだ。"]];
     }
+    var A3F = "施設も古め" + A3 + "だね";
+    var T_REBUILD = ["全部を建て替えると、たくさんのお金がかかるよ。", ["そうなると", "どの施設を残して、どれをまとめるか・やめるかを決めることになるんだ。街の「公共施設等総合管理計画」に書いてあるよ。"]];
     if (key === "ka3" && s.ka3 === "hi") {
-      if (s.ka1 === "hi") return ["持っている施設やインフラも多め" + A1 + "だね", "全部を建て替えると、たくさんのお金がかかるよ。", ["そうなると", "どの施設を残して、どれをまとめるか・やめるかを決めることになるんだ。街の「公共施設等総合管理計画」に書いてあるよ。"]];
+      if (s.ka1 === "hi") return L("持っている施設やインフラも多め" + A1 + "だね", T_REBUILD);
       if (s.ka1 === "lo") return ["持っている施設やインフラは少なめ" + A1 + "だね", "建て替えが必要になる数は、多く持つ街より少ないよ。", ["それでも", "古くなった分の修理や建て替えのお金はかかるんだ。"]];
     }
-    if (key === "ka8" && s.ka8neg && s.rLo) return [R + "も少なめだね", "足りない分は借金で埋めることになりやすいよ。", ["そうなると", "将来の返済が増えるんだ。"]];
+    if (key === "ka3" && s.ka3 === "lo") {
+      if (s.ka1 === "hi") return ["持っている施設やインフラは多め" + A1 + "だね", "建て替えは当面少なくても、毎年の手入れのお金は多くかかるよ。", ["そうなると", "年がたてば古くなって、建て替えのお金が多くかかるんだ。"]];
+      if (s.ka1 === "lo") return ["持っている施設やインフラは少なめ" + A1 + "だね", "建て替えや手入れのお金は、多く持つ街より少ないよ。", ["それでも", "年がたてば古くなって、建て替えのお金はかかるんだ。"]];
+    }
+    // 住民一人当たり資産額の画面：施設の古さ（全国の中央値と比べる）との組み合わせ
+    if (key === "ka1") {
+      if (s.ka1 === "hi" && s.ka3 === "hi") return L(A3F, T_REBUILD);
+      if (s.ka1 === "hi" && s.ka3 === "lo") return ["施設は新しめ" + A3 + "だね", "建て替えのお金は当面かかりにくいよ。", ["でも", "持っている数が多い分、毎年の手入れのお金は多くかかるんだ。"]];
+      if (s.ka1 === "lo" && s.ka3 === "hi") return ["施設は古め" + A3 + "だね", "建て替えや修理のお金がこれからかかるよ。", ["それでも", "建て替えが必要になる数は、多く持つ街より少ないんだ。"]];
+      if (s.ka1 === "lo" && s.ka3 === "lo") return ["施設も新しめ" + A3 + "だね", "建て替えのお金は当面かかりにくいよ。", ["それに", "持っている数も少ないから、毎年の手入れのお金も少なめなんだ。"]];
+    }
+    // 業務・投資活動収支の画面：貯金との組み合わせ
+    if (key === "ka8") {
+      if (s.ka8neg && s.rLo) return [R + "も少なめだね", "足りない分は借金で埋めることになりやすいよ。", ["そうなると", "将来の返済が増えるんだ。"]];
+      if (s.ka8neg && s.rHi) return [R + "は多めだね", "足りない分は、貯金から出すこともできるよ。", ["でも", "使った分だけ貯金は減るから、赤字が続くと出し続けられないんだ。"]];
+      if (s.ka8pos && s.rHi) return [R + "も多めだね", "急な出費があっても、借金に頼らずに出しやすいよ。", ["でも", "大きな工事をした年は赤字になることもあるから、毎年黒字とは限らないんだ。"]];
+    }
     return null;
   }
   function mitchieHitokoto(key, name, isPref) {
