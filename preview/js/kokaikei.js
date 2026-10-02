@@ -510,6 +510,7 @@
   }
 
   function kkOpenDetail(code, skipPush){
+    if (typeof hkRestoreChart === "function") hkRestoreChart();   // グラフを元の位置へ戻す（2026-10-02）
     setChartLegend("", false);
     if (!cur || !KK) return;
     var nm = curName;
@@ -541,7 +542,7 @@
       fillYears("{KY}") + "の値は、総務省の公表資料にありません。グラフには、公表されている年度の値を表示しています。</div>" : "";
     var cmpHtml = cmpLine ? ("<div style='background:#a08be814;border:1px solid #a08be840;border-radius:12px;padding:12px 14px;margin:0 0 14px;'>" +
       "<div style='font-size:16px;font-weight:700;color:#3a2a6e;margin-bottom:6px;'>🏠 " + escapeHtml(nm) + "の状況</div>" +
-      "<div style='font-size:16px;color:#2a2a3a;line-height:1.8;'>" + cmpLine + "</div>" + kkSituationExtra(code, entry, isPref) + "</div>") : "";
+      "<div style='font-size:16px;color:#2a2a3a;line-height:1.8;'>" + cmpLine + "</div>" + kkSituationExtra(code, entry, isPref) + (typeof mitchieHitokoto === "function" ? mitchieHitokoto(code, nm, isPref) + HK_CHART_SLOT : "") + "</div>") : "";   // みっちーのひと言（2026-10-02）：状況のすぐ下
     var ka8NoteHtml = (code === "ka8") ? "<div style='background:#a08be814;border:1px solid #a08be840;border-radius:12px;padding:12px 14px;margin-top:16px;font-size:15px;color:#5a4a80;line-height:1.7;'>自治体の通常の行政活動や公共施設などへの投資に、どれだけお金を使い、どれだけ収入があったかを見る指標です。総務省の「統一的な基準による財務書類」に基づいています。国の「プライマリーバランス」と似た考え方ですが、計算方法は異なります。</div>" : "";
     document.getElementById("shDesc").innerHTML = descHtml + ka8NoteHtml;
     var kkSpWrapEl = document.getElementById("spWrap");
@@ -606,7 +607,7 @@
         var kkTrendIcon = kkTd.dir === "増加" ? "📈" : "📉";
         kkCovidNote += "<div style='font-size:14px;color:#7a7a90;margin-top:6px;'>" + kkTrendIcon + " " + meta.label + "はこの" + kkVals.length + "年で" + kkTd.text + "しています。" + "</div>";
       }
-      document.getElementById("shTop").innerHTML = missingHtml + cmpHtml + kkCovidNote + kkReciprocalCross(code, entry[code], isPref, entry);
+      document.getElementById("shTop").innerHTML = missingHtml + cmpHtml + kkCovidNote + kkReciprocalCross(code, entry[code], isPref, entry); if (typeof hkPlaceChart === "function") hkPlaceChart();
       var kkC = kkColor(code, entry[code], entry, isPref);
       var kkCText = TEXT_COLOR_MAP[kkC] || kkC;
       var Wk=300, Hk=100, Pk=20, PtopK=26;
@@ -665,7 +666,7 @@
       // グラフの枠のすぐ下（説明文の先頭）に、公式データが無い年の注記を出す
       if (kkMissingNote) document.getElementById("shDesc").insertAdjacentHTML("afterbegin", kkMissingNote.replace("margin-top:8px;", "margin:-4px 0 12px;"));
     } else {
-      document.getElementById("shTop").innerHTML = missingHtml + cmpHtml + kkReciprocalCross(code, entry[code], isPref, entry) + kkMissingNote;
+      document.getElementById("shTop").innerHTML = missingHtml + cmpHtml + kkReciprocalCross(code, entry[code], isPref, entry) + kkMissingNote; if (typeof hkPlaceChart === "function") hkPlaceChart();
       document.getElementById("spSvg").innerHTML = "";
       document.getElementById("spSvg").style.height = "0px";
       document.getElementById("spLabels").innerHTML = "";
@@ -1031,3 +1032,110 @@ document.addEventListener("keydown", function (e) {
   e.preventDefault();
   el.click();
 });
+
+  /* --- 項目の詳細画面の「みっちーのひと言」（2026-10-02）---
+     2つの指標を合わせて初めて言えることを、①事実 ②だから ③そうなると の3行で伝える。
+     ルール：
+       ・その画面の指標の「高め・低め」は繰り返さない（相手の指標の話から始める）
+       ・数字は出さない（どちらも画面にあるため）
+       ・②③は指標の仕組みから言えることだけ（街ごとの事情の推測は書かない）
+       ・条件に当てはまらない自治体には出さない
+     比べ方は各画面と同じ：財政の指標＝似ている自治体（無ければ全国）の中央値、
+     施設の古さ＝全国の中央値、住民一人当たり資産額＝類似団体の中央値 */
+  function hkCmp(name, isPref, getter, statKey, tol) {
+    var v = getter(name);
+    if (v == null || isNaN(v)) return null;
+    var pi = peerInfo(name, isPref), med = null;
+    if (pi) med = peerMedian(peerVals(pi, getter));
+    if (med == null) {
+      if (statKey && DATA_STATS[statKey]) med = DATA_STATS[statKey][isPref ? "pref" : "muni"];
+      else {
+        var all = Object.keys(DB).filter(function(k){ return !!DB[k].__pref === !!isPref; }).map(getter).filter(function(x){ return typeof x === "number" && !isNaN(x); });
+        med = peerMedian(all);
+      }
+    }
+    if (med == null) return null;
+    return peerCmp(v, med, typeof tol === "function" ? tol(med) : tol);
+  }
+  function hkStates(name, isPref) {
+    var kk = (typeof KK !== "undefined" && KK && KK[name]) ? KK[name] : null;
+    var s = {};
+    s.x = hkCmp(name, isPref, function(k){ return DB[k].x; }, "x", 1);
+    s.f = hkCmp(name, isPref, function(k){ return DB[k].f; }, "f", 0.01);
+    s.d = hkCmp(name, isPref, function(k){ return DB[k].d; }, "d", 0.3);
+    s.u = hkCmp(name, isPref, function(k){ var e = DB[k]; return e.u == null ? null : (e.u <= 0 ? 0 : e.u); }, null, 2);
+    s.r = hkCmp(name, isPref, function(k){ var e = DB[k]; return (e.sfs && e.sfs > 0 && e.r != null) ? e.r / e.sfs * 100 : null; }, null, function(m){ return m * 0.05; });
+    s.ka3 = null; s.ka3x = null; s.ka1 = null; s.ka8neg = false;
+    if (kk) {
+      var b = isPref ? "pref" : "muni";
+      if (kk.ka3 != null && KK_MEDIANS.ka3) { var m3 = KK_MEDIANS.ka3[b]; s.ka3 = Math.abs(kk.ka3 - m3) <= m3 * 0.05 ? "same" : kk.ka3 > m3 ? "hi" : "lo"; }
+      // 将来負担比率の画面は、同じ画面の「公会計と比べてみると」と判定をそろえる（全国の中央値との差が10%以内は「全国並み」）
+      if (kk.ka3 != null && KK_MEDIANS.ka3) { var q3 = kk.ka3 / KK_MEDIANS.ka3[b]; s.ka3x = q3 > 1.1 ? "hi" : q3 < 0.9 ? "lo" : "same"; }
+      var gm = KK._groupMedians && KK._groupMedians[b] && kk.grp ? KK._groupMedians[b][kk.grp] : null;
+      if (kk.ka1 != null && gm && gm.ka1 != null && gm._n > 1) s.ka1 = Math.abs(kk.ka1 - gm.ka1) <= Math.abs(gm.ka1) * 0.05 ? "same" : kk.ka1 > gm.ka1 ? "hi" : "lo";
+      s.ka8neg = kk.ka8 != null && kk.ka8 < 0;
+    }
+    return s;
+  }
+  // [①事実, ②だから, ③そうなると（つなぎの言葉つき）]
+  function hkLines(key, s) {
+    var R = "貯金（財政調整基金）", U = "これから返す分（将来負担比率）", A3 = "（有形固定資産減価償却率）", A1 = "（住民一人当たり資産額）";
+    if (key === "flex" && s.x === "hi") {
+      if (s.r === "lo") return [R + "も少なめなんだ！", "急にお金が必要になったら、ほかの予算を回すか、借金をすることになるね。", ["そうなると", "予定していたサービスや工事が先送りになったり、将来の返済が増えたりするよ。"]];
+      if (s.r === "hi") return [R + "は多めなんだ！", "急な出費は貯金から出せるね。", ["でも", "使った分だけ貯金は減るから、毎年の決まった支払いには使い続けられないよ。"]];
+    }
+    if (key === "fiscalPower" && s.f === "lo") {
+      if (s.r === "lo") return [R + "も少なめなんだ！", "国の交付金の額が変わると、街の予算がそのまま動きやすいね。", ["そうなると", "交付金が減った年は、サービスや工事を見直すことになるよ。"]];
+      if (s.r === "hi") return [R + "は多めなんだ！", "国の交付金が減った年は、貯金で差を埋められるね。", ["でも", "貯金は使えば減るから、ずっとは埋め続けられないよ。"]];
+    }
+    if (key === "debt") {
+      if (s.d === "hi" && s.u === "hi") return [U + "も多めなんだ！", "収入のうち返済に回る分が大きい状態が、この先も続くね。", ["そうなると", "新しいサービスや施設に回せるお金が少ない年が続くよ。"]];
+      if (s.d === "hi" && s.u === "lo") return [U + "は少なめなんだ！", "新しく借りなければ、返済に回る分は小さくなっていくね。", ["そうなると", "その分をほかのことに使えるようになるよ。"]];
+      if (s.d === "lo" && s.u === "hi") return [U + "は多めなんだ！", "この先、返済などに回すお金が必要になるね。", ["そうなると", "今ほかに使えているお金が、その分減るよ。"]];
+    }
+    if (key === "future") {
+      if (s.u === "hi" && s.ka3x === "hi") return ["施設も古め" + A3 + "なんだ！", "建て替えるなら、今ある借金などに上乗せすることになるね。", ["そうなると", "毎年の返済が増えて、子育てや道路などに使えるお金がその分減るよ。"]];
+      if (s.u === "hi" && s.ka3x === "lo") return ["施設は新しめ" + A3 + "なんだ！", "建て替えのお金は当面かかりにくいけど、返済は続くね。", ["その間は", "収入の一部が返済に回り続けるよ。"]];
+      if (s.u === "lo" && s.ka3x === "hi") return ["施設は古め" + A3 + "なんだ！", "建て替えや修理のお金がこれからかかるね。", ["そうなると", "新しく借りるか、ほかの予算を回すか、施設を減らすかを選ぶことになるよ。"]];
+    }
+    if (key === "ka3" && s.ka3 === "hi") {
+      if (s.ka1 === "hi") return ["持っている施設やインフラも多め" + A1 + "なんだ！", "全部を建て替えると、たくさんのお金がかかるね。", ["そうなると", "どの施設を残して、どれをまとめるか・やめるかを決めることになるよ。街の「公共施設等総合管理計画」に書いてあるよ。"]];
+      if (s.ka1 === "lo") return ["持っている施設やインフラは少なめ" + A1 + "なんだ！", "建て替えが必要になる数は、多く持つ街より少ないね。", ["それでも", "古くなった分の修理や建て替えのお金はかかるよ。"]];
+    }
+    if (key === "ka8" && s.ka8neg && s.r === "lo") return [R + "も少なめなんだ！", "足りない分は借金で埋めることになりやすいね。", ["そうなると", "将来の返済が増えるよ。"]];
+    return null;
+  }
+  function mitchieHitokoto(key, name, isPref) {
+    try {
+      if (!name || !DB[name]) return "";
+      var L = hkLines(key, hkStates(name, isPref));
+      if (!L) return "";
+      var img = (typeof IMGS !== "undefined" && IMGS.top) ? "<img src='data:image/png;base64," + IMGS.top + "' alt='みっちー' style='width:52px;height:52px;object-fit:contain;flex-shrink:0;margin-top:2px;'>" : "";
+      var K = "font-weight:700;color:#6a3de8;";
+      var P = "font-size:16px;color:#2a2a3a;line-height:1.75;";
+      return "<div style='display:flex;align-items:flex-start;gap:8px;margin:14px 0 4px;'>" + img +
+        "<div style='position:relative;flex:1;background:#fff;border:2px solid #cdbff5;border-radius:16px;padding:12px 14px;'>" +
+          "<div style='position:absolute;left:-9px;top:20px;width:14px;height:14px;background:#fff;border-left:2px solid #cdbff5;border-bottom:2px solid #cdbff5;transform:rotate(45deg);'></div>" +
+          "<div style='font-size:14px;font-weight:700;color:#6a3de8;margin-bottom:4px;'>みっちーのひと言</div>" +
+          "<div style='" + P + "font-weight:700;'>" + L[0] + "</div>" +
+          "<div style='" + P + "margin-top:6px;'><span style='" + K + "'>だから、</span>" + L[1] + "</div>" +
+          "<div style='" + P + "margin-top:6px;'><span style='" + K + "'>" + L[2][0] + "、</span>" + L[2][1] + "</div>" +
+          "<div style='font-size:13px;color:#7a7a90;line-height:1.6;margin-top:8px;'>※ほかの自治体と比べた結果（総務省データ）と、指標の意味から言えることです</div>" +
+        "</div></div>";
+    } catch (e) { return ""; }
+  }
+  /* --- 推移グラフの位置（2026-10-02）---
+     「◯◯の状況」（とみっちーのひと言）のすぐ下に、推移グラフを移す。
+     グラフの枠（#spWrap）は1つだけなので、画面を開くたびに元の位置（#shTop と #shDesc の間）へ戻してから、
+     状況の下に置いた目印（#hkChartSlot）の場所へ移す。目印が無い画面では元の位置のまま。 */
+  var HK_CHART_SLOT = "<div id='hkChartSlot'></div>";
+  function hkRestoreChart() {
+    var w = document.getElementById("spWrap"), d = document.getElementById("shDesc");
+    if (w && d && d.parentNode && w.nextElementSibling !== d) { w.style.marginTop = ""; d.parentNode.insertBefore(w, d); }
+  }
+  function hkPlaceChart() {
+    var w = document.getElementById("spWrap"), s = document.getElementById("hkChartSlot");
+    if (!w || !s || w.style.display === "none") return;
+    w.style.marginTop = "14px";
+    s.parentNode.insertBefore(w, s);
+  }

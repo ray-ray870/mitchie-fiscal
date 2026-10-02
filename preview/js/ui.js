@@ -1083,6 +1083,7 @@
   };
 
   function openD(key, skipPush) {
+    if (typeof hkRestoreChart === "function") hkRestoreChart();   // グラフを元の位置へ戻す（2026-10-02）
     setChartLegend("", false);   // 前の画面の凡例を消す
     if (!cur) return;
     var m = META[key];
@@ -2061,7 +2062,9 @@ if (key === "growth" && cur && cur.pop) {
     }
     // 「◯◯市の状況」（2026-09-30）：最初の一文（「◯◯は△△で、□□な水準です」）を置き換える
     if ((key === "flex" || key === "fiscalPower" || key === "debt" || key === "future" || key === "reserve" || key === "budget") && cur) {
-      var sitHtml = situationHtml(key, cur, isPrefView, curName) + breakdownHtml(key, cur, isPrefView, curName);
+      // みっちーのひと言（2026-10-02）：「◯◯の状況」のすぐ下
+      var sitOnly = situationHtml(key, cur, isPrefView, curName);
+      var sitHtml = sitOnly + ((sitOnly && typeof mitchieHitokoto === "function") ? mitchieHitokoto(key, curName, isPrefView) + HK_CHART_SLOT : "") + breakdownHtml(key, cur, isPrefView, curName);
       var firstLineRe = /<div style='font-size:16px;color:#2a2a3a;line-height:1\.7;'>[\s\S]*?<\/div>/;
       if (sitHtml && firstLineRe.test(topSummaryHtml)) topSummaryHtml = topSummaryHtml.replace(firstLineRe, function(){ return sitHtml; });
     }
@@ -2113,7 +2116,7 @@ if (key === "growth" && cur && cur.pop) {
         }
       }
     }
-    document.getElementById("shTop").innerHTML = rankHtml + topSummaryHtml; document.getElementById("shDesc").innerHTML = ((key==="debt"||key==="future"||key==="reserve") ? legalStatusBoxHtml(key, cur, isPrefView, curName) : "") + ((rankHtml || topSummaryHtml) ? "<div style='border-top:1px dashed #d8d5e8;margin:22px 0;'></div><div style='font-size:16px;font-weight:700;color:#3a6ee8;margin-bottom:8px;'>"+m.label+"とは？</div>" : "") + descHtml;
+    document.getElementById("shTop").innerHTML = rankHtml + topSummaryHtml; if (typeof hkPlaceChart === "function") hkPlaceChart(); document.getElementById("shDesc").innerHTML = ((key==="debt"||key==="future"||key==="reserve") ? legalStatusBoxHtml(key, cur, isPrefView, curName) : "") + ((rankHtml || topSummaryHtml) ? "<div style='border-top:1px dashed #d8d5e8;margin:22px 0;'></div><div style='font-size:16px;font-weight:700;color:#3a6ee8;margin-bottom:8px;'>"+m.label+"とは？</div>" : "") + descHtml;
     var shElAfter = document.querySelector("#ovEl .sh");
     if (shElAfter) shElAfter.scrollTop = 0;
     setTimeout(function(){ var s = document.querySelector("#ovEl .sh"); if (s) s.scrollTop = 0; }, 50);
