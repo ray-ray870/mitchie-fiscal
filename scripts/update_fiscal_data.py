@@ -100,13 +100,12 @@ def reiwa_num(label):
     return 1 if m.group(1) == "元" else int(m.group(1))
 
 
-def slide_and_set(entry, prefix, new_value, start_idx=1, max_total=None, force=False, year=None):
+def slide_and_set(entry, prefix, new_value, start_idx=1, force=False, year=None):
     """履歴フィールドに今の主値を追加し、新しい主値をセットする。
     キーの「_r」の後ろの数字は令和の年（年度）そのもの（例：pop_r1＝令和元年）。
     2026-09-29：以前は8データポイントに達すると最古を捨てて値を前にずらしていたが、
       それだと「キーの数字＝年」が崩れてグラフの年とラベルがずれるため、ずらさず追加し続ける
       方式に変更。グラフに何年分出すか（直近8点）はアプリ側（ui.js の SHOW_HIST）で決める。
-      max_total は互換のために残しているだけで、使っていない。
     year（新しいデータの令和の年）を渡すと、今の主値は必ず「year-1」のキーに入る。
       ・そのキーがすでにある＝同じ年のデータで再実行した → 履歴は増やさず主値だけ更新
       ・途中の年が抜けている → 抜けた年は空(None)のキーで埋めて、年の位置を合わせる
@@ -147,7 +146,7 @@ def parse_fiscal_indicators(muni_path, pref_path):
     muni_idx, pref_idx = {}, {}
     wb = openpyxl.load_workbook(muni_path, data_only=True)
     for row in wb.active.iter_rows(min_row=3, values_only=True):
-        code, pref, name, f, x, d, u = row[0], row[1], row[2], row[3], row[4], row[5], row[6]
+        pref, name, f, x, d, u = row[1], row[2], row[3], row[4], row[5], row[6]
         if not name:
             continue
         muni_idx[(pref, name)] = {"f": f, "x": x, "d": d, "u": u}
@@ -164,7 +163,7 @@ def parse_reserve_fund(muni_path, pref_path):
     muni_idx, pref_idx = {}, {}
     wb = openpyxl.load_workbook(muni_path, data_only=True)
     for row in wb.active.iter_rows(min_row=6, values_only=True):
-        code, pref, name = row[1], row[2], row[3]
+        pref, name = row[2], row[3]
         if not name:
             continue
         muni_idx[(pref, name)] = row[8]  # 千円 -> 後で /100000 して億円に
@@ -391,7 +390,7 @@ def main():
                 warnings.append(f"{fname}:{name} 歳出歳入が見つかりません")
 
             if pe and eo_oku:
-                minsei, jido, edu_exp = pe[0], pe[1], pe[2]
+                jido, edu_exp = pe[1], pe[2]
                 edu_ratio = round(edu_exp / (eo_oku * 100000) * 100, 1) if eo_oku else None
                 slide_and_set(entry, "edu", edu_ratio, start_idx=2, year=fiscal_year)
                 if ap and ap > 0:

@@ -419,6 +419,7 @@
     var kkMaxR = 0;
     while (Object.prototype.hasOwnProperty.call(entry, code + "_r" + (kkMaxR + 1))) { kkMaxR++; }
     var kkVals = [], kkYrLabels = [], kkMissingYrs = [], kkMissingNums = [];
+    var kkGap = [], kkPrevYr = null;   // kkGap[i]：その点の前の年に値が無い（線をつながない）
     for (var kri = 1; kri <= kkMaxR + 1; kri++) {
       var kkV = kri <= kkMaxR ? entry[code + "_r" + kri] : entry[code];
       var yrNum = KK_CURRENT_YEAR - (kkMaxR + 1 - kri);
@@ -429,6 +430,8 @@
         continue;
       }
       kkVals.push(kkV);
+      kkGap.push(kkPrevYr !== null && yrNum !== kkPrevYr + 1);
+      kkPrevYr = yrNum;
       kkYrLabels.push(yrNum <= 0 ? ("H" + (30 + yrNum)) : ("R" + yrNum));
     }
     // 3年以上続けて無い場合は「平成30年度〜令和4年度」のようにまとめる
@@ -436,7 +439,7 @@
     var kkMissingText = kkMissingContig ? (kkMissingYrs[0] + "〜" + kkMissingYrs[kkMissingYrs.length - 1]) : kkMissingYrs.join("・");
     var kkMissingNote = kkMissingYrs.length ?
       ("<div style='font-size:14px;color:#7a7a90;line-height:1.6;margin-top:8px;'>ℹ️ " + kkMissingText +
-       "は、総務省の公表データに" + escapeHtml(nm) + "の値が無いため、グラフに表示していません。</div>") : "";
+       "は、総務省の公表データに" + escapeHtml(nm) + "の値が無いため、グラフに表示していません（前後の値を線ではつないでいません）。</div>") : "";
     if (kkVals.length >= 2) {
       document.getElementById("shTop").innerHTML = missingHtml + cmpHtml + kkReciprocalCross(code, entry[code], isPref, entry); if (typeof hkPlaceChart === "function") hkPlaceChart();
       var kkC = kkColor(code, entry[code], entry, isPref);
@@ -460,8 +463,14 @@
       function pxk(i){ return Pk+(i/(kkVals.length-1))*(Wk-Pk*2); }
       function pyk(v){ return Hk-Pk-((v-kkMn)/kkRng)*(Hk-PtopK-Pk); }
       var kkLine="M"+pxk(0)+","+pyk(kkVals[0]);
-      for (var ki=1; ki<kkVals.length; ki++){ kkLine+=" L"+pxk(ki)+","+pyk(kkVals[ki]); }
+      // 値の無い年をまたぐところは線を切る（財政タブのグラフと同じ。2026-10-02）
+      for (var ki=1; ki<kkVals.length; ki++){ kkLine+=(kkGap[ki] ? " M" : " L")+pxk(ki)+","+pyk(kkVals[ki]); }
       var kkDots = "";
+      // 最新の値の数字（太字）が長くて、1つ前の数字と重なるときは、1つ前の数字を上下の反対側に置く
+      var kkN = kkVals.length;
+      var kkTextW = function(s, fs){ var w = 0; for (var ci = 0; ci < s.length; ci++) w += s.charCodeAt(ci) > 255 ? fs : fs * 0.6; return w; };
+      var kkLastValley = kkVals[kkN-1] <= kkVals[kkN-2];
+      var kkLastW = kkTextW(kkFmt(kkVals[kkN-1], meta.unit), 12);
       for (var kj=0; kj<kkVals.length; kj++){
         var kkLast = kj === kkVals.length-1;
         kkDots += "<circle cx='"+pxk(kj)+"' cy='"+pyk(kkVals[kj])+"' r='"+(kkLast?5:3)+"' fill='"+(kkLast?kkC:"white")+"' stroke='"+kkC+"' stroke-width='2'/>";
@@ -471,6 +480,7 @@
         // 単位（万円・億円の「円」）は最新の値だけに付ける（全部に付けると、隣の数字と重なって読めないため）
         var kkLbl = kkFmt(kkVals[kj], meta.unit);
         if (!kkLast) kkLbl = meta.unit === "万円" ? String(kkVals[kj]) : meta.unit === "百万円" ? kkLbl.replace(/円$/, "") : kkLbl;
+        if (kj === kkN-2 && (kkLastW + kkTextW(kkLbl, 9)) / 2 + 2 > pxk(1) - pxk(0)) kkIsValley = !kkLastValley;
         var kkAnchor = "middle";
         if (kkLast && kkIsValley) kkDots += "<text x='"+pxk(kj)+"' y='"+(pyk(kkVals[kj])+19)+"' text-anchor='"+kkAnchor+"' font-size='12' fill='"+kkCText+"' font-weight='700'>"+kkLbl+"</text>";
         else if (kkLast) kkDots += "<text x='"+pxk(kj)+"' y='"+(pyk(kkVals[kj])-9)+"' text-anchor='"+kkAnchor+"' font-size='12' fill='"+kkCText+"' font-weight='700'>"+kkLbl+"</text>";

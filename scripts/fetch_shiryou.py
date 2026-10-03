@@ -19,7 +19,6 @@ import io
 import json
 import os
 import re
-import sys
 import urllib.request
 from urllib.parse import urljoin
 import zipfile
