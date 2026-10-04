@@ -158,12 +158,15 @@
       "<stop offset='1' stop-color='#f0a860' stop-opacity='0.03'/></linearGradient></defs>" +
       "<rect x='" + x1.toFixed(1) + "' y='" + yTop + "' width='" + (x2 - x1).toFixed(1) + "' height='" + (yBottom - yTop) + "' fill='url(#" + gid + ")'/>";
   }
-  function setChartLegend(medLabel, covid) {
+  // note：グラフの注記（「※令和元〜6年度の実績値」など）。グラフの中に書くと数字と重なることがあるため、
+  // グラフの下の凡例の先頭に出す（2026-10-04）
+  function setChartLegend(medLabel, covid, note) {
     var wrap = document.getElementById("spWrap");
     if (!wrap) return;
     var el = document.getElementById("spLegend");
     if (!el) { el = document.createElement("div"); el.id = "spLegend"; wrap.appendChild(el); }
-    el.innerHTML = (medLabel || covid) ? "<div style='display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:13px;color:#5a5a70;margin-top:22px;line-height:1.5;'>" +
+    el.innerHTML = (medLabel || covid || note) ? "<div style='display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:13px;color:#5a5a70;margin-top:22px;line-height:1.5;'>" +
+      (note ? "<span style='flex-basis:100%;text-align:center;color:#2a8a6a;'>" + note + "</span>" : "") +
       (medLabel ? "<span><svg width='22' height='8' style='vertical-align:middle;'><line x1='0' y1='4' x2='22' y2='4' stroke='#9a96a8' stroke-width='2' stroke-dasharray='4,3'/></svg> " + medLabel + "</span>" : "") +
       (covid ? "<span><span style='display:inline-block;width:34px;height:10px;background:linear-gradient(90deg,#f0a86008,#f0a8603d 30%,#f0a8603d 70%,#f0a86008);vertical-align:middle;'></span> 新型コロナ対応の時期（令和2年1月〜令和5年5月の5類移行まで）</span>" +
                "<span style='font-size:12.5px;color:#7a7a90;'>色が濃いところ：緊急事態宣言などが繰り返し出ていた時期（令和2年4月〜令和4年3月）</span>" : "") +
@@ -744,6 +747,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.5.4", date:"2026.10", items:["グラフの表示を改善"] },
     { version:"3.5.3", date:"2026.10", items:["グラフの色と数字の表示を改善","順位の表示を改善（同じ値は同じ順位）","説明の修正"] },
     { version:"3.5.2", date:"2026.10", items:["詳細画面の「みっちーチェック」の表示を改善"] },
     { version:"3.5.1", date:"2026.10", items:["大きな金額を「兆」で表示するなど、金額を読みやすい表示に変更","似ている自治体が少ないときの説明を追加"] },
@@ -2078,7 +2082,6 @@
       // 「データなし」メッセージに一本化し、グラフ領域自体は非表示にする。
       noteText = "";
     }
-    var noteColor = (hasHistory||hasGrowthHistory) ? "#6dcfad" : "#aaa";
     // 人口増減率タブ限定：財政指標（f/d/x/u/health、年度基準）と人口（暦年基準）は
     // 総務省の別々の公表統計・別々の区切り方（年度／暦年）に基づくため、最新の対象年がズレうる。
     // ハードコードした年号ではなく、実際に読み込まれているデータの件数(histCountFiscal・
@@ -2116,8 +2119,8 @@
         medVals.forEach(function(v, i){ if (v == null) return; mLine += (mLine ? " L" : "M") + px(i) + "," + py(v); });
         medHtml = "<path d='" + mLine + "' fill='none' stroke='#9a96a8' stroke-width='1.5' stroke-dasharray='4,3'/>";
       }
-      setChartLegend(medHtml ? (isPrefView ? "全国の都道府県の中央値" : "全国の市区町村の中央値") : "", !!covidHtml);
-      spSvgEl.innerHTML = covidHtml+"<text x='"+P+"' y='10' font-size='10' fill='"+noteColor+"'>"+noteText+"</text>"+medHtml+"<path d='"+line+"' fill='none' stroke='"+c+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+dots;
+      setChartLegend(medHtml ? (isPrefView ? "全国の都道府県の中央値" : "全国の市区町村の中央値") : "", !!covidHtml, noteText);
+      spSvgEl.innerHTML = covidHtml+medHtml+"<path d='"+line+"' fill='none' stroke='"+c+"' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"+dots;
     }
     }
     document.getElementById("ovEl").classList.remove("hidden");
