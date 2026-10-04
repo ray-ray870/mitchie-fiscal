@@ -788,12 +788,11 @@
     if (Object.keys(kkSrc).length) src.push(Object.keys(kkSrc).join("・") + "（総務省 公会計 " + fillYears("{KY}") + "）");
     if (Object.keys(finSrc).length) src.push(Object.keys(finSrc).join("・") + "（総務省 " + fillYears("{FY}") + "）");
 
-    return "<div class='adv' style='margin-top:18px;'><strong>みっちーからのひとこと</strong>" +
+    return hitokotoBubble(
       "<div style='font-weight:700;color:#3a2a6e;margin:6px 0 8px;line-height:1.6;'>" + head + "</div>" +
-      shown.map(function(b){ return "<div style='display:flex;gap:6px;align-items:flex-start;margin-top:4px;line-height:1.6;'><span aria-hidden='true'>" + b.icon + "</span><span>" + b.t + "</span></div>"; }).join("") +
-      (src.length ? "<div style='font-size:14px;color:#7a7a90;margin-top:10px;line-height:1.5;'>もとにした指標：" + src.join("、") + "</div>" : "") +
-      "<div style='font-size:14px;color:#7a7a90;margin-top:4px;line-height:1.5;'>※公会計は、これまで積み上げてきた資産と負債のバランスを見る指標で、毎年のやりくり（財政タブ）とは見ているものが違います。</div>" +
-      "</div>";
+      shown.map(function(b){ return "<div style='display:flex;gap:6px;align-items:flex-start;margin-top:4px;line-height:1.6;'><span aria-hidden='true'>" + b.icon + "</span><span>" + b.t + "</span></div>"; }).join(""), 18) +
+      (src.length ? "<div style='font-size:13px;color:#7a7a90;margin-top:10px;line-height:1.5;'>もとにした指標：" + src.join("、") + "</div>" : "") +
+      "<div style='font-size:13px;color:#7a7a90;margin-top:" + (src.length ? 4 : 10) + "px;line-height:1.5;'>※公会計は、これまで積み上げてきた資産と負債のバランスを見る指標で、毎年のやりくり（財政タブ）とは見ているものが違います。</div>";
   }
 
   function kkRender(nm, d){
@@ -1011,6 +1010,15 @@ document.addEventListener("keydown", function (e) {
       if (s.ka8pos && s.rHi) return [R + "も多めだね", "急な出費があっても、借金に頼らずに出しやすいよ。", ["でも", "大きな工事をした年は赤字になることもあるから、毎年黒字とは限らないんだ。"]];
     }
     return null;
+  }
+  // 「みっちーからのひとこと」の吹き出し（ミニみっちー付き。財政・公会計で共通）
+  function hitokotoBubble(inner, marginTop) {
+    var img = "<img src='data:image/png;base64," + IMGS.top + "' alt='みっちー' style='width:52px;height:52px;object-fit:contain;flex-shrink:0;margin-top:2px;'>";
+    return "<div style='display:flex;align-items:flex-start;gap:8px;margin-top:" + (marginTop || 14) + "px;'>" + img +
+      "<div style='position:relative;flex:1;min-width:0;background:#fff;border:2px solid #cdbff5;border-radius:16px;padding:12px 14px;font-size:16px;line-height:1.7;'>" +
+      "<div style='position:absolute;left:-9px;top:20px;width:14px;height:14px;background:#fff;border-left:2px solid #cdbff5;border-bottom:2px solid #cdbff5;transform:rotate(45deg);'></div>" +
+      "<div style='font-size:15px;font-weight:700;color:#6a3de8;margin-bottom:2px;'>みっちーからのひとこと</div>" +
+      inner + "</div></div>";
   }
   function mitchieHitokoto(key, name, isPref) {
     try {
