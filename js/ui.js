@@ -82,8 +82,11 @@
       "<div style='font-size:13px;color:#7a7a90;line-height:1.6;margin-top:2px;'>※みっちー独自の総合点（" + a.h + "点）をもとにしたひと言です</div>" +
       sec("⚠️ 気をつけたいところ", a.warns.length ? a.warns.map(function(w){ return w.t; }) : (a.flexNote ? [a.flexNote] : [])) +
       sec("💙 優れているところ", a.goods) +
-      sec("🐧 どうしたらいい？", a.hows) +
-      "<div style='font-size:15px;color:#5a5a70;line-height:1.7;margin-top:10px;'>🙋 " + escapeHtml(a.cit) + "</div>";
+      sec("🐧 どうしたらいい？", a.hows);
+  }
+  // 吹き出しの下に置く、住民向けのひと言
+  function adviceCit(name, d) {
+    return "<div style='font-size:14px;color:#5a5a70;line-height:1.7;margin-top:10px;'>🙋 " + escapeHtml(adviceParts(name, d).cit) + "</div>";
   }
   // シェア画像用の短い文（見出しと、いちばん気をつけたいところ／優れているところ）
   function adviceSummary(name, d) {
@@ -747,6 +750,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.5.5", date:"2026.10", items:["「みっちーからのひとこと」の表示を改善"] },
     { version:"3.5.4", date:"2026.10", items:["グラフの表示を改善"] },
     { version:"3.5.3", date:"2026.10", items:["グラフの色と数字の表示を改善","順位の表示を改善（同じ値は同じ順位）","説明の修正"] },
     { version:"3.5.2", date:"2026.10", items:["詳細画面の「みっちーチェック」の表示を改善"] },
@@ -1010,7 +1014,7 @@
         "<div class='stat' id='s7' role='button' tabindex='0' style='background:"+chc+"18;border-color:"+chc+"44;'><div class='si'>👧</div><div class='sl'>子ども1人当たり投資額</div><div class='sv' style='color:"+chc+";'>"+chl+"</div><div class='su'>詳細を見る ▶</div></div>" +
         "<div class='stat' id='s8' role='button' tabindex='0' style='background:"+fuc+"18;border-color:"+fuc+"44;'><div class='si'>🎁</div><div class='sl'>ふるさと納税</div><div class='sv' style='font-size:14px;line-height:1.7;'><span style='color:#6dcfad;display:block;'>🎁 受入額 "+(d.fu!=null?fmtManOku(d.fu):"—")+"</span><span style='color:#f0876a;display:block;'>📤 住民税控除額 "+(d.fk!=null?fmtManOku(d.fk):"—")+"</span></div></div>" +
       "</div>" +
-      "<div class='adv'><strong>みっちーからのひとこと</strong>"+advice(nm,d)+"</div>" +
+      hitokotoBubble(advice(nm,d)) + adviceCit(nm,d) +
       "<div style='text-align:center;margin:16px 0 4px;'><button id='shareImgBtn' style='background:linear-gradient(135deg,#a08be8,#e060a8);color:white;border:none;border-radius:50px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(140,80,220,0.3);display:inline-flex;align-items:center;gap:8px;'>結果を共有する<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='18' cy='5' r='3'></circle><circle cx='6' cy='12' r='3'></circle><circle cx='18' cy='19' r='3'></circle><line x1='8.59' y1='13.51' x2='15.42' y2='17.49'></line><line x1='15.41' y1='6.51' x2='8.59' y2='10.49'></line></svg></button></div>" +
       "<div class='src'>📋 総務省「地方財政状況調査関係資料」"+fillYears("{FY}")+" | <a href='https://www.soumu.go.jp/iken/jokyo_chousa_shiryo.html' target='_blank'>総務省公式</a></div>" +
       "</div>" +
