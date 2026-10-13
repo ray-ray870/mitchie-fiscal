@@ -200,8 +200,8 @@
         "<div style='font-size:16px;color:#5a4a30;line-height:1.8;'>" + analysisText + "</div>" +
       "</div>"
     ) : "";
-    return "<div style='background:#e8f7f0;border:1px solid #6dcfad55;border-radius:12px;padding:14px 16px;margin-top:10px;'>" +
-      "<div style='font-size:16px;font-weight:700;color:#3a9970;margin-bottom:10px;'>" + heading + "</div>" +
+    return "<!--hkx:" + zaiLabel + "|" + kkLabel + "|" + (reverse ? 1 : 0) + "--><div style='background:#e8f7f0;border:1px solid #6dcfad55;border-radius:12px;padding:14px 16px;margin-top:10px;'>" +
+      "<div class='hkx-hd' style='font-size:16px;font-weight:700;color:#3a9970;margin-bottom:10px;'>" + heading + "</div>" +
       "<div style='display:flex;align-items:stretch;gap:0;margin-bottom:"+(analysisHtml?"10px":"0")+";'>" +
         (reverse ? (kkCard + xMark + zaiCard) : (zaiCard + xMark + kkCard)) +
       "</div>" +
@@ -390,8 +390,8 @@
     document.getElementById("shTitle").innerHTML = escapeHtml(meta.icon + " " + meta.label) + (KK_ONELINE[code] ? "<div style='font-size:15px;font-weight:400;color:#222;margin-top:4px;'>"+escapeHtml(KK_ONELINE[code])+"</div>" : "");
     var cmpLine = kkCompareLine(code, nm, entry, isPref);
     // 説明文（2026-10-01）：「## 見出し」は太字の見出し、「・」は小さめの補足。空行で区切る
-    var descHtml = "<div style='border-top:1px dashed #d8d5e8;margin:22px 0;'></div><div style='font-size:16px;font-weight:700;color:#3a6ee8;margin-bottom:8px;'>" + escapeHtml(meta.label) + "とは？</div>" +
-      fillYears(meta.desc).split("\n").map(function(line){
+    var kkMeyasu = hkSplitMeyasu(fillYears(meta.desc), isPref);
+    var descHtml = hkDropLead("kk-" + code, kkMeyasu.rest).split("\n").map(function(line){
         if (line === "") return "<div style='height:10px;'></div>";
         if (line.indexOf("## ") === 0) return "<div style='font-size:16px;font-weight:700;color:#3a2a6e;margin:6px 0 4px;'>" + line.slice(3) + "</div>";
         if (line.charAt(0) === "・") return "<div style='font-size:15px;color:#5a5a70;line-height:1.7;padding-left:1em;text-indent:-1em;'>" + line + "</div>";
@@ -404,9 +404,12 @@
       fillYears("{KY}") + "の値は、総務省の公表資料にありません。グラフには、公表されている年度の値を表示しています。</div>" : "";
     var cmpHtml = cmpLine ? ("<div style='background:#a08be814;border:1px solid #a08be840;border-radius:12px;padding:12px 14px;margin:0 0 14px;'>" +
       "<div style='font-size:16px;font-weight:700;color:#3a2a6e;margin-bottom:6px;'>🏠 " + escapeHtml(nm) + "の状況</div>" +
-      "<div style='font-size:16px;color:#2a2a3a;line-height:1.8;'>" + cmpLine + "</div>" + kkSituationExtra(code, entry) + (typeof mitchieHitokoto === "function" ? mitchieHitokoto(code, nm, isPref) + HK_CHART_SLOT : "") + "</div>") : "";   // みっちーのひと言（2026-10-02）：状況のすぐ下
+      "<div style='font-size:16px;color:#2a2a3a;line-height:1.8;'>" + cmpLine + "</div>" + kkSituationExtra(code, entry) + (typeof mitchieHitokoto === "function" ? HK_CHART_SLOT + mitchieHitokoto(code, nm, isPref) : HK_CHART_SLOT) + "</div>") : "";   // みっちーのひと言（2026-10-02）：状況のすぐ下
     var ka8NoteHtml = (code === "ka8") ? "<div style='background:#a08be814;border:1px solid #a08be840;border-radius:12px;padding:12px 14px;margin-top:16px;font-size:15px;color:#5a4a80;line-height:1.7;'>自治体の通常の行政活動や公共施設などへの投資に、どれだけお金を使い、どれだけ収入があったかを見る指標です。総務省の「統一的な基準による財務書類」に基づいています。国の「プライマリーバランス」と似た考え方ですが、計算方法は異なります。</div>" : "";
-    document.getElementById("shDesc").innerHTML = descHtml + ka8NoteHtml;
+    // 下の欄：目安 → 「とは？」（たたむ）→「財政と比べてみると」（たたむ）→ 注記（たたまない）（2026-10-13）
+    var kkX = hkTakeCross(kkReciprocalCross(code, entry[code], isPref, entry));
+    document.getElementById("shDesc").innerHTML = kkMeyasu.html + ka8NoteHtml +
+      (kkX.cross ? hkFold("cross-kk-" + code, "🔗 財政と比べてみると", kkX.sub, kkX.cross) : "") + kkX.caveat;
     var kkSpWrapEl = document.getElementById("spWrap");
     if (kkSpWrapEl) kkSpWrapEl.style.display = "";
 
@@ -441,7 +444,7 @@
       ("<div style='font-size:14px;color:#7a7a90;line-height:1.6;margin-top:8px;'>ℹ️ " + kkMissingText +
        "は、総務省の公表データに" + escapeHtml(nm) + "の値が無いため、グラフに表示していません（前後の値を線ではつないでいません）。</div>") : "";
     if (kkVals.length >= 2) {
-      document.getElementById("shTop").innerHTML = missingHtml + cmpHtml + kkReciprocalCross(code, entry[code], isPref, entry); if (typeof hkPlaceChart === "function") hkPlaceChart();
+      document.getElementById("shTop").innerHTML = hkMoreFold("kk-" + code, descHtml) + missingHtml + cmpHtml; if (typeof hkPlaceChart === "function") hkPlaceChart();
       var kkC = kkColor(code, entry[code], entry, isPref);
       var kkCText = TEXT_COLOR_MAP[kkC] || kkC;
       var Wk=300, Hk=100, Pk=20, PtopK=26;
@@ -508,7 +511,7 @@
       // グラフの枠のすぐ下（説明文の先頭）に、公式データが無い年の注記を出す
       if (kkMissingNote) document.getElementById("shDesc").insertAdjacentHTML("afterbegin", kkMissingNote.replace("margin-top:8px;", "margin:-4px 0 12px;"));
     } else {
-      document.getElementById("shTop").innerHTML = missingHtml + cmpHtml + kkReciprocalCross(code, entry[code], isPref, entry) + kkMissingNote; if (typeof hkPlaceChart === "function") hkPlaceChart();
+      document.getElementById("shTop").innerHTML = hkMoreFold("kk-" + code, descHtml) + missingHtml + cmpHtml + kkMissingNote; if (typeof hkPlaceChart === "function") hkPlaceChart();
       document.getElementById("spSvg").innerHTML = "";
       document.getElementById("spSvg").style.height = "0px";
       document.getElementById("spLabels").innerHTML = "";
@@ -1044,6 +1047,88 @@ document.addEventListener("keydown", function (e) {
      グラフの枠（#spWrap）は1つだけなので、画面を開くたびに元の位置（#shTop と #shDesc の間）へ戻してから、
      状況の下に置いた目印（#hkChartSlot）の場所へ移す。目印が無い画面では元の位置のまま。 */
   var HK_CHART_SLOT = "<div id='hkChartSlot'></div>";
+  /* --- 詳細画面の並び（2026-10-13）---
+     状況 → グラフ → みっちーチェック → 内訳 → 目安 → 「◯◯とは？」（たたむ）→「比べてみると」（たたむ）→ クロスチェックの注記（たたまない）
+     ・目安（🟢🔵🟡🟠の行）だけを「とは？」の外に出す。市区町村用・都道府県用があるときは、その自治体に当てはまるほうだけ
+     ・たたんだ枠の開け閉めは、同じ画面を開き直しても覚えておく（ページを読み直すまで） */
+  var HK_FOLD_OPEN = {};
+  function hkFold(id, title, sub, inner) {
+    if (!inner) return "";
+    var o = !!HK_FOLD_OPEN[id];
+    return "<div style='background:#f6f5fb;border:1px solid #dcd8ec;border-radius:12px;margin-top:12px;overflow:hidden;'>" +
+      "<div role='button' tabindex='0' aria-expanded='" + o + "' onclick=\"hkFoldToggle(this,'" + id + "')\" onkeydown=\"if(event.key==='Enter'||event.key===' '){event.preventDefault();hkFoldToggle(this,'" + id + "');}\" style='display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;padding:12px 14px;'>" +
+        "<span><span style='display:block;font-size:16px;font-weight:700;color:#3a2a6e;'>" + title + "</span>" +
+        (sub ? "<span style='display:block;font-size:14px;color:#6a6a80;margin-top:2px;line-height:1.5;'>" + sub + "</span>" : "") + "</span>" +
+        "<span class='hk-tg' style='font-size:15px;color:#6a5aa8;flex-shrink:0;'>" + (o ? "▲" : "▼") + "</span></div>" +
+      "<div class='hk-fc' style='display:" + (o ? "block" : "none") + ";padding:0 14px 14px;'>" + inner + "</div></div>";
+  }
+  function hkFoldToggle(el, id) {
+    var c = el.nextElementSibling, o = c.style.display === "none";
+    c.style.display = o ? "block" : "none";
+    el.querySelector(".hk-tg").textContent = o ? "▲" : "▼";
+    el.setAttribute("aria-expanded", o ? "true" : "false");
+    HK_FOLD_OPEN[id] = o;
+  }
+  // 説明文から目安の行を取り出す。戻り値：{html：外に出す目安, rest：残りの説明文}
+  function hkSplitMeyasu(text, isPref) {
+    var dl = text.split("\n"), keep = [], mh = [];
+    for (var i = 0; i < dl.length; i++) {
+      if (dl[i].indexOf("## 📏 目安") === 0 && i + 1 < dl.length && /^(🟢|🔵|🟡|🟠)/.test(dl[i + 1])) {
+        var head = dl[i].slice(3), rows = [], j = i + 1;
+        while (j < dl.length && /^(🟢|🔵|🟡|🟠)/.test(dl[j])) { rows.push(dl[j]); j++; }
+        var other = isPref ? /市区町村/.test(head) : /都道府県/.test(head);
+        if (!other) mh.push(rows);
+        // 目安の行に続く「・」の補足は、見出しを付けて「とは？」の中に残す
+        if (j < dl.length && dl[j].charAt(0) === "・") {
+          if (keep.indexOf("## 📏 目安について") < 0) {
+            if (keep.length && keep[keep.length - 1] !== "") keep.push("");
+            keep.push("## 📏 目安について");
+          }
+        } else if (keep.length && keep[keep.length - 1] === "" && dl[j] === "") j++;   // 空行が2つ続かないように
+        i = j - 1;
+        continue;
+      }
+      keep.push(dl[i]);
+    }
+    while (keep.length && keep[keep.length - 1] === "") keep.pop();
+    if (!mh.length) return {html: "", rest: text};
+    return {
+      html: "<div style='background:#ffffff;border:1px solid #d8d5e8;border-radius:12px;padding:10px 14px;margin-top:12px;'>" +
+        "<div style='font-size:16px;font-weight:700;color:#3a2a6e;margin-bottom:4px;'>📏 目安</div>" +
+        mh[0].map(function(r){ return "<div style='font-size:15px;color:#2a2a3a;line-height:1.8;'>" + r + "</div>"; }).join("") + "</div>",
+      rest: keep.join("\n")
+    };
+  }
+  // 上の欄の中から「比べてみると」の枠と注記を取り出す。戻り値：{top, cross, sub, caveat}
+  function hkTakeCross(html) {
+    var i = html.indexOf("<!--hkx:");
+    if (i < 0) return {top: html, cross: "", sub: "", caveat: ""};
+    var cross = html.slice(i), caveat = "";
+    while (cross.indexOf(KK_CROSSCHECK_CAVEAT) >= 0) { caveat = KK_CROSSCHECK_CAVEAT; cross = cross.replace(KK_CROSSCHECK_CAVEAT, ""); }
+    // 何と何を比べる枠かを1行で：同じ相手が続くときはまとめる（例：将来負担比率 × A・B・C）
+    var heads = [], tails = {}, m, re = /<!--hkx:([^|]*)\|([^|]*)\|([01])-->/g;
+    while ((m = re.exec(cross))) {
+      var h = m[3] === "1" ? m[2] : m[1], t = m[3] === "1" ? m[1] : m[2];
+      if (!tails[h]) { tails[h] = []; heads.push(h); }
+      tails[h].push(t);
+    }
+    var pairs = heads.map(function(h){ return h + " × " + tails[h].join("・"); });
+    // 枠の中の見出し（たたんだ見出しと同じ言葉）は消す。①②…の番号だけ残す
+    cross = cross.replace(/(<div class='hkx-hd'[^>]*>)🔗 (?:公会計|財政)と比べてみると([^<]*)<\/div>/g, function(all, a, num){ return num ? a + num + "</div>" : ""; });
+    return {top: html.slice(0, i), cross: cross, sub: pairs.join("／"), caveat: caveat};
+  }
+  // 1行説明とほぼ同じ内容の1文目は、「もっと詳しく」の中では出さない（2026-10-13 に項目ごとに確認）
+  var HK_DROP_LEAD = {"education": 1, "kk-ka1": 1, "kk-ka4": 1, "kk-ka7": 1};
+  function hkDropLead(id, text) {
+    if (!HK_DROP_LEAD[id]) return text;
+    var i = text.indexOf("\n\n");
+    return i >= 0 ? text.slice(i + 2) : text;
+  }
+  // 項目名の1行説明のすぐ下の「もっと詳しく」（2026-10-13：以前の、画面の下の「◯◯とは？」の中身）
+  function hkMoreFold(id, descHtml) {
+    return "<div style='margin:-4px 0 12px;'>" + hkFold("more-" + id, "📖 もっと詳しく", "", descHtml) + "</div>";
+  }
+
   function hkRestoreChart() {
     var w = document.getElementById("spWrap"), d = document.getElementById("shDesc");
     if (w && d && d.parentNode && w.nextElementSibling !== d) { w.style.marginTop = ""; d.parentNode.insertBefore(w, d); }
