@@ -260,12 +260,34 @@
   function peerLine(medText) {
     return "似ている自治体の中央値は" + medText + "です";   // 比べた結果（高め・低め）は「→」の行に書く（重複させない）
   }
-  function situationBox(name, lines, state, stateColor, note, peerState) {
+  /* --- 総合スコアの「📝 点数を見るときのヒント」（2026-10-04 決定）---
+     グラフの下にたたんで置く。都道府県は3つ目（この点数に入っていないこと）だけ。
+     中央値（人口5千人未満の町や村の貯金の金額）は、データから毎回計算する */
+  function hkHealthHint(key, isPref) {
+    if (key !== "health") return "";
+    var item = function(icon, head, rows, concl){
+      return "<div style='margin-top:12px;'>" +
+        "<div style='font-size:16px;font-weight:700;color:#3a2a6e;'>" + icon + " " + head + "</div>" +
+        rows.map(function(r){ return "<div style='font-size:15px;color:#2a2a3a;line-height:1.7;padding-left:1em;text-indent:-1em;'>・" + r + "</div>"; }).join("") +
+        (concl ? "<div style='font-size:15px;font-weight:700;color:#3a2a6e;line-height:1.7;margin-top:2px;'>→ " + concl + "</div>" : "") + "</div>";
+    };
+    var smallR = [];
+    Object.keys(DB).forEach(function(k){ var e = DB[k]; if (e.p !== k && e.pop != null && e.pop < 5000 && typeof e.r === "number") smallR.push(e.r); });
+    smallR.sort(function(a, b){ return a - b; });
+    var n = smallR.length, med = n ? (n % 2 ? smallR[(n - 1) / 2] : (smallR[n / 2 - 1] + smallR[n / 2]) / 2) : null;
+    var inner = (isPref ? "" :
+        item("🏘️", "人口の少ない町や村の点数", ["貯金（財政調整基金）の割合・将来負担比率 → 点が高くなりやすい", "税収でまかなえる度合い（財政力指数） → 点が低くなりやすい"], "") +
+        item("🐧", "貯金は「割合」と「金額」の両方で見る", ["割合が大きくても、金額は小さいことがあります"].concat(med != null ? ["人口5千人未満の町や村の中央値：約" + fmtOku(Math.round(med))] : []), "大きな災害のときは、足りなくなることもあります")) +
+      item("🏥", "この点数に入っていないこと", ["人口の増減", "病院や買い物など、暮らしに必要なサービス"], "点数が良くても、人口が減り続けると、サービスを保つのが難しくなることがあります");
+    return hkFold("hint-health", "📝 点数を見るときのヒント", "", "<div style='margin-top:-8px;'>" + inner + "</div>");
+  }
+  function situationBox(name, lines, state, stateColor, note, peerState, memo) {
     return "<div style='font-size:16px;font-weight:700;color:#3a2a6e;margin-bottom:6px;'>🏠 " + escapeHtml(name) + "の状況</div>" +
       lines.filter(function(l){ return !!l; }).map(function(l){
         return "<div style='font-size:16px;color:#2a2a3a;line-height:1.8;'>" + l + "</div>";
       }).join("") +
       (state ? "<div style='font-size:16px;font-weight:700;color:" + stateColor + ";line-height:1.7;margin-top:8px;'>→ " + state + "</div>" : "") +
+      (memo ? "<div style='font-size:15px;color:#5a4a80;line-height:1.7;margin-top:4px;'>📝 " + memo + "</div>" : "") +
       (peerState ? "<div style='font-size:16px;font-weight:700;color:#3a2a6e;line-height:1.7;margin-top:6px;'>→ " + peerState + "</div>" : "") +
       (note ? "<div style='font-size:15px;color:#5a5a70;line-height:1.7;margin-top:6px;'>" + note + "</div>" : "");
   }
@@ -394,7 +416,7 @@
       if (u <= 0) {
         var tr4z = (tr4 && tr4.indexOf("0.0%〜0.0%") >= 0) ? "" : tr4;   // ずっと実質ゼロなら推移の文は出さない
         return situationBox(name, ["将来負担比率は" + sitB("「－」（実質ゼロ）") + "です", tr4z || ""],
-          "将来払う借金などを、貯金などでまかなえる状態です", SIT_BLUE, "");
+          "将来払う借金などを、貯金などでまかなえる状態です", SIT_BLUE, "", null, "借金がない、という意味ではありません");
       }
       var rel4 = u >= lim ? "国の基準（" + lim + "%）以上です" : u < lim * 0.3 ? "国の基準（" + lim + "%）を大きく下回ります" : "国の基準（" + lim + "%）を下回ります";
       var cmp4 = isPref ? area + "の中央値（" + pct1(DATA_STATS.u.pref) + "）" + medCompare(u, DATA_STATS.u.pref, 2)
@@ -450,6 +472,8 @@
         pm5 = peerMedian(peerVals(pi5, function(k){ var e = DB[k]; return (e.sfs && e.sfs > 0 && e.r != null) ? e.r / e.sfs * 100 : null; }));
         pc5 = peerCmp(rr, pm5, pm5 != null ? pm5 * 0.05 : null);
       }
+      // 人口5千人未満で割合が大きい（カードが緑）町や村：割合と金額の両方で見てほしい（2026-10-04 決定）
+      var memo5 = (!isPref && cur.pop != null && cur.pop < 5000 && cr === "#6dcfad") ? "割合は大きいですが、人口の少ない町や村は金額が小さくなりがちです。大きな災害のときは、足りなくなることもあります" : null;
       var st5 = rr >= rb.hi ? "急な出費に厚めに備えている状態です"
               : rr >= rb.mid ? "急な出費にも一定の備えがある状態です"
               : "大きな災害などの急な出費には、貯金が少なめの状態です";
@@ -459,7 +483,7 @@
           situationTrend(cur, "r", {tol:0.05, rel:true, times:true, label:"残高", fmt:function(v){ return fmtOku(v); }}),
           cmpRow([["全国の中央値", pct1(DATA_STATS.rr[b])], ["似ている自治体の中央値", pct1(pm5)]])
         ], st5 + peerTail(cr === "#6dcfad" || cr === "#7bb8e8", pc5, false, "貯金は", "多め", "少なめ"), (cr === "#6dcfad" || cr === "#7bb8e8") ? SIT_BLUE : SIT_RED,
-          "※総務省の調査（平成29年）では、貯金の目安を標準財政規模の割合で決めている団体は、都道府県では5%以下、市町村では5〜20%が多い結果でした。目安は団体ごとに違います。<br>" + peerNoteText(pi5));
+          "※総務省の調査（平成29年）では、貯金の目安を標準財政規模の割合で決めている団体は、都道府県では5%以下、市町村では5〜20%が多い結果でした。目安は団体ごとに違います。<br>" + peerNoteText(pi5), null, memo5);
       }
       return situationBox(name, [
         "貯金（財政調整基金）は" + sitB(fmtOku(cur.r)) + perCap + "で、標準財政規模の" + sitB(pct1(rr)) + "です",
@@ -468,7 +492,7 @@
         (function(){ if (!pi5 || pc5 == null) return ""; return peerLine(pct1(pm5)); })()
       ], st5, (cr === "#6dcfad" || cr === "#7bb8e8") ? SIT_BLUE : SIT_RED,
         "※総務省の調査（平成29年）では、貯金の目安を標準財政規模の割合で決めている団体は、都道府県では5%以下、市町村では5〜20%が多い結果でした。目安は団体ごとに違います。" + (pi5 ? "<br>" + peerNoteText(pi5) : ""),
-        pc5 ? "似ている自治体と比べると、貯金は" + (pc5 === "same" ? "同じくらいの備えです" : pc5 === "hi" ? "多めです" : "少なめです") : null);
+        pc5 ? "似ている自治体と比べると、貯金は" + (pc5 === "same" ? "同じくらいの備えです" : pc5 === "hi" ? "多めです" : "少なめです") : null, memo5);
     }
     if (key === "budget" && cur.eo && cur.ei) {
       var pb = popForFiscal(cur);
@@ -582,9 +606,8 @@
       if (rv.nat != null) r1.push(line("国庫支出金（国の補助金など）", rv.nat, eiK));
       if (pinfo && eiK && rv.tax != null && rv.lat != null && rv.nat != null) {
         r1 = [line("地方税（自治体の税収）", rv.tax, eiK, pMed(shRv("tax"))), line("地方交付税（国から配られるお金）", rv.lat, eiK, pMed(shRv("lat"))), line("国庫支出金（国の補助金など）", rv.nat, eiK, pMed(shRv("nat")))];
-        var wt = cmpW(shRv("tax")(name), pMed(shRv("tax")));
         var wn = cmpW((rv.lat + rv.nat) / eiK * 100, pMed(function(k){ var x = DB[k].bd.rv, e = DB[k]; return (x && x.lat != null && x.nat != null && e.ei) ? (x.lat + x.nat) / (e.ei * 1e5) * 100 : null; }));
-        return bdBox("歳入" + fmtOku(cur.ei) + "の内訳から分かること", r1, (wt && wn) ? "似ている自治体と比べると、自前の税収の割合は" + wt + "、国から来るお金（地方交付税・国庫支出金）の割合は" + wn + "です" : "", PTAIL);
+        return bdBox("歳入" + fmtOku(cur.ei) + "の内訳から分かること", r1, wn ? "似ている自治体と比べると、国から来るお金（地方交付税・国庫支出金）の割合は" + wn + "です" : "", PTAIL);
       }
       return bdBox("歳入" + (cur.ei ? fmtOku(cur.ei) : "") + "の内訳から分かること", r1, "");
     }
@@ -750,6 +773,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.6.0", date:"2026.10", items:["詳しい画面の並びを整理し、読みやすくしました","総合スコアに「点数を見るときのヒント」を追加","説明の表示を改善"] },
     { version:"3.5.5", date:"2026.10", items:["「みっちーからのひとこと」の表示を改善"] },
     { version:"3.5.4", date:"2026.10", items:["グラフの表示を改善"] },
     { version:"3.5.3", date:"2026.10", items:["グラフの色と数字の表示を改善","順位の表示を改善（同じ値は同じ順位）","説明の修正"] },
@@ -1630,11 +1654,16 @@
         return "<div style='font-size:16px;color:#2a2a3a;line-height:1.8;'>" + line + "</div>";
       }).join("");
     }
+    // 目安（🟢🔵🟡🟠の行）だけを「とは？」の外に出す（2026-10-13）
+    var meyasu = hkSplitMeyasu(descSrc, isPrefView);
+    descSrc = hkDropLead(key, meyasu.rest);
+    // 将来負担比率が「－」の団体では、「－」の意味は状況の欄に出しているので、説明文からは外す（重複させない）
+    if (key === "future" && cur && (cur.u == null || cur.u <= 0)) descSrc = descSrc.replace(/\n・「－」（実質ゼロ）は、返済に充てられるお金のほうが多い状態です/, "");
     var descHtml = descSrc.indexOf("\n## ") >= 0 ? renderDescMarkup(descSrc) : chipifyHeaders(descSrc).replace(/\n/g,"<br>");
     // 「🏠 ◯◯の状況」＋みっちーチェック＋グラフの置き場所＋「🔍 内訳から分かること」をまとめた枠
     var sitBoxHtml = function(color) {
       var sit = situationHtml(key, cur, isPrefView, curName);
-      var body = sit + (sit ? mitchieHitokoto(key, curName, isPrefView) + HK_CHART_SLOT : "") + breakdownHtml(key, cur, isPrefView, curName);
+      var body = sit + (sit ? HK_CHART_SLOT + mitchieHitokoto(key, curName, isPrefView) : "") + breakdownHtml(key, cur, isPrefView, curName);
       return body ? "<div style='background:"+color+"14;border:1px solid "+color+"55;border-radius:12px;padding:12px 14px;'>" + body + "</div>" : "";
     };
     if (key === "reserve" && cur && cur.sfs && cur.sfs > 0) {
@@ -1860,7 +1889,8 @@
     if (key === "budget" && cur && cur.eo && cur.ei) {
       topSummaryHtml += sitBoxHtml(cur.ei>=cur.eo ? "#6dcfad" : cur.ei>=cur.eo*0.99 ? "#7bb8e8" : "#f0876a");
     }
-    document.getElementById("shTop").innerHTML = rankHtml + topSummaryHtml; if (typeof hkPlaceChart === "function") hkPlaceChart(); document.getElementById("shDesc").innerHTML = ((key==="debt"||key==="future"||key==="reserve") ? legalStatusBoxHtml(key, cur, isPrefView, curName) : "") + ((rankHtml || topSummaryHtml) ? "<div style='border-top:1px dashed #d8d5e8;margin:22px 0;'></div><div style='font-size:16px;font-weight:700;color:#3a6ee8;margin-bottom:8px;'>"+m.label+"とは？</div>" : "") + descHtml;
+    var hkCross = hkTakeCross(topSummaryHtml);
+    document.getElementById("shTop").innerHTML = hkMoreFold(key, descHtml) + rankHtml + hkCross.top; if (typeof hkPlaceChart === "function") hkPlaceChart(); document.getElementById("shDesc").innerHTML = hkHealthHint(key, isPrefView) + ((key==="debt"||key==="future"||key==="reserve") ? legalStatusBoxHtml(key, cur, isPrefView, curName) : "") + meyasu.html + (hkCross.cross ? hkFold("cross-" + key, "🔗 公会計と比べてみると", hkCross.sub, hkCross.cross) : "") + hkCross.caveat;
     var shElAfter = document.querySelector("#ovEl .sh");
     if (shElAfter) shElAfter.scrollTop = 0;
     setTimeout(function(){ var s = document.querySelector("#ovEl .sh"); if (s) s.scrollTop = 0; }, 50);
