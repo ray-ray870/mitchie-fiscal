@@ -161,9 +161,10 @@ def decode_html(raw):
 def anchors(html, base):
     """ページ内のリンクを順番に (文字, URL) で返す"""
     res = []
-    for m in re.finditer(r"<a\s[^>]*href=\"([^\"]+)\"[^>]*>(.*?)</a>", html, re.S | re.I):
-        text = re.sub(r"<[^>]+>", "", unescape(m.group(2))).strip()
-        href = urljoin(base, unescape(m.group(1)))
+    # href="…" だけでなく href='…' や引用符なしも読む（2026-10-16：茨城県・香川県で Excel のリンクを見落としていたため）
+    for m in re.finditer(r"<a\s[^>]*?href\s*=\s*(?:\"([^\"]+)\"|'([^']+)'|([^\s>]+))[^>]*>(.*?)</a>", html, re.S | re.I):
+        text = re.sub(r"<[^>]+>", "", unescape(m.group(4))).strip()
+        href = urljoin(base, unescape(m.group(1) or m.group(2) or m.group(3)).strip())
         res.append((text, href, m.start()))
     return res
 
@@ -229,6 +230,48 @@ def shapes_by_sheet(xlsx_bytes):
     return res
 
 
+def sheet_cells(xlsx_bytes, want):
+    """名前に want を含むシートの、文字が入ったセルを (行, 列, 行, 文字) で返す（行・列は図形と同じく0から）"""
+    z = zipfile.ZipFile(io.BytesIO(xlsx_bytes))
+    try:
+        ss = cell_strings(xlsx_bytes)
+        wb = z.read("xl/workbook.xml").decode("utf-8")
+        rels = z.read("xl/_rels/workbook.xml.rels").decode("utf-8")
+    except KeyError:
+        return {}
+    rmap = {}
+    for m in re.finditer(r"<Relationship\s[^>]*>", rels):
+        i, t = re.search(r'Id="([^"]+)"', m.group(0)), re.search(r'Target="([^"]+)"', m.group(0))
+        if i and t:
+            rmap[i.group(1)] = t.group(1).split("/")[-1]
+    res = {}
+    for m in re.finditer(r"<sheet\s[^>]*>", wb):
+        nm, rid = re.search(r'name="([^"]+)"', m.group(0)), re.search(r'r:id="([^"]+)"', m.group(0))
+        if not nm or not rid or want not in unescape(nm.group(1)) or rid.group(1) not in rmap:
+            continue
+        try:
+            xml = z.read("xl/worksheets/" + rmap[rid.group(1)]).decode("utf-8")
+        except KeyError:
+            continue
+        items = []
+        for c in re.finditer(r'<c\s[^>]*r="([A-Z]+)(\d+)"([^>]*)>(.*?)</c>', xml, re.S):
+            col = 0
+            for ch in c.group(1):
+                col = col * 26 + ord(ch) - 64
+            body, attrs = c.group(4), c.group(3)
+            if 't="s"' in attrs:
+                v = re.search(r"<v>(\d+)</v>", body)
+                t = ss[int(v.group(1))] if v and int(v.group(1)) < len(ss) else ""
+            elif 'inlineStr' in attrs:
+                t = unescape("".join(re.findall(r"<t(?:\s[^>]*)?>(.*?)</t>", body, re.S))).strip()
+            else:
+                continue
+            if t.strip():
+                items.append((int(c.group(2)) - 1, col - 1, int(c.group(2)) - 1, t.strip()))
+        res[unescape(nm.group(1))] = items
+    return res
+
+
 def is_comment(t):
     """分析欄の文章らしいか（数字の羅列・注意書き・見出しを除く）"""
     t1 = t.replace("\n", "")
@@ -254,7 +297,14 @@ def extract_comments(xlsx_bytes):
     aliases = {"財政力指数": ("財政力指数", "財政力"), "経常収支比率": ("経常収支比率", "財政構造の弾力性"),
                "実質公債費比率": ("実質公債費比率", "公債費負担の状況"), "将来負担比率": ("将来負担比率", "将来負担の状況")}
     norm = lambda t: re.sub(r"\s", "", t)
-    for nm, items in sheets.items():
+    # 図形で見つからない項目は、セルに書かれた見出し・文章からも探す（2026-10-16：静岡県・北海道の一部の自治体）
+    cells_by_sheet = {}
+    try:
+        for nm, cl in sheet_cells(xlsx_bytes, "財政比較").items():
+            cells_by_sheet[nm] = sheets.get(nm, []) + cl
+    except Exception:
+        pass
+    for nm, items in list(sheets.items()) + [(k, v) for k, v in cells_by_sheet.items()]:
         if "財政比較" not in nm and not any(norm(it[3]) == "財政力指数の分析欄" for it in items):
             continue
         for key, als in aliases.items():
@@ -435,11 +485,25 @@ def cell_strings(xlsx_bytes):
     return [unescape("".join(re.findall(r"<t(?:\s[^>]*)?>(.*?)</t>", si, re.S))).strip() for si in re.findall(r"<si>.*?</si>", x, re.S)]
 
 
-def collect(name, xlsx_bytes, fy_label, badge=True, moved=False, quiet=False):
+def cell_texts(xlsx_bytes):
+    """名前・年度を確かめるためのセルの文字（sharedStrings と、セルに直接書かれた文字）"""
+    res = cell_strings(xlsx_bytes)
+    try:
+        z = zipfile.ZipFile(io.BytesIO(xlsx_bytes))
+        for n in z.namelist():
+            if re.match(r"xl/worksheets/sheet\d+\.xml$", n):
+                x = z.read(n).decode("utf-8")
+                res += [unescape("".join(re.findall(r"<t(?:\s[^>]*)?>(.*?)</t>", i, re.S))).strip() for i in re.findall(r"<is>.*?</is>", x, re.S)]
+    except Exception:
+        pass
+    return res
+
+
+def collect(name, xlsx_bytes, fy_label, badge=True, moved=False, quiet=False, src=""):
     """Excelから3つの説明を取り出す。名前・年度が違えば None"""
     res, sheets = extract_comments(xlsx_bytes)
     joined = "\n".join(it[3] for items in sheets.values() for it in items)
-    cells = cell_strings(xlsx_bytes)
+    cells = cell_texts(xlsx_bytes)
     base = re.sub(r"（.*?）", "", name)
     say = (lambda m: None) if quiet else out
     # 名前・年度は、図形の文字とセルの文字の両方で確かめる（県によって、団体名や年度をセルに書いているため。2026-10-15）
@@ -449,7 +513,9 @@ def collect(name, xlsx_bytes, fy_label, badge=True, moved=False, quiet=False):
         return None
     half = lambda t: re.sub(r"\s", "", t.translate(str.maketrans("０１２３４５６７８９", "0123456789")))
     texts = [it[3].strip() for items in sheets.values() for it in items] + cells
-    if not any(half(t) in (fy_label, fy_label + "決算") for t in texts if len(t) <= 12):
+    fname = unquote(src.replace(" の中の ", "/")).split("/")[-1]
+    by_name = str(2018 + reiwa_num(fy_label)) in fname and has_name(fname, name)
+    if not by_name and not any(half(t) in (fy_label, fy_label + "決算") for t in texts if len(t) <= 12):
         FAIL_REASON[name] = "年度が違うExcel"
         say(f"- ❌ {name}：このExcelは{fy_label}のものではないため使いません")
         return None
@@ -552,7 +618,7 @@ def main():
                 if not data or not data[:2] == b"PK":
                     FAIL_REASON.setdefault(name, "Excelではないファイル")
                     continue
-                entry = collect(name, data, fy_label, badge=name in badge_names, moved=name in moved_names, quiet=True)
+                entry = collect(name, data, fy_label, badge=name in badge_names, moved=name in moved_names, quiet=True, src=src)
                 if entry and ("score" in entry or name in badge_names):
                     entry["src"] = src
                     result[name] = entry
