@@ -223,9 +223,11 @@
     var a = arr.slice().sort(function(x, y){ return x - y; }), m = Math.floor(a.length / 2);
     return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
   }
-  // v が似ている自治体の中央値より 高め(hi)／低め(lo)／ほぼ同じ(same)。tol：同じとみなす差（省略時は中央値の3%）
+  // v が似ている自治体の中央値より 高め(hi)／低め(lo)／ほぼ同じ(same)。tol：同じとみなす差
+  // tol に比べる相手の値の配列を渡すと、「ほぼ同じ」の幅（data.js の sameWidth）を使う（2026-10-15）
   function peerCmp(v, med, tol) {
     if (v == null || med == null) return null;
+    if (Object.prototype.toString.call(tol) === "[object Array]") tol = sameWidth(tol);
     var t = tol != null ? tol : Math.abs(med) * 0.03;
     return Math.abs(v - med) <= t ? "same" : v > med ? "hi" : "lo";
   }
@@ -334,8 +336,9 @@
       var note = (x >= 90 && med != null && Math.abs(x - med) <= 1.5) ? "※" + area + "の多くも同じ水準ですが、それは余裕が小さいことに変わりがないという意味です" : "";
       var pi1 = peerInfo(name, isPref), pc1 = null, pm1 = null, pst1 = null;
       if (pi1) {
-        pm1 = peerMedian(peerVals(pi1, function(k){ return DB[k].x; }));
-        pc1 = peerCmp(x, pm1, 0.5);
+        var pv1 = peerVals(pi1, function(k){ return DB[k].x; });
+        pm1 = peerMedian(pv1);
+        pc1 = peerCmp(x, pm1, pv1);
         if (pc1) pst1 = x < 100 ? "似ている自治体と比べると、新しいことに回せるお金が" + (pc1 === "same" ? "同じくらいの状態です" : pc1 === "lo" ? "多めの状態です" : "少なめの状態です") : null;
       }
       if (pi1 && pc1) {
@@ -348,7 +351,7 @@
       }
       return situationBox(name, [
         "毎年決まって入るお金（税や地方交付税など）の" + sitB(pct1(x)) + "が、毎年必ず出ていくお金に使われています",
-        situationTrend(cur, "x", {tol:0.5, fmt:pct1, label:"経常収支比率"}), area + "の中央値（" + pct1(med) + "）" + medCompare(x, med, 0.5),
+        situationTrend(cur, "x", {tol:0.5, fmt:pct1, label:"経常収支比率"}), area + "の中央値（" + pct1(med) + "）" + medCompare(x, med, DATA_STATS.x[b + "W"]),
         pc1 && x < 100 ? "新しいことに回せるのは" + sitB(pct1(100 - x)) + "です。似ている自治体では、中央値で" + pct1(100 - pm1) + "です" : (pc1 ? peerLine(pct1(pm1)) : "")
       ], st, (c === "#6dcfad" || c === "#7bb8e8") && x < 100 ? SIT_BLUE : SIT_RED, [note, pi1 ? peerNoteText(pi1) : ""].filter(function(t){ return !!t; }).join("<br>"), pst1);
     }
@@ -359,8 +362,9 @@
               : "国が計算した「標準的な行政に必要なお金」の" + (wari < 1 ? "1割未満" : "約" + wari + "割") + "を税収などでまかない、残りを国の交付金で補っている状態です";
       var pi2 = peerInfo(name, isPref), pc2 = null, pm2 = null, pst2 = null;
       if (pi2) {
-        pm2 = peerMedian(peerVals(pi2, function(k){ return DB[k].f; }));
-        pc2 = peerCmp(f, pm2, 0.01);
+        var pv2 = peerVals(pi2, function(k){ return DB[k].f; });
+        pm2 = peerMedian(pv2);
+        pc2 = peerCmp(f, pm2, pv2);
         if (pc2) pst2 = "似ている自治体と比べると、" + (pc2 === "same" ? "税収などでまかなえる割合は同じくらいの状態です" : pc2 === "lo" ? "税収などでまかなえる割合が小さく、国の交付金で補う割合が大きい状態です" : "税収などでまかなえる割合が大きい状態です");
       }
       if (pi2 && pc2) {
@@ -373,7 +377,7 @@
       }
       return situationBox(name, [
         "財政力指数は" + sitB(f.toFixed(2)) + "です",
-        situationTrend(cur, "f", {tol:0.01, label:"財政力指数", fmt:function(v){ return v.toFixed(2); }}), area + "の中央値（" + (medf != null ? medf.toFixed(2) : "－") + "）" + medCompare(f, medf, 0.01),
+        situationTrend(cur, "f", {tol:0.01, label:"財政力指数", fmt:function(v){ return v.toFixed(2); }}), area + "の中央値（" + (medf != null ? medf.toFixed(2) : "－") + "）" + medCompare(f, medf, DATA_STATS.f[b + "W"]),
         pc2 ? peerLine(pm2.toFixed(2)) : ""
       ], st2, (cf === "#6dcfad" || cf === "#7bb8e8") ? SIT_BLUE : SIT_RED, pi2 ? peerNoteText(pi2) : "", pst2);
     }
@@ -382,15 +386,16 @@
       var rel = d >= 35 ? "財政再生の基準（35%）以上です" : d >= 25 ? "早期健全化の基準（25%）以上です" : d >= 18 ? "国の基準（18%）以上です"
               : d <= 9 ? "国の基準（18%）の半分以下です" : "国の基準（18%）を下回っています";
       var st3 = d < 10 ? "借金の返済に回すお金の割合が小さく、住民サービスにお金を回しやすい状態です"
-              : (isPref && d < 14) ? "返済の負担は、全国の都道府県の中央値（" + pct1(DATA_STATS.d.pref) + "）" + (medCompare(d, DATA_STATS.d.pref, 0.5) || "と比べる状態です")
+              : (isPref && d < 14) ? "返済の負担は、全国の都道府県の中央値（" + pct1(DATA_STATS.d.pref) + "）" + (medCompare(d, DATA_STATS.d.pref, DATA_STATS.d.prefW) || "と比べる状態です")
               : d < 18 ? "返済の負担はやや重めですが、国の基準は下回っている状態です"
               : d < 25 ? "新しく借金をするのに許可が必要な水準です（グラフの下で説明）"
               : d < 35 ? "国が定める早期健全化の基準以上の状態です（グラフの下で説明）"
               : "国が定める財政再生の基準以上の状態です（グラフの下で説明）";
       var pi3 = peerInfo(name, isPref), pc3 = null, pm3 = null, pst3 = null;
       if (pi3) {
-        pm3 = peerMedian(peerVals(pi3, function(k){ return DB[k].d; }));
-        pc3 = peerCmp(d, pm3, 0.3);
+        var pv3 = peerVals(pi3, function(k){ return DB[k].d; });
+        pm3 = peerMedian(pv3);
+        pc3 = peerCmp(d, pm3, pv3);
         if (pc3) pst3 = "似ている自治体と比べると、収入のうち借金の返済に回る割合が" + (pc3 === "same" ? "同じくらいです" : pc3 === "hi" ? "大きめです" : "小さめです");
       }
       // 10%以上（目安で「やや重い」）のときは「余裕があります」と言わない
@@ -419,7 +424,7 @@
           "将来払う借金などを、貯金などでまかなえる状態です", SIT_BLUE, "", null, "借金がない、という意味ではありません");
       }
       var rel4 = u >= lim ? "国の基準（" + lim + "%）以上です" : u < lim * 0.3 ? "国の基準（" + lim + "%）を大きく下回ります" : "国の基準（" + lim + "%）を下回ります";
-      var cmp4 = isPref ? area + "の中央値（" + pct1(DATA_STATS.u.pref) + "）" + medCompare(u, DATA_STATS.u.pref, 2)
+      var cmp4 = isPref ? area + "の中央値（" + pct1(DATA_STATS.u.pref) + "）" + medCompare(u, DATA_STATS.u.pref, DATA_STATS.u.prefW)
                : (muniUZeroShare() > 0.5 ? "全国の市区町村の半数以上は実質ゼロです" : "");
       var st4, col4;
       if (u >= lim) { st4 = "国が定める早期健全化の基準以上の状態です（グラフの下で説明）"; col4 = SIT_RED; }
@@ -435,7 +440,7 @@
       }
       if (isPref && u < lim) {
         // 都道府県：国の基準との余裕＋都道府県の中での高め・低めを「→」の1行にまとめる
-        var pm4p = DATA_STATS.u.pref, pc4p = peerCmp(u, pm4p, 2);
+        var pm4p = DATA_STATS.u.pref, pc4p = peerCmp(u, pm4p, DATA_STATS.u.prefW);
         var lr4p = limitRoom(u, lim, cu === "#f0c46a" ? "都道府県の中ではやや重めです" : cu === "#f0876a" ? "都道府県の中では重めです" : "");
         var verd4p = lr4p.heavy ? lr4p.text
           : lr4p.text + "。" + (lr4p.room && pc4p === "hi" ? "ただ、" : "") + "都道府県の中では、" + (pc4p === "same" ? "同じくらいの状態です" : pc4p === "hi" ? "高めの状態です" : "低めの状態です");
@@ -446,12 +451,12 @@
       if (pi4) {
         var pv4 = peerVals(pi4, function(k){ var e = DB[k]; return (e.u == null || e.u <= 0) ? 0 : e.u; });
         var pz4 = pv4.filter(function(v){ return v <= 0; }).length / (pv4.length || 1);
-        var pm4 = peerMedian(pv4), pc4 = peerCmp(u, pm4, 2);
+        var pm4 = peerMedian(pv4), pc4 = peerCmp(u, pm4, pv4);
         if (pz4 > 0.5) { pl4 = "似ている自治体の半数以上は、実質ゼロです"; pst4 = "似ている自治体と比べると、将来に残る負担は大きめです"; }
         else if (pc4) { pl4 = peerLine(pct1(pm4)); pst4 = "似ている自治体と比べると、将来に残る負担は" + (pc4 === "same" ? "同じくらいです" : pc4 === "hi" ? "大きめです" : "小さめです"); }
       }
       if (pi4 && pst4) {
-        var pcz = pz4 > 0.5 ? "hi" : peerCmp(u, pm4, 2);
+        var pcz = pz4 > 0.5 ? "hi" : peerCmp(u, pm4, pv4);
         var lr4 = limitRoom(u, lim, cu === "#f0c46a" ? "全国の市区町村の中では一定の負担があります" : cu === "#f0876a" ? "全国の市区町村の中では重めです" : "");
         return situationBox(name, [
           "将来負担比率は" + sitB(pct1(u)) + "です",
@@ -469,8 +474,9 @@
       var perCap = yenPer == null ? "" : "（住民1人あたり約" + (yenPer >= 10000 ? (Math.round(yenPer / 1000) / 10).toFixed(1) + "万円" : (Math.round(yenPer / 100) * 100).toLocaleString() + "円") + "）";
       var pi5 = peerInfo(name, isPref), pc5 = null, pm5 = null;
       if (pi5) {
-        pm5 = peerMedian(peerVals(pi5, function(k){ var e = DB[k]; return (e.sfs && e.sfs > 0 && e.r != null) ? e.r / e.sfs * 100 : null; }));
-        pc5 = peerCmp(rr, pm5, pm5 != null ? pm5 * 0.05 : null);
+        var pv5 = peerVals(pi5, function(k){ var e = DB[k]; return (e.sfs && e.sfs > 0 && e.r != null) ? e.r / e.sfs * 100 : null; });
+        pm5 = peerMedian(pv5);
+        pc5 = peerCmp(rr, pm5, pv5);
       }
       // 人口5千人未満で割合が大きい（カードが緑）町や村：割合と金額の両方で見てほしい（2026-10-04 決定）
       var memo5 = (!isPref && cur.pop != null && cur.pop < 5000 && cr === "#6dcfad") ? "割合は大きいですが、人口の少ない町や村は金額が小さくなりがちです。大きな災害のときは、足りなくなることもあります" : null;
@@ -511,14 +517,15 @@
       var eduOku = cur.eo ? Math.round(cur.eo * cur.edu / 100 * 10) / 10 : null;
       var pi6 = peerInfo(name, isPref), pc6 = null, pm6 = null, pst6 = null, pl6 = "";
       if (pi6) {
-        pm6 = peerMedian(peerVals(pi6, function(k){ return DB[k].edu; }));
-        pc6 = peerCmp(cur.edu, pm6, 0.5);
+        var pv6 = peerVals(pi6, function(k){ return DB[k].edu; });
+        pm6 = peerMedian(pv6);
+        pc6 = peerCmp(cur.edu, pm6, pv6);
         if (pc6) {
           pl6 = peerLine(pct1(pm6));
           pst6 = "似ている自治体と比べると、歳出に占める教育費の割合は" + (pc6 === "same" ? "同じくらいです" : pc6 === "hi" ? "大きめです" : "小さめです");
           // 民生費（福祉・子育て）の割合が大きいと、ほかの費目の割合は小さくなる（割合の合計は100%）
           var shM = function(k){ var e = DB[k], b0 = e.bd && e.bd.ex; return (b0 && b0.minsei != null && e.eo) ? b0.minsei / (e.eo * 1e5) * 100 : null; };
-          var mySh = shM(name), pmSh = peerMedian(peerVals(pi6, shM)), cSh = peerCmp(mySh, pmSh, 1);
+          var mySh = shM(name), pvSh = peerVals(pi6, shM), pmSh = peerMedian(pvSh), cSh = peerCmp(mySh, pmSh, pvSh);
           if (pc6 === "lo" && cSh === "hi") pl6 += "。福祉・子育て（民生費）は、歳出の" + pct1(mySh) + "（似ている自治体の中央値は" + pct1(pmSh) + "）です";
           if (pc6 === "lo" && cSh === "hi") pst6 += "。福祉・子育てに使う割合が大きい分、ほかの費目の割合は小さくなります";
         }
@@ -538,7 +545,7 @@
     if (key === "childInvest" && cur.ch != null) {
       var med7 = DATA_STATS.ch[b];
       var pi7 = peerInfo(name, isPref), pc7 = null, pm7 = null;
-      if (pi7) { pm7 = peerMedian(peerVals(pi7, function(k){ return DB[k].ch; })); pc7 = peerCmp(cur.ch, pm7); }
+      if (pi7) { var pv7 = peerVals(pi7, function(k){ return DB[k].ch; }); pm7 = peerMedian(pv7); pc7 = peerCmp(cur.ch, pm7, pv7); }
       if (pi7 && pc7) {
         return situationBox(name, [
           "18歳未満の子ども1人あたり、年間約" + sitB(cur.ch.toFixed(1) + "万円") + "です（教育費と児童福祉費の合計）",
@@ -600,7 +607,8 @@
     var shRv = function(f){ return function(k){ var e = DB[k], x = e.bd && e.bd.rv; return (x && x[f] != null && e.ei) ? x[f] / (e.ei * 1e5) * 100 : null; }; };
     var shEd = function(f){ return function(k){ var e = DB[k], x = e.bd && e.bd.ed, ee = e.bd && e.bd.ex; return (x && ee && ee.edu && x[f] != null) ? x[f] / ee.edu * 100 : null; }; };
     var pMed = function(getter){ return pinfo ? peerMedian(peerVals(pinfo, getter)) : null; };
-    var cmpW = function(v, m){ var c = peerCmp(v, m, 1); return c == null ? null : c === "same" ? "同じくらい" : c === "hi" ? "大きめ" : "小さめ"; };
+    var pVals = function(getter){ return pinfo ? peerVals(pinfo, getter) : []; };
+    var cmpW = function(v, vals){ var c = peerCmp(v, peerMedian(vals), vals); return c == null ? null : c === "same" ? "同じくらい" : c === "hi" ? "大きめ" : "小さめ"; };
     var PTAIL = "#3a2a6e";
     var topEx = function(n){
       return Object.keys(ex).filter(function(k){ return BD_EX_LABEL[k] && ex[k] > 0; })
@@ -614,7 +622,7 @@
       if (rv.nat != null) r1.push(line("国庫支出金（国の補助金など）", rv.nat, eiK));
       if (pinfo && eiK && rv.tax != null && rv.lat != null && rv.nat != null) {
         r1 = [line("地方税（自治体の税収）", rv.tax, eiK, pMed(shRv("tax"))), line("地方交付税（国から配られるお金）", rv.lat, eiK, pMed(shRv("lat"))), line("国庫支出金（国の補助金など）", rv.nat, eiK, pMed(shRv("nat")))];
-        var wn = cmpW((rv.lat + rv.nat) / eiK * 100, pMed(function(k){ var x = DB[k].bd.rv, e = DB[k]; return (x && x.lat != null && x.nat != null && e.ei) ? (x.lat + x.nat) / (e.ei * 1e5) * 100 : null; }));
+        var wn = cmpW((rv.lat + rv.nat) / eiK * 100, pVals(function(k){ var x = DB[k].bd.rv, e = DB[k]; return (x && x.lat != null && x.nat != null && e.ei) ? (x.lat + x.nat) / (e.ei * 1e5) * 100 : null; }));
         return bdBox("歳入" + fmtOku(cur.ei) + "の内訳から分かること", r1, wn ? "似ている自治体と比べると、国から来るお金（地方交付税・国庫支出金）の割合は" + wn + "です" : "", PTAIL);
       }
       return bdBox("歳入" + (cur.ei ? fmtOku(cur.ei) : "") + "の内訳から分かること", r1, "");
@@ -623,7 +631,7 @@
       if (pinfo && eoK) {
         var tk = Object.keys(ex).filter(function(k){ return BD_EX_LABEL[k] && ex[k] > 0; }).sort(function(a, c){ return ex[c] - ex[a]; }).slice(0, 3);
         var rowsF = tk.map(function(k){ return line(BD_EX_LABEL[k], ex[k], eoK, pMed(shEx(k))); });
-        var w1 = cmpW(shEx(tk[0])(name), pMed(shEx(tk[0])));
+        var w1 = cmpW(shEx(tk[0])(name), pVals(shEx(tk[0])));
         return bdBox("歳出" + fmtOku(cur.eo) + "の内訳から分かること", rowsF, w1 ? "いちばん多いのは" + BD_EX_LABEL[tk[0]] + "で、似ている自治体" + (w1 === "同じくらい" ? "と同じくらいです" : "より" + w1 + "です") : "", PTAIL);
       }
       return bdBox("歳出" + (cur.eo ? fmtOku(cur.eo) : "") + "の内訳から分かること", topEx(3), "");
@@ -636,7 +644,7 @@
     if (key === "reserve") {
       if (rv.tr == null) return "";
       if (pinfo && eiK) {
-        var wtr = cmpW(shRv("tr")(name), pMed(shRv("tr")));
+        var wtr = cmpW(shRv("tr")(name), pVals(shRv("tr")));
         return bdBox(fy + "の貯金の動き", [line("基金からの繰入金（貯金の取り崩しなど）", rv.tr, eiK, pMed(shRv("tr")))], wtr ? "貯金などの取り崩しに頼る割合は、似ている自治体" + (wtr === "同じくらい" ? "と同じくらいです" : "より" + wtr + "です") : "", PTAIL);
       }
       return bdBox(fy + "の貯金の動き", [line("基金からの繰入金（貯金の取り崩しなど）", rv.tr)], "");
@@ -660,7 +668,7 @@
       var r2 = [];
       if (rv.bond != null) r2.push(line("地方債（借金）", rv.bond, eiK, pMed(shRv("bond"))));
       if (rv.tr != null) r2.push(line("基金からの繰入金（貯金の取り崩しなど）", rv.tr, eiK, pMed(shRv("tr"))));
-      var wb = (pinfo && rv.bond != null) ? cmpW(shRv("bond")(name), pMed(shRv("bond"))) : null, wr2 = (pinfo && rv.tr != null) ? cmpW(shRv("tr")(name), pMed(shRv("tr"))) : null;
+      var wb = (pinfo && rv.bond != null) ? cmpW(shRv("bond")(name), pVals(shRv("bond"))) : null, wr2 = (pinfo && rv.tr != null) ? cmpW(shRv("tr")(name), pVals(shRv("tr"))) : null;
       html += bdBox("歳入の中の借金と取り崩し", r2, (wb && wr2) ? "似ている自治体と比べると、借金に頼る割合は" + wb + "、貯金の取り崩しに頼る割合は" + wr2 + "です" : "", PTAIL);
       return html;
     }
@@ -781,6 +789,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.6.2", date:"2026.10", items:["比べ方の説明を改善"] },
     { version:"3.6.1", date:"2026.10", items:["説明の表示を改善"] },
     { version:"3.6.0", date:"2026.10", items:["詳しい画面の並びを整理し、読みやすくしました","総合スコアに「点数を見るときのヒント」を追加","説明の表示を改善"] },
     { version:"3.5.5", date:"2026.10", items:["「みっちーからのひとこと」の表示を改善"] },
@@ -1683,7 +1692,7 @@
         var ka4v = KK[curName].ka4;
         topSummaryHtml += kkCrossBox("🔗 公会計と比べてみると",
           "財政調整基金残高", ratio.toFixed(1)+"%", reserveLevelLabel(ratio, isPrefView),
-          "純資産比率", ka4v+"%", kkMedianJudge(ka4v, isPrefView ? KK_MEDIANS.ka4.pref : KK_MEDIANS.ka4.muni),
+          "純資産比率", ka4v+"%", kkMedianJudge(ka4v, isPrefView ? KK_MEDIANS.ka4.pref : KK_MEDIANS.ka4.muni, isPrefView ? KK_MEDIANS.ka4.prefW : KK_MEDIANS.ka4.muniW),
           crossInsight("ka4", cur, KK[curName], isPrefView),
           false, "純資産比率", trendWithMeaning("ka4", kkTrendText(KK[curName], "ka4", "")));
         topSummaryHtml += KK_CROSSCHECK_CAVEAT;
@@ -1855,7 +1864,7 @@
         var ka7v = KK[curName].ka7;
         topSummaryHtml += kkCrossBox("🔗 公会計と比べてみると",
           "実質公債費比率", cur.d+"%", debtLevelLabel(cur.d, isPrefView),
-          "住民一人当たり負債額", ka7v+"万円", kkMedianJudge(ka7v, isPrefView ? KK_MEDIANS.ka7.pref : KK_MEDIANS.ka7.muni),
+          "住民一人当たり負債額", ka7v+"万円", kkMedianJudge(ka7v, isPrefView ? KK_MEDIANS.ka7.pref : KK_MEDIANS.ka7.muni, isPrefView ? KK_MEDIANS.ka7.prefW : KK_MEDIANS.ka7.muniW),
           crossInsight("ka7", cur, KK[curName], isPrefView),
           false, "住民一人当たり負債額", trendWithMeaning("ka7", kkTrendText(KK[curName], "ka7", "")));
         topSummaryHtml += KK_CROSSCHECK_CAVEAT;

@@ -60,9 +60,11 @@
     if (field === "r") return situationTrend(e, "r", {tol:0.05, rel:true, times:true, fmt:function(v){ return fmtOku(v); }});
     return "";
   }
-  // 公会計の値が、全国（都道府県は都道府県）の中央値と比べてどうか。差が10%以内は「ほぼ同水準」
-  function kkMedianJudge(kkVal, med) {
-    return Math.abs(kkVal - med) <= med * 0.1 ? "全国の中央値とほぼ同水準" : kkVal > med ? "全国の中央値より高め" : "全国の中央値より低め";
+  // 公会計の値が、全国（都道府県は都道府県）の中央値と比べてどうか
+  // w：「ほぼ同じ」の幅（KK_MEDIANS の muniW・prefW。2026-10-15）。無いときは以前の中央値の10%
+  function kkMedianJudge(kkVal, med, w) {
+    var t = (w != null) ? w : Math.abs(med) * 0.1;
+    return Math.abs(kkVal - med) <= t ? "全国の中央値とほぼ同水準" : kkVal > med ? "全国の中央値より高め" : "全国の中央値より低め";
   }
 
   // 人口の少ない市区町村（pop が maxPop 未満）の中央値（万円）。「人口が少ないと1人あたりが大きく出る」の裏づけの数字
@@ -82,16 +84,19 @@
      財政の指標（毎年のやりくり・借金などの残り）と、公会計の指標（施設の古さ・量・資産と負債のバランス）は
      見ているものが違う。2つを組み合わせて、片方だけでは分からないことを書く。
      ・書くのは、2つの指標の定義から言えることと、その組み合わせが起きる仕組みだけ（町の事情の推測はしない）
-     ・公会計の指標は全国（都道府県は都道府県）の中央値と比べ、差が10%以内なら「全国並み」として、その場合の文を出す
+     ・公会計の指標は全国（都道府県は都道府県）の中央値と比べ、差が「ほぼ同じ」の幅以内なら「全国並み」として、その場合の文を出す
      ・財政側の「軽め・重め」などは、画面の判定（カードの色・目安）と同じ基準 */
   var KK_DEBT_NOTE = "※ここでの「借金など」には、国の交付税の代わりに借りる「臨時財政対策債」も含まれます";
-  function crossInsight(code, cur, entry, isPref) {
+  // noDebtNote：純資産比率の画面では、状況の欄に同じ注記があるので出さない（2026-10-15）
+  function crossInsight(code, cur, entry, isPref, noDebtNote) {
     if (!cur || !entry || entry[code] == null) return "";
     var mm = KK_MEDIANS[code], med = mm ? (isPref ? mm.pref : mm.muni) : null;
     if (med == null || med === 0) return "";
     var v = entry[code], ratio = v / med;
-    var kkHi = ratio > 1.1, kkLo = ratio < 0.9;
-    var kkNear = !kkHi && !kkLo;   // 全国並み（差が10%以内）
+    // 全国並み：「ほぼ同じ」の幅（KK_MEDIANS の muniW・prefW）以内。枠の中の「全国の中央値とほぼ同水準」と同じ判定（2026-10-15）
+    var kw = mm[isPref ? "prefW" : "muniW"]; if (kw == null) kw = Math.abs(med) * 0.1;
+    var kkHi = v - med > kw, kkLo = med - v > kw;
+    var kkNear = !kkHi && !kkLo;
     var than = isPref ? "他の都道府県より" : "全国より";
     var times = function(){ return ratio >= 1.5 ? (isPref ? "都道府県の中央値の" : "全国の") + "約" + (Math.round(ratio * 10) / 10) + "倍と" : than; };
     // 財政側の状態
@@ -159,7 +164,7 @@
       else out = rOk
         ? "資産の多くを借金などに頼らずまかなっていて、手元の貯金（急な出費への備え）も" + rWord + "あります。長い目で見た資産と負債のバランスも、急な出費への備えもある状態です。"
         : "資産は" + than + "借金などに頼らずまかなえていますが、手元の貯金（急な出費への備え）は" + rl + "です。長い目で見たバランスは良い一方、急な出費への備えは小さい状態です。";
-      return out + "<div style='font-size:14px;color:#8a7a5a;margin-top:4px;'>" + KK_DEBT_NOTE + "</div>";
+      return out + (noDebtNote ? "" : "<div style='font-size:14px;color:#8a7a5a;margin-top:4px;'>" + KK_DEBT_NOTE + "</div>");
     }
     return "";
   }
@@ -173,7 +178,7 @@
     var heading = reverseOrder ? ("🔗 財政と比べてみると" + numMark) : ("🔗 公会計と比べてみると" + numMark);
     return kkCrossBox(heading,
       "将来負担比率", (curObj.u == null || curObj.u <= 0) ? "0%（負担なし）" : curObj.u+"%", futureLevelLabel(curObj.u, isPrefView),
-      m.label, kkVal+m.unit, kkMedianJudge(kkVal, med),
+      m.label, kkVal+m.unit, kkMedianJudge(kkVal, med, KK_MEDIANS[code][isPrefView ? "prefW" : "muniW"]),
       crossInsight(code, curObj, entry, isPrefView),
       reverseOrder,
       reverseOrder ? "将来負担比率" : m.label,
@@ -215,12 +220,12 @@
     if (code === "ka4" && cur.sfs && cur.sfs > 0) {
       var ratioRec = cur.r / cur.sfs * 100;
       return kkCrossBox("🔗 財政と比べてみると", "財政調整基金残高", ratioRec.toFixed(1)+"%", reserveLevelLabel(ratioRec, isPref),
-        "純資産比率", entryV+"%", kkMedianJudge(entryV, isPref ? KK_MEDIANS.ka4.pref : KK_MEDIANS.ka4.muni),
-        crossInsight("ka4", cur, entry, isPref), true, "財政調整基金残高", trendWithMeaning("r", finTrendText(cur, "r"))) + KK_CROSSCHECK_CAVEAT;
+        "純資産比率", entryV+"%", kkMedianJudge(entryV, isPref ? KK_MEDIANS.ka4.pref : KK_MEDIANS.ka4.muni, isPref ? KK_MEDIANS.ka4.prefW : KK_MEDIANS.ka4.muniW),
+        crossInsight("ka4", cur, entry, isPref, true), true, "財政調整基金残高", trendWithMeaning("r", finTrendText(cur, "r"))) + KK_CROSSCHECK_CAVEAT;
     }
     if (code === "ka7" && cur.d != null) {
       return kkCrossBox("🔗 財政と比べてみると", "実質公債費比率", cur.d+"%", debtLevelLabel(cur.d, isPref),
-        "住民一人当たり負債額", entryV+"万円", kkMedianJudge(entryV, isPref ? KK_MEDIANS.ka7.pref : KK_MEDIANS.ka7.muni),
+        "住民一人当たり負債額", entryV+"万円", kkMedianJudge(entryV, isPref ? KK_MEDIANS.ka7.pref : KK_MEDIANS.ka7.muni, isPref ? KK_MEDIANS.ka7.prefW : KK_MEDIANS.ka7.muniW),
         crossInsight("ka7", cur, entry, isPref), true, "実質公債費比率", trendWithMeaning("d", finTrendText(cur, "d"))) + KK_CROSSCHECK_CAVEAT;
     }
     if (code === "ka3" || code === "ka1" || code === "ka6") {
@@ -304,7 +309,13 @@
       scaleWord = "全国" + (isPref ? "都道府県" : "市区町村");
     }
     var diff = val - med;
-    var isSame = Math.abs(diff) <= Math.abs(med) * 0.05;
+    // 「ほぼ同じ」の幅：比べる相手（類似団体 or 全国）の値から（2026-10-15）
+    var cmpVals = Object.keys(KK).filter(function(k){
+      if (k.charAt(0) === "_" || !DB[k] || (DB[k].p === k) !== !!isPref) return false;
+      return meta.group ? KK[k].grp === entry.grp : true;
+    }).map(function(k){ return KK[k][code]; });
+    var sw = sameWidth(cmpVals);
+    var isSame = Math.abs(diff) <= (sw != null ? sw : Math.abs(med) * 0.05);
     var cmpWord = isSame ? "ほぼ同水準" : (diff > 0 ? "高め" : "低め");
 
     var dir = KK_GOOD_DIR[code];
@@ -703,7 +714,7 @@
          業務・投資活動収支＝行政サービス（業務活動）と、施設整備など（投資活動）を合わせた収支。
                            基金への積み立て・取り崩しと、借金の利息の支払いは除いて計算する（総務省の指標の定義）。
                            赤字の差額は、借入金（財務活動）や前年度からの手元の資金で補われる
-     ・全国の中央値との差が5%以内は「全国並み」（詳細画面の「ほぼ同水準」と同じ基準）
+     ・全国の中央値との差が「ほぼ同じ」の幅（data.js の sameWidth）以内は「全国並み」（詳細画面の「ほぼ同水準」と同じ基準）
      ・最後に、もとにした指標と年度（出典）を必ず書く */
   function kkAdviceHtml(nm, entry, d, isPref) {
     if (!entry) return "";
@@ -711,8 +722,10 @@
       var v = entry[code], mm = KK_MEDIANS[code];
       var med = mm ? (isPref ? mm.pref : mm.muni) : null;
       if (v == null || med == null || med === 0) return 0;
-      if (v > med * 1.05) return 1;
-      if (v < med * 0.95) return -1;
+      // 詳細画面の「ほぼ同水準」と同じ幅（2026-10-15）
+      var w = mm[isPref ? "prefW" : "muniW"]; if (w == null) w = Math.abs(med) * 0.05;
+      if (v - med > w) return 1;
+      if (med - v > w) return -1;
       return 0;
     }
     var a3 = cmp("ka3"), a4 = cmp("ka4"), a5 = cmp("ka5");
@@ -887,16 +900,17 @@ document.addEventListener("keydown", function (e) {
     var v = getter(name);
     if (v == null || isNaN(v)) return null;
     var pi = peerInfo(name, isPref), med = null;
-    if (pi) med = peerMedian(peerVals(pi, getter));
+    var vals = null;
+    if (pi) { vals = peerVals(pi, getter); med = peerMedian(vals); }
     if (med == null) {
-      if (statKey && DATA_STATS[statKey]) med = DATA_STATS[statKey][isPref ? "pref" : "muni"];
-      else {
-        var all = Object.keys(DB).filter(function(k){ return !!DB[k].__pref === !!isPref; }).map(getter).filter(function(x){ return typeof x === "number" && !isNaN(x); });
-        med = peerMedian(all);
-      }
+      // 全国（都道府県は都道府県どうし）と比べる
+      vals = Object.keys(DB).filter(function(k){ return !!DB[k].__pref === !!isPref; }).map(getter).filter(function(x){ return typeof x === "number" && !isNaN(x); });
+      med = (statKey && DATA_STATS[statKey]) ? DATA_STATS[statKey][isPref ? "pref" : "muni"] : peerMedian(vals);
     }
     if (med == null) return null;
-    return peerCmp(v, med, typeof tol === "function" ? tol(med) : tol);
+    // 「ほぼ同じ」の幅は、画面の文と同じルール（data.js の sameWidth）。幅が出せないときだけ以前の値
+    var w = sameWidth(vals);
+    return peerCmp(v, med, w != null ? w : (typeof tol === "function" ? tol(med) : tol));
   }
   function hkStates(name, isPref) {
     var kk = (typeof KK !== "undefined" && KK && KK[name]) ? KK[name] : null;
