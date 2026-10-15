@@ -789,6 +789,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.6.3", date:"2026.10", items:["総合スコアの推移の計算を改善"] },
     { version:"3.6.2", date:"2026.10", items:["比べ方の説明を改善"] },
     { version:"3.6.1", date:"2026.10", items:["説明の表示を改善"] },
     { version:"3.6.0", date:"2026.10", items:["詳しい画面の並びを整理し、読みやすくしました","総合スコアに「点数を見るときのヒント」を追加","説明の表示を改善"] },
@@ -1469,6 +1470,7 @@
     // f・x・d・health・reserve・education・childInvest・growthは、すべて令和元年始まりの実績データ
     var hasHistory = (key==="fiscalPower"||key==="debt"||key==="flex"||key==="health"||key==="future") && histCountFiscal > 0;
     var hasGrowthHistory = (key==="growth"||key==="reserve"||key==="education"||key==="childInvest") && histCountGrowth > 0;
+    var sfsApprox = false;   // 総合スコアの過去の点数で、その年度の標準財政規模が無く最新の値で計算した年があるか
     if (hasHistory) {
       var N = histCountFiscal;
       var getVal = function(i) {
@@ -1480,10 +1482,11 @@
         if (key==="health") {
           // その年度の5指標で計算する（2026-10-02：以前は将来負担比率と基金残高だけ最新の値を使っていて、
           // 過去の点数がその年度の実際の指標と合っていなかった）。
-          // 標準財政規模は、過去の年度の値を持っていないため、いちばん近い年度の値を使う
-          // （sfs_r1＝最新の1年前の年度。それより前の年度は sfs_r1、無ければ最新の値）。グラフの注記にも書く
+          // 標準財政規模も、その年度の値（sfs_rN＝令和N年度。2026-10-15〜）を使う。
+          // その年度の値が無いときだけ最新の値で代わりに計算し、グラフの注記に書く
           var f=cur["f"+suffix], d=cur["d"+suffix], x=cur["x"+suffix], rH=cur["r"+suffix];
-          var sfsH = cur.sfs_r1 != null ? cur.sfs_r1 : cur.sfs;
+          var sfsH = cur["sfs"+suffix];
+          if (sfsH == null) { sfsH = cur.sfs; sfsApprox = true; }
           return (f!=null&&d!=null&&x!=null&&rH!=null)?calcH(f,d,x,cur["u"+suffix],rH,null,cur.__pref,sfsH):null;
         }
         return null;
@@ -2127,7 +2130,7 @@
       var noteTo = reiwaLabelForNote(chartYrs[chartYrs.length - 1]);
       // 人口は「年」（1月1日時点）、財政は「年度」。総合スコアは各年度の指標から計算した点数
       noteText = key==="growth" ? ("※令和"+noteFrom+"〜"+noteTo+"年の実績値（各年1月1日時点）")
-               : key==="health" ? "※各年度の指標で計算（基金は直近の標準財政規模比）"
+               : key==="health" ? (sfsApprox ? "※各年度の指標で計算（標準財政規模が無い年度は、最新の値で計算）" : "※各年度の指標と標準財政規模で計算")
                : ("※令和"+noteFrom+"〜"+noteTo+"年度の実績値");
     } else {
       // 過去の実績データが無い場合、以前はここに「※元〜4年は参考値（推計）」と出して

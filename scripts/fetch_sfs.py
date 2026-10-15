@@ -4,11 +4,10 @@
 
 使い方（GitHub Actions の workflow_dispatch から実行）:
     python scripts/fetch_sfs.py         -> 今年度分。sfs キーを更新（他の指標と同じくスライド式で履歴を保持）
-    python scripts/fetch_sfs.py r1      -> 1年前（過去分）の一括バックフィル。sfs_r1 キーに直接書き込む
-                                            （スライドはしない。過去分をまとめて登録する時だけ使う特別モード）
+    （引数 r1 などの古い「過去分を1年だけ入れる」使い方は、2026-10-15 に config.json の設定を外したため使わない）
 
-過去分を追加するときは、config.json の sfs に base_muni_r1 / pref_card_r1 を
-追加しておくこと（該当年度の決算カードの番号）。
+過去の年度（sfs_r1＝令和元年度 〜 sfs_r5＝令和5年度）は、config.json の sfs_past に書いた番号で、
+引数なしの実行の中で自動で取り込む（すでに入っている年度は取り直さない）。2026-10-15〜
 
 背景:
   財政調整基金の適正水準は、一般に「標準財政規模の10〜20%」という目安で語られる。
@@ -158,6 +157,16 @@ def read_card(data, pref, pos):
     return out, skipped
 
 
+def _find_label(ws, text):
+    for r in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 120)):
+        for i, c in enumerate(r):
+            if isinstance(c.value, str) and c.value.replace("\u3000", "").replace(" ", "") == text:
+                for c2 in r[i + 1:]:
+                    if isinstance(c2.value, (int, float)):
+                        return text, c2.value
+    return None, None
+
+
 def _read_card(data, pref, pos, fast):
     # fast=True：必要な1行だけを読む（2026-09-30。以前は全シートを丸ごと読んでいて、48ファイルで10分近くかかった）
     row, label_col, value_col = pos
@@ -174,6 +183,9 @@ def _read_card(data, pref, pos, fast):
             label, v = vals[label_col - 1], vals[value_col - 1]
         else:
             label, v = ws.cell(row, label_col).value, ws.cell(row, value_col).value
+            if label != "標準財政規模":
+                # 年度によって決算カードの行・列の位置が違うときのため、見出しを探して、その右にある最初の数値を使う（2026-10-15）
+                label, v = _find_label(ws, "標準財政規模")
         if label != "標準財政規模":
             skipped += 1
             continue
@@ -185,6 +197,146 @@ def _read_card(data, pref, pos, fast):
         out[(key_pref, norm(name))] = round(v / 100000.0, 1)  # 千円 → 億円
     wb.close()
     return out, skipped
+
+
+def fetch_year(urls, pref_url, expected_by_pref, expected_prefs, fix_hint, label):
+    """市町村決算カード48ファイル＋都道府県決算カードから {(都道府県, 自治体名): 標準財政規模(億円)} を作る。
+    中身が別の都道府県のファイルだったときなどは、何も書き込まずに止める。"""
+    print("■ 市町村決算カードを取得（48ファイル） %s" % label)
+    all_sfs = {}
+    for i, (pref, url) in enumerate(urls, 1):
+        print("  [%2d/48] %-6s %s" % (i, pref, url.split("/")[-1]))
+        try:
+            data = download(url)
+        except Exception as e:
+            fail("%s の取得に失敗しました: %s\n"
+                 "URLの番号がずれている可能性があります。総務省の決算カードページで\n"
+                 "東京都のExcelの番号を確認し、%s を"
+                 "直してください。" % (pref, e, fix_hint))
+        got, skipped = read_card(data, pref, MUNI_POS)
+
+        # --- 答え合わせ：中身が本当にこの都道府県のものか ---
+        fetched_names = set(name for (p2, name) in got.keys() if p2 == pref)
+        if fetched_names:
+            expected = expected_by_pref.get(pref, set())
+            overlap = fetched_names & expected
+            rate = len(overlap) / len(fetched_names)
+            if rate < 0.5:
+                sample = ", ".join(list(fetched_names)[:5])
+                fail(
+                    "%s のはずのファイルの中身が、アプリが知っている%sの自治体名と"
+                    "ほとんど一致しません（一致率 %.0f%%）。\n"
+                    "番号がズレて別の都道府県のファイルを取得している可能性が高いです。\n"
+                    "実際にファイルから読めた名前の例: %s\n"
+                    "総務省の決算カード一覧ページで、%s前後の番号を目視確認してから"
+                    "%s をやり直してください。"
+                    % (pref, pref, rate * 100, sample, pref, fix_hint)
+                )
+
+        all_sfs.update(got)
+        print("      %d件 取得（対象外シート %d）" % (len(got), skipped))
+
+    if pref_url:
+        print("■ 都道府県決算カードを取得")
+        try:
+            data = download(pref_url)
+            got, skipped = read_card(data, "", PREF_POS)
+            fetched_pref_names = set(name for (_, name) in got.keys())
+            overlap = fetched_pref_names & expected_prefs
+            rate = len(overlap) / len(fetched_pref_names) if fetched_pref_names else 0
+            if rate < 0.5:
+                fail(
+                    "都道府県決算カードの中身が、アプリが知っている都道府県名と"
+                    "ほとんど一致しません（一致率 %.0f%%）。pref_card のURLがずれている"
+                    "可能性があります。" % (rate * 100)
+                )
+            all_sfs.update(got)
+            print("  %d件 取得（対象外シート %d）" % (len(got), skipped))
+        except Exception as e:
+            print("  取得できませんでした（%s）。都道府県分はスキップします。" % e)
+    else:
+        print("■ 都道府県決算カードのURLが未設定のためスキップ")
+
+    print("")
+    print("合計 %d件 の標準財政規模を取得しました" % len(all_sfs))
+    if len(all_sfs) < 1500:
+        fail("取得件数が少なすぎます（%d件）。ファイル構造が変わった可能性があります。"
+             % len(all_sfs))
+    return all_sfs
+
+
+def _url(num):
+    return "https://www.soumu.go.jp/main_content/%09d.xlsx" % int(num)
+
+
+def backfill_past(cfg, dbs, expected_by_pref, expected_prefs):
+    """過去の年度の標準財政規模を sfs_r1（令和元年度）〜 に入れる（2026-10-15）。
+
+    URLは config.json の sfs_past に年度ごとに書いておく（"1"＝令和元年度）。
+    令和2〜4年度は決算カードの番号が規則どおりに並んでいないため、48ファイルの番号をそのまま書いている。
+    すでに入っている年度は取り直さない（2回目以降の年次更新では何もしない）。
+    ただし、以前の取り込みで sfs_r1（令和元年度の欄）に令和5年度の値が入っていたため、
+    令和5年度を取り込むときは令和元年度も取り直す。
+    """
+    past = cfg.get("sfs_past") or {}
+    years = sorted(int(y) for y in past if y.isdigit() and int(y) < FISCAL_YEAR)
+    if not years:
+        return
+    entries = [v for fn in DATA_FILES for v in dbs[fn].values()]
+    def coverage(n):
+        return sum(1 for v in entries if v.get("sfs_r%d" % n) is not None) / max(len(entries), 1)
+    todo = [n for n in years if coverage(n) < 0.9]
+    if todo and 1 in years and 1 not in todo and any(n > 1 for n in todo):
+        todo = [1] + todo
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not todo:
+        print("■ 過去の年度の標準財政規模：取り込み済み（令和%s年度）" % "・".join("元" if n == 1 else str(n) for n in years))
+        return
+    got_by_year = {}
+    for n in todo:
+        y = past[str(n)]
+        urls = list(zip(PREF_ORDER, [_url(x) for x in y["muni"]]))
+        if len(urls) != len(PREF_ORDER):
+            fail("config.json の sfs_past の %d 年度の市町村決算カードが48ファイルではありません" % n)
+        got_by_year[n] = fetch_year(urls, _url(y["pref"]) if y.get("pref") else None, expected_by_pref, expected_prefs,
+                                    "config.json の sfs_past の \"%d\"" % n, "[令和%s年度]" % ("元" if n == 1 else n))
+    # 突き合わせ（すべての年度が通ってから書き込む）
+    report = []
+    for n in todo:
+        got = got_by_year[n]
+        hit = 0
+        for fn in DATA_FILES:
+            for k, v in dbs[fn].items():
+                look = (v.get("p"), norm(re.sub(r"（[^）]*）$", "", k)))
+                if look in got:
+                    hit += 1
+        rate = hit / max(len(entries), 1)
+        if rate < 0.95:
+            fail("令和%d年度の標準財政規模の突合率が95%%を下回りました（%.1f%%）。（データは書き換えていません）" % (n, rate * 100))
+        report.append((n, hit))
+    # となりの年度とほとんど同じ値ばかり＝URLの取り違えの可能性
+    def val(n, v):
+        return v.get("sfs") if n == FISCAL_YEAR else v.get("sfs_r%d" % n)
+    for fn in DATA_FILES:
+        for k, v in dbs[fn].items():
+            look = (v.get("p"), norm(re.sub(r"（[^）]*）$", "", k)))
+            for n in todo:
+                if look in got_by_year[n]:
+                    v["sfs_r%d" % n] = got_by_year[n][look]
+                else:
+                    v.pop("sfs_r%d" % n, None)
+    for n in years:
+        pairs = [(val(n, v), val(n + 1, v)) for v in entries]
+        pairs = [(a, b) for a, b in pairs if a is not None and b is not None]
+        if len(pairs) > 100 and sum(1 for a, b in pairs if a == b) / len(pairs) > 0.3:
+            fail("令和%d年度と次の年度の標準財政規模が、ほとんど同じ値です。config.json の sfs_past の URL を確認してください。"
+                 "（データは書き換えていません）" % n)
+    text = "## 過去の年度の標準財政規模\n\n" + "\n".join(
+        "- 令和%s年度：%d 団体" % ("元" if n == 1 else n, hit) for n, hit in report) + "\n"
+    print(text)
+    if summary:
+        with open(summary, "a", encoding="utf-8") as fp:
+            fp.write(text + "\n")
 
 
 def main():
@@ -226,66 +378,8 @@ def main():
             base_name = norm(re.sub(r"（[^）]*）$", "", k))
             expected_by_pref.setdefault(p, set()).add(base_name)
 
-    print("■ 市町村決算カードを取得（48ファイル） [対象キー: %s]" % FIELD)
-    all_sfs = {}
-    for i, (pref, url) in enumerate(build_urls(base), 1):
-        print("  [%2d/48] %-6s %s" % (i, pref, url.split("/")[-1]))
-        try:
-            data = download(url)
-        except Exception as e:
-            fail("%s の取得に失敗しました: %s\n"
-                 "URLの番号がずれている可能性があります。総務省の決算カードページで\n"
-                 "東京都のExcelの番号を確認し、config.json の sfs.%s を"
-                 "直してください。" % (pref, e, CFG_BASE_KEY))
-        got, skipped = read_card(data, pref, MUNI_POS)
-
-        # --- 答え合わせ：中身が本当にこの都道府県のものか ---
-        fetched_names = set(name for (p2, name) in got.keys() if p2 == pref)
-        if fetched_names:
-            expected = expected_by_pref.get(pref, set())
-            overlap = fetched_names & expected
-            rate = len(overlap) / len(fetched_names)
-            if rate < 0.5:
-                sample = ", ".join(list(fetched_names)[:5])
-                fail(
-                    "%s のはずのファイルの中身が、アプリが知っている%sの自治体名と"
-                    "ほとんど一致しません（一致率 %.0f%%）。\n"
-                    "番号がズレて別の都道府県のファイルを取得している可能性が高いです。\n"
-                    "実際にファイルから読めた名前の例: %s\n"
-                    "総務省の決算カード一覧ページで、%s前後の番号を目視確認してから"
-                    "config.json の sfs.%s をやり直してください。"
-                    % (pref, pref, rate * 100, sample, pref, CFG_BASE_KEY)
-                )
-
-        all_sfs.update(got)
-        print("      %d件 取得（対象外シート %d）" % (len(got), skipped))
-
-    if pref_url:
-        print("■ 都道府県決算カードを取得")
-        try:
-            data = download(pref_url)
-            got, skipped = read_card(data, "", PREF_POS)
-            fetched_pref_names = set(name for (_, name) in got.keys())
-            overlap = fetched_pref_names & expected_prefs
-            rate = len(overlap) / len(fetched_pref_names) if fetched_pref_names else 0
-            if rate < 0.5:
-                fail(
-                    "都道府県決算カードの中身が、アプリが知っている都道府県名と"
-                    "ほとんど一致しません（一致率 %.0f%%）。pref_card のURLがずれている"
-                    "可能性があります。" % (rate * 100)
-                )
-            all_sfs.update(got)
-            print("  %d件 取得（対象外シート %d）" % (len(got), skipped))
-        except Exception as e:
-            print("  取得できませんでした（%s）。都道府県分はスキップします。" % e)
-    else:
-        print("■ 都道府県決算カードのURLが未設定のためスキップ")
-
-    print("")
-    print("合計 %d件 の標準財政規模を取得しました" % len(all_sfs))
-    if len(all_sfs) < 1500:
-        fail("取得件数が少なすぎます（%d件）。ファイル構造が変わった可能性があります。"
-             % len(all_sfs))
+    all_sfs = fetch_year(build_urls(base), pref_url, expected_by_pref, expected_prefs,
+                         "config.json の sfs.%s" % CFG_BASE_KEY, "[対象キー: %s]" % FIELD)
 
     print("■ data-*.json に反映")
     total = matched = 0
@@ -337,6 +431,10 @@ def main():
     if compared > 100 and same_as_before / compared > 0.3:
         fail("新しい年度の値が、前の年度とほとんど同じです（%d / %d 団体）。config.json の sfs の base_muni・pref_card が"
              "新しい年度のものか確認してください。（データは書き換えていません）" % (same_as_before, compared))
+
+    # 過去の年度（令和元年度〜）の標準財政規模（2026-10-15）
+    if not SUFFIX:
+        backfill_past(cfg, dbs, expected_by_pref, expected_prefs)
 
     # チェックに通ってから書き込む
     for fn in DATA_FILES:

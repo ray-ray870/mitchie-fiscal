@@ -62,7 +62,8 @@ def prepare(work):
             for p in FISCAL_FIELDS + POP_FIELDS:
                 if p in e or newest(e, p) is not None:
                     roll_back(e, p)
-            # 標準財政規模は令和元年度と最新だけ持っているので、最新を消す（空いた年は空欄で埋まる）
+            # 標準財政規模は最新（sfs）と過去の年度（sfs_r1＝令和元年度〜）を持っている。最新だけ消し、
+            # 年次更新では「同じ年度」として取り込み直す（過去の年度は取り込み済みなので触らない）
             e.pop("sfs", None)
             e.pop("sfs_y", None)
             # 年次更新で作り直す欄（歳出・歳入の増減率、実質赤字比率・連結実質赤字比率）も消しておく

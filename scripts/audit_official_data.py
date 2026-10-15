@@ -705,10 +705,8 @@ def main():
                            if row is not None and to_num(row[cs[0]]) is not None}
                     check(p, is_pref, k, FISCAL_LATEST, off, range(1, FISCAL_LATEST + 1))
                 # 標準財政規模（2026-10-01追加）：アプリは決算カードから取り込んでいるので、別の表（概況・決算状況）と照合する。
-                # sfs＝最新の年度、sfs_r1＝その1年前（ほかの項目の _r番号＝令和の年 とは意味が違う）
-                for k_s, field in ((FISCAL_LATEST, "sfs"), (FISCAL_LATEST - 1, "sfs_r1")):
-                    if k != k_s:
-                        continue
+                # sfs＝最新の年度、sfs_rN＝令和N年度（ほかの項目と同じ。2026-10-15：以前は sfs_r1 を「1年前」として扱っていた）
+                for field in ["sfs" if k == FISCAL_LATEST else "sfs_r%d" % k]:
                     s_ents = [(n, {"sfs": e[field]}, ip, key) for n, e, ip, key in entities
                               if ip == is_pref and e.get(field) is not None and e.get("sfs_y") == FISCAL_LATEST]
                     if not s_ents:
