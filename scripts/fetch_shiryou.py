@@ -250,15 +250,24 @@ def extract_comments(xlsx_bytes):
                 res["財政調整基金"] = below[0][3]
                 break
     # 「財政比較分析表」の各指標の分析欄：「◯◯の分析欄」という見出しの図形のすぐ下にある文章（2026-10-15）
+    # 県によって見出しの書き方・置き方が少し違うので、空白を除いて比べ、見つからなければ少し離れた所まで探す
+    aliases = {"財政力指数": ("財政力指数", "財政力"), "経常収支比率": ("経常収支比率", "財政構造の弾力性"),
+               "実質公債費比率": ("実質公債費比率", "公債費負担の状況"), "将来負担比率": ("将来負担比率", "将来負担の状況")}
+    norm = lambda t: re.sub(r"\s", "", t)
     for nm, items in sheets.items():
-        if "財政比較分析表" not in nm:
+        if "財政比較" not in nm and not any(norm(it[3]) == "財政力指数の分析欄" for it in items):
             continue
-        for key in ("財政力指数", "経常収支比率", "実質公債費比率", "将来負担比率"):
-            labels = [it for it in items if it[3].replace(" ", "").strip() == key + "の分析欄"]
+        for key, als in aliases.items():
+            if "比較_" + key in res:
+                continue
+            labels = [it for it in items if len(norm(it[3])) <= 20 and norm(it[3]).endswith("分析欄") and any(a in norm(it[3]) for a in als)]
             for lr, lc, lto, _ in labels:
-                below = sorted([it for it in items if is_comment(it[3]) and lto - 1 <= it[0] <= lto + 4 and abs(it[1] - lc) <= 3])
-                if below:
-                    res["比較_" + key] = below[0][3]
+                near = sorted([it for it in items if is_comment(it[3]) and lto - 1 <= it[0] <= lto + 4 and abs(it[1] - lc) <= 3])
+                if not near:
+                    near = sorted([it for it in items if is_comment(it[3]) and lto - 1 <= it[0] <= lto + 15 and abs(it[1] - lc) <= 8],
+                                  key=lambda it: (abs(it[0] - lto) + abs(it[1] - lc)))
+                if near:
+                    res["比較_" + key] = near[0][3]
                     break
     # ②③ 「実質公債費比率（分子）の構造」「将来負担比率（分子）の構造」の分析欄（いちばん上の文章）
     for key in ("実質公債費比率", "将来負担比率"):
@@ -412,6 +421,7 @@ LABELS = {"reserve": "財政調整基金", "debt": "実質公債費比率", "fut
 
 FAIL_REASON = {}   # 取れなかった理由（Summary の表に出す）
 TRIED = {}         # 都道府県ごとに、探したページ（Summary に出す手がかり）
+TRIED_FILES = {}   # 取れなかった自治体ごとに、試したファイル
 SCORE_LABELS = {"f": "比較_財政力指数", "x": "比較_経常収支比率", "d": "比較_実質公債費比率", "u": "比較_将来負担比率", "r": "財政調整基金"}
 
 
@@ -437,9 +447,9 @@ def collect(name, xlsx_bytes, fy_label, badge=True, moved=False, quiet=False):
         FAIL_REASON[name] = "別の自治体のExcel"
         say(f"- ❌ {name}：このExcelの中に「{base}」の名前がないため使いません")
         return None
-    fy_full = fy_label.translate(str.maketrans("0123456789", "０１２３４５６７８９"))
+    half = lambda t: re.sub(r"\s", "", t.translate(str.maketrans("０１２３４５６７８９", "0123456789")))
     texts = [it[3].strip() for items in sheets.values() for it in items] + cells
-    if not any(t in (fy_label, fy_full) for t in texts):
+    if not any(half(t) in (fy_label, fy_label + "決算") for t in texts if len(t) <= 12):
         FAIL_REASON[name] = "年度が違うExcel"
         say(f"- ❌ {name}：このExcelは{fy_label}のものではないため使いません")
         return None
@@ -533,7 +543,7 @@ def main():
         try:
             ok = False
             cands = find_excel(name, pref, isp, links, pos_muni)
-            for c in cands[:6]:   # よさそうな順に、名前と年度が合う Excel が見つかるまで（6つまで）
+            for c in cands[:10]:   # よさそうな順に、名前と年度が合う Excel が見つかるまで（10まで）
                 try:
                     data, src = fetch_candidate(c)
                 except Exception as ex:
@@ -552,6 +562,7 @@ def main():
                         out("- ✅ 取り込みました：" + "、".join(LABELS[k] for k in LABELS if k in entry))
                     break
             if not ok:
+                TRIED_FILES[name] = [c[2] + (" の中の " + c[3] if c[1] == "zip" else "") for c in cands[:10]]
                 out(f"- ⚠️ {name}：{FAIL_REASON.get(name, '財政状況資料集のExcelが見つかりませんでした')}")
         except Exception as ex:
             out(f"- ⚠️ {name}：エラーのため取り込めませんでした（{ex}）")
@@ -582,6 +593,7 @@ def main():
     if moved:
         result["_fail"] = {n: FAIL_REASON.get(n, "その他") for n, *_ in moved if n not in result_ok}
         result["_tried"] = {pf: TRIED[pf] for pf in TRIED}
+        result["_tried_files"] = {n: TRIED_FILES[n] for n in TRIED_FILES if n in result["_fail"]}
     path = DATA / "shiryou.json"
     path.write_text(json.dumps(result, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     n = len([k for k in result if not k.startswith("_")])
