@@ -1,19 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-財政状況資料集から、国の基準を超えた自治体の「自治体自身の説明」を取り込む（年次更新の6番目）
+財政状況資料集から、「自治体自身の説明」を取り込む（年次更新の6番目）
 
-対象：実質公債費比率18%以上、または将来負担比率が基準以上（市町村350%・都道府県と政令市400%）の自治体だけ。
+対象：
+  ① 国の基準を超えた自治体（実質公債費比率18%以上、または将来負担比率が基準以上（市町村350%・都道府県と政令市400%））
+  ② 総合スコアで、前の年度からみっちーの体調（絶好調・元気・ちょっとしんどい・ぐったり・ひんし）が変わった、
+     または10点以上動いた自治体（2026-10-15〜）。詳細画面の「点数の動き」に、自治体自身の説明として出す
 取り込むもの（各自治体が財政状況資料集に書いた文章を、言い換えずにそのまま）：
     reserve … 財政調整基金の増減理由・今後の方針（「基金残高に係る経年分析」）
     debt    … 実質公債費比率の分析欄（「実質公債費比率（分子）の構造」）
     future  … 将来負担比率の分析欄（「将来負担比率（分子）の構造」）
+  ② の自治体（score の中に入れる）：
+    f・x・d・u … 「財政比較分析表」の 財政力指数・経常収支比率・実質公債費比率・将来負担比率 の分析欄
+    r          … 財政調整基金の増減理由・今後の方針（①の reserve と同じ欄）
 取得先：
     都道府県 … 総務省の財政状況資料集のページ（年度ごとの一覧）にある Excel
     市町村   … 総務省の一覧ページからリンクされている各都道府県のページの表から ZIP / Excel を探す
 結果は MITCHIE_DATA_DIR（ふつうは preview）/shiryou.json に保存する。
 ・どの自治体も取り込めなくても、エラーで止めない（年次更新は続ける）。取り込めなかったことは Summary に出す。
 ・ファイルが別の自治体・別の年度のものなら使わない（名前と年度を確かめる）。
-・取り込めなかった自治体は shiryou.json に入れない（前の年の文章を残さない）。
+・取り込めなかった自治体は、前回取り込んだ同じ年度の文章があればそれを残す。違う年度の文章は残さない。
 """
 import io
 import json
@@ -41,10 +47,19 @@ def out(text=""):
             fp.write(text + "\n")
 
 
+_CACHE = {}
+
+
 def get(url):
+    # 同じページ・ファイルを何度も取りに行かない（都道府県のページは、その県の市町村の数だけ使うため）
+    if url in _CACHE:
+        return _CACHE[url]
     req = urllib.request.Request(url, headers=UA)
     with urllib.request.urlopen(req, timeout=120) as r:
-        return r.read()
+        data = r.read()
+    if len(_CACHE) < 400:
+        _CACHE[url] = data
+    return data
 
 
 def is_pref(name, e):
@@ -71,6 +86,42 @@ def badge_entities():
             d, u = e.get("d") or 0, e.get("u") or 0
             if d >= 18 or u >= (400 if pref or SEIREI.get(name) == e.get("p") else 350):
                 res.append((name, e.get("p"), pref, d, u))
+    return res
+
+
+def _score(e, sfx, pref):
+    """score.js の calcH と同じ式（sfx：""＝最新の年度、"_r5"＝令和5年度…）。計算できなければ None"""
+    g = lambda k: e.get(k + sfx)
+    f, d, x, u, r, sfs = g("f"), g("d"), g("x"), g("u"), g("r"), g("sfs")
+    if None in (f, d, x, r):
+        return None
+    if pref:
+        def band(v, zero, full):
+            t = (zero - min(max(v, min(zero, full)), max(zero, full))) / (zero - full)
+            return min(max(t, 0), 1)
+        p = [min(max((f - 0.20) / 0.70, 0), 1) * 25, band(d, 20, 6) * 20, band(x, 101, 86) * 20,
+             20 if (not u or u <= 0) else band(u, 340, 80) * 20,
+             min((r / sfs * 100) / 10 * 15, 15) if (sfs and sfs > 0) else 7.5]
+    else:
+        p = [min(f / 1.2 * 25, 25), max((25 - min(d, 25)) / 25 * 20, 0), min(max((100 - x) / 15 * 20, 0), 20),
+             20 if (not u or u <= 0) else max((200 - min(u, 200)) / 200 * 20, 0),
+             min((r / sfs * 100) / 20 * 15, 15) if (sfs and sfs > 0) else 7.5]
+    return int(min(sum(p), 100) + 0.5)
+
+
+def _state(sc):
+    return 0 if sc >= 85 else 1 if sc >= 70 else 2 if sc >= 50 else 3 if sc >= 30 else 4
+
+
+def moved_entities(fy):
+    """前の年度から、みっちーの体調が変わった、または10点以上動いた自治体"""
+    res = []
+    for f in DATA_FILES:
+        for name, e in json.loads((DATA / f).read_text(encoding="utf-8")).items():
+            pref = is_pref(name, e)
+            a, b = _score(e, "_r%d" % (fy - 1), pref), _score(e, "", pref)
+            if a is not None and b is not None and (_state(a) != _state(b) or abs(b - a) >= 10):
+                res.append((name, e.get("p"), pref, e.get("d"), e.get("u")))
     return res
 
 
@@ -182,6 +233,17 @@ def extract_comments(xlsx_bytes):
             if below:
                 res["財政調整基金"] = below[0][3]
                 break
+    # 「財政比較分析表」の各指標の分析欄：「◯◯の分析欄」という見出しの図形のすぐ下にある文章（2026-10-15）
+    for nm, items in sheets.items():
+        if "財政比較分析表" not in nm:
+            continue
+        for key in ("財政力指数", "経常収支比率", "実質公債費比率", "将来負担比率"):
+            labels = [it for it in items if it[3].replace(" ", "").strip() == key + "の分析欄"]
+            for lr, lc, lto, _ in labels:
+                below = sorted([it for it in items if is_comment(it[3]) and lto - 1 <= it[0] <= lto + 4 and abs(it[1] - lc) <= 3])
+                if below:
+                    res["比較_" + key] = below[0][3]
+                    break
     # ②③ 「実質公債費比率（分子）の構造」「将来負担比率（分子）の構造」の分析欄（いちばん上の文章）
     for key in ("実質公債費比率", "将来負担比率"):
         for nm, items in sheets.items():
@@ -279,7 +341,10 @@ def zip_names(zf):
 LABELS = {"reserve": "財政調整基金", "debt": "実質公債費比率", "future": "将来負担比率"}
 
 
-def collect(name, xlsx_bytes, fy_label):
+SCORE_LABELS = {"f": "比較_財政力指数", "x": "比較_経常収支比率", "d": "比較_実質公債費比率", "u": "比較_将来負担比率", "r": "財政調整基金"}
+
+
+def collect(name, xlsx_bytes, fy_label, badge=True, moved=False):
     """Excelから3つの説明を取り出す。名前・年度が違えば None"""
     res, sheets = extract_comments(xlsx_bytes)
     joined = "\n".join(it[3] for items in sheets.values() for it in items)
@@ -291,11 +356,21 @@ def collect(name, xlsx_bytes, fy_label):
         out(f"- ❌ このExcelは{fy_label}のものではないため使いません")
         return None
     entry = {}
-    for k, label in LABELS.items():
-        if label in res:
-            entry[k] = res[label].strip()
+    if badge:
+        for k, label in LABELS.items():
+            if label in res:
+                entry[k] = res[label].strip()
+            else:
+                out(f"- ⚠️ {label}の説明が見つかりませんでした")
+    if moved:
+        sc = {}
+        for k, label in SCORE_LABELS.items():
+            if label in res:
+                sc[k] = res[label].strip()
+        if sc:
+            entry["score"] = sc
         else:
-            out(f"- ⚠️ {label}の説明が見つかりませんでした")
+            out("- ⚠️ 財政比較分析表の分析欄が見つかりませんでした")
     return entry
 
 
@@ -310,7 +385,7 @@ def find_excel(name, pref, isp, links, pos_muni):
         return None, None
     data, notes = find_in_table_rows(pref_pages[0], re.sub(r"（.*?）", "", name))
     for nt in notes:
-        out(f"- {nt}")
+        print(f"- {nt}")   # 手がかりは実行ログにだけ出す（対象が多いと Summary が長くなるため）
     if data is not None:
         return data, pref_pages[0]
     xl, tried = find_on_pref_site(pref_pages[0], re.sub(r"（.*?）", "", name))
@@ -324,9 +399,15 @@ def main():
     fy_label = cfg["fiscal_year_label"]
     fy = reiwa_num(fy_label)
     index_url = f"https://www.soumu.go.jp/iken/zaisei/jyoukyou_shiryou/r{fy:02d}/index.html"
-    out("## 6. 財政状況資料集（国の基準を超えた自治体の説明）\n")
-    targets = badge_entities()
-    out(f"- 年度：{fy_label}、対象：" + ("、".join(n for n, *_ in targets) if targets else "なし"))
+    out("## 6. 財政状況資料集（自治体自身の説明）\n")
+    badge = badge_entities()
+    moved = moved_entities(fy)
+    badge_names = set(n for n, *_ in badge)
+    moved_names = set(n for n, *_ in moved)
+    targets = badge + [t for t in moved if t[0] not in badge_names]
+    out(f"- 年度：{fy_label}")
+    out(f"- 国の基準を超えた自治体：" + ("、".join(n for n, *_ in badge) if badge else "なし"))
+    out(f"- みっちーの体調が変わった、または10点以上動いた自治体：{len(moved)}団体")
     result = {"_year": fy_label,
               "_note": "財政状況資料集に各自治体が書いた説明（言い換えなし）。scripts/fetch_shiryou.py が年次更新で作る。"}
     try:
@@ -336,24 +417,56 @@ def main():
     except Exception as ex:
         out(f"- ⚠️ 総務省の一覧ページを読めませんでした（{ex}）。今年は説明なしで続けます")
         targets, links, pos_muni = [], [], -1
+    # 同じ年度の取り込みをやり直したときに、今回は取れなかった自治体は、前回取れた同じ年度の文章を残す
+    # （2026-10-15：夕張市のように、都道府県のサイトの都合で取れない回があるため。違う年度の文章は残さない）
+    try:
+        prev = json.loads((DATA / "shiryou.json").read_text(encoding="utf-8"))
+    except Exception:
+        prev = {}
+    if prev.get("_year") != fy_label:
+        prev = {}
+    got_by_pref = {}
+    detail = len(targets) <= 20   # 対象が多いときは、取れなかった自治体だけ書く（Summary が長くなりすぎないように）
     for name, pref, isp, d, u in targets:
-        out(f"### {name}")
+        if detail or name in badge_names:
+            out(f"### {name}")
         try:
+            ok = False
             data, src = find_excel(name, pref, isp, links, pos_muni)
             if data is None:
-                out("- ⚠️ 財政状況資料集のExcelが見つかりませんでした")
-                continue
-            entry = collect(name, data, fy_label)
-            if entry:
-                entry["src"] = src
-                result[name] = entry
-                out("- ✅ 取り込みました：" + "、".join(LABELS[k] for k in LABELS if k in entry))
+                out(f"- ⚠️ {name}：財政状況資料集のExcelが見つかりませんでした")
+            else:
+                entry = collect(name, data, fy_label, badge=name in badge_names, moved=name in moved_names)
+                if entry:
+                    entry["src"] = src
+                    result[name] = entry
+                    ok = "score" in entry or name in badge_names
+                    if name in badge_names:
+                        out("- ✅ 取り込みました：" + "、".join(LABELS[k] for k in LABELS if k in entry))
         except Exception as ex:
-            out(f"- ⚠️ エラーのため取り込めませんでした（{ex}）")
+            out(f"- ⚠️ {name}：エラーのため取り込めませんでした（{ex}）")
+        if not ok and name not in result and isinstance(prev.get(name), dict):
+            result[name] = prev[name]
+            ok = "score" in prev[name] or name in badge_names
+            out(f"- ↩️ {name}：前回取り込んだ同じ年度の文章を残しました")
+        if name in moved_names:
+            g = got_by_pref.setdefault(pref or name, [0, 0])
+            g[1] += 1
+            g[0] += 1 if ok else 0
+    if moved:
+        total_ok = sum(v[0] for v in got_by_pref.values())
+        out(f"\n### 体調が変わった・10点以上動いた自治体の説明：{total_ok} / {len(moved)} 団体で取り込めました\n")
+        out("| 都道府県 | 取り込めた / 対象 |\n|---|---|")
+        for pf, (a, b) in sorted(got_by_pref.items(), key=lambda x: (x[1][0] / x[1][1], x[0])):
+            out(f"| {pf} | {a} / {b}{' ⚠️' if a < b else ''} |")
     path = DATA / "shiryou.json"
     path.write_text(json.dumps(result, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     n = len([k for k in result if not k.startswith("_")])
-    out(f"\n- {path.relative_to(ROOT)} に保存しました（{n}自治体）")
+    try:
+        shown = path.relative_to(ROOT)
+    except ValueError:
+        shown = path
+    out(f"\n- {shown} に保存しました（{n}自治体）")
 
 
 if __name__ == "__main__":
