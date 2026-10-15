@@ -21,12 +21,13 @@
 ・ファイルが別の自治体・別の年度のものなら使わない（名前と年度を確かめる）。
 ・取り込めなかった自治体は、前回取り込んだ同じ年度の文章があればそれを残す。違う年度の文章は残さない。
 """
+import collections
 import io
 import json
 import os
 import re
 import urllib.request
-from urllib.parse import urljoin
+from urllib.parse import urljoin, unquote
 import zipfile
 from html import unescape
 from pathlib import Path
@@ -36,7 +37,9 @@ DATA = ROOT / os.environ.get("MITCHIE_DATA_DIR", "preview")
 DATA_FILES = ["data-hokkaido-tohoku.json", "data-kanto.json", "data-chubu.json",
               "data-kinki.json", "data-chugoku-shikoku.json", "data-kyushu.json"]
 PREFS_SUFFIX = ("都", "道", "府", "県")
-UA = {"User-Agent": "Mozilla/5.0 (mitchie-fiscal)"}
+# ふつうのブラウザと同じ名乗り方にする（2026-10-15：独自の名乗りだと断る都道府県のサイトがあったため）
+UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36",
+      "Accept-Language": "ja,en;q=0.8"}
 
 
 def out(text=""):
@@ -87,6 +90,19 @@ def badge_entities():
             if d >= 18 or u >= (400 if pref or SEIREI.get(name) == e.get("p") else 350):
                 res.append((name, e.get("p"), pref, d, u))
     return res
+
+
+def name_variants(name):
+    """「七ヶ浜町／七ケ浜町」「鰺ヶ沢町／鯵ヶ沢町」のような書き方のゆれをまとめて返す"""
+    base = re.sub(r"（.*?）", "", name)
+    vs = {base}
+    for a, b in (("ヶ", "ケ"), ("ケ", "ヶ"), ("鰺", "鯵"), ("鯵", "鰺"), ("檮", "梼"), ("梼", "檮"), ("須惠", "須恵")):
+        vs |= {v.replace(a, b) for v in list(vs)}
+    return sorted(vs, key=len, reverse=True)
+
+
+def has_name(text, name):
+    return any(v in text for v in name_variants(name))
 
 
 def _score(e, sfx, pref):
@@ -265,7 +281,7 @@ def find_in_table_rows(page_url, name):
     cand = []
     for r in rows:
         text = re.sub(r"<[^>]+>", "", unescape(r))
-        if name not in text:
+        if not has_name(text, name):
             continue
         for t, h, p in anchors(r, page_url):
             low = h.lower().split("?")[0]
@@ -279,23 +295,45 @@ def find_in_table_rows(page_url, name):
         if h.lower().split("?")[0].endswith(".zip"):
             zf = zipfile.ZipFile(io.BytesIO(data))
             for n, info in zip_names(zf):
-                if name in n and n.lower().endswith((".xlsx", ".xlsm")):
+                if has_name(n, name) and n.lower().endswith((".xlsx", ".xlsm")):
                     notes.append(f"見つけたファイル：{t} の中の {n}")
                     return zf.read(info), notes
             notes.append(f"{t}：中身 " + "、".join(n for n, _ in zip_names(zf)[:6]))
-        elif name in t:
+        elif has_name(t, name):
             notes.append(f"見つけたファイル：{t}")
             return data, notes
     return None, notes
 
 
-def find_on_pref_site(start_url, name, max_pages=40):
-    """都道府県のページから、市町村名の付いた Excel を探す（同じサイト内を2階層まで）"""
+YEAR_MARKS = ("令和6", "令和６", "R6", "Ｒ６", "R06", "2024", "６年度", "6年度")
+
+
+def _link_priority(t, h, name, year_marks):
+    t2 = t + " " + h
+    sc = 0
+    if "資料集" in t:
+        sc += 3
+    if any(m in t2 for m in year_marks):
+        sc += 2
+    if has_name(t, name):
+        sc += 4
+    if any(w in t for w in ("市町村", "区市町村", "市町")):
+        sc += 1
+    return sc
+
+
+def find_on_pref_site(start_url, name, max_pages=60, year_marks=YEAR_MARKS):
+    """都道府県のページから、市町村名の付いた Excel を探す（2026-10-15 作り直し）
+    ・「資料集」「令和6年度」などの文字があるリンクから先に見る（関係のないページで上限を使い切らないように）
+    ・「資料集」の文字があるリンクは、ほかのサイト（北海道のオープンデータなど）でもたどる
+    ・Excel が見つからないときは、ページにある ZIP の中も探す（北海道のように地域ごとの ZIP にまとめている県のため）
+    戻り値：((Excelの中身, 取得元) または None, 見たページ)"""
     from urllib.parse import urlparse
     host = urlparse(start_url).netloc
-    seen, queue, tried = set(), [(start_url, 0)], []
+    seen, queue, tried, zips = set(), [(0, 0, start_url)], [], []
     while queue and len(seen) < max_pages:
-        url, depth = queue.pop(0)
+        queue.sort(key=lambda q: (q[1], -q[0]))
+        pri, depth, url = queue.pop(0)
         if url in seen:
             continue
         seen.add(url)
@@ -308,19 +346,39 @@ def find_on_pref_site(start_url, name, max_pages=40):
         links = anchors(html, url)
         for t, h, p in links:
             low = h.lower().split("?")[0]
-            if name in t and low.endswith((".xlsx", ".xls", ".xlsm")):
-                return h, tried
-        # Excel のリンク文字が「Excel」だけのときは、前後の文字に名前があるかで判定
+            if has_name(t, name) and low.endswith((".xlsx", ".xls", ".xlsm")):
+                return (get(h), h), tried
+        # Excel のリンク文字が「Excel」だけのときは、すぐ前の文字に名前があるかで判定（前の行の名前を拾わないよう、直前の120文字だけ）
         for t, h, p in links:
             low = h.lower().split("?")[0]
-            if low.endswith((".xlsx", ".xls", ".xlsm")) and name in re.sub(r"<[^>]+>", "", html[max(0, p - 300):p]):
-                return h, tried
-        if depth < 2:
+            if low.endswith((".xlsx", ".xls", ".xlsm")) and has_name(re.sub(r"<[^>]+>", "", html[max(0, p - 120):p]), name):
+                return (get(h), h), tried
+        for t, h, p in links:
+            low = h.lower().split("?")[0]
+            if low.endswith(".zip") and h not in zips and ("資料集" in t or "資料集" in unquote(h) or has_name(t, name) or "ダウンロード" in t):
+                zips.append(h)
+        if depth < 3:
             for t, h, p in links:
                 low = h.lower().split("?")[0].split("#")[0]
-                if urlparse(h).netloc == host and low.endswith((".html", ".htm", "/")) and h not in seen:
-                    if depth == 0 or name in t or "財政状況資料集" in t or "資料集" in t:
-                        queue.append((h.split("#")[0], depth + 1))
+                other = urlparse(h).netloc != host
+                if low.endswith((".zip", ".pdf", ".xlsx", ".xls", ".csv", ".docx")) or h.split("#")[0] in seen:
+                    continue
+                if other and "資料集" not in t:
+                    continue
+                pr = _link_priority(t, h, name, year_marks)
+                if depth == 0 or pr >= 2:
+                    queue.append((pr, depth + 1, h.split("#")[0]))
+    # ZIP の中を探す（多いときは、名前・資料集の文字があるものから20個まで）
+    for z in zips[:20]:
+        try:
+            zf = zipfile.ZipFile(io.BytesIO(get(z)))
+        except Exception as ex:
+            tried.append(f"{z}（ZIPを開けず：{ex}）")
+            continue
+        for n, info in zip_names(zf):
+            if has_name(n, name) and n.lower().endswith((".xlsx", ".xlsm")):
+                return (zf.read(info), z + " の中の " + n), tried
+        tried.append(f"{z}（中に{name}なし）")
     return None, tried
 
 
@@ -341,6 +399,8 @@ def zip_names(zf):
 LABELS = {"reserve": "財政調整基金", "debt": "実質公債費比率", "future": "将来負担比率"}
 
 
+FAIL_REASON = {}   # 取れなかった理由（Summary の表に出す）
+TRIED = {}         # 都道府県ごとに、探したページ（Summary に出す手がかり）
 SCORE_LABELS = {"f": "比較_財政力指数", "x": "比較_経常収支比率", "d": "比較_実質公債費比率", "u": "比較_将来負担比率", "r": "財政調整基金"}
 
 
@@ -349,11 +409,13 @@ def collect(name, xlsx_bytes, fy_label, badge=True, moved=False):
     res, sheets = extract_comments(xlsx_bytes)
     joined = "\n".join(it[3] for items in sheets.values() for it in items)
     base = re.sub(r"（.*?）", "", name)
-    if base not in joined:
-        out(f"- ❌ このExcelの中に「{base}」の名前がないため使いません")
+    if not has_name(joined, name):
+        FAIL_REASON[name] = "別の自治体のExcel"
+        out(f"- ❌ {name}：このExcelの中に「{base}」の名前がないため使いません")
         return None
     if not any(it[3].strip() == fy_label for items in sheets.values() for it in items):
-        out(f"- ❌ このExcelは{fy_label}のものではないため使いません")
+        FAIL_REASON[name] = "年度が違うExcel"
+        out(f"- ❌ {name}：このExcelは{fy_label}のものではないため使いません")
         return None
     entry = {}
     if badge:
@@ -370,7 +432,8 @@ def collect(name, xlsx_bytes, fy_label, badge=True, moved=False):
         if sc:
             entry["score"] = sc
         else:
-            out("- ⚠️ 財政比較分析表の分析欄が見つかりませんでした")
+            FAIL_REASON[name] = "分析欄が見つからない"
+            out(f"- ⚠️ {name}：財政比較分析表の分析欄が見つかりませんでした")
     return entry
 
 
@@ -383,14 +446,19 @@ def find_excel(name, pref, isp, links, pos_muni):
     pref_pages = [h for t, h in after if pref in t and not h.lower().endswith((".zip", ".pdf", ".xlsx"))]
     if not pref_pages:
         return None, None
-    data, notes = find_in_table_rows(pref_pages[0], re.sub(r"（.*?）", "", name))
+    try:
+        data, notes = find_in_table_rows(pref_pages[0], re.sub(r"（.*?）", "", name))
+    except Exception as ex:
+        data, notes = None, [f"表を読めず：{ex}"]
     for nt in notes:
         print(f"- {nt}")   # 手がかりは実行ログにだけ出す（対象が多いと Summary が長くなるため）
     if data is not None:
         return data, pref_pages[0]
-    xl, tried = find_on_pref_site(pref_pages[0], re.sub(r"（.*?）", "", name))
-    if xl:
-        return get(xl), xl
+    hit, tried = find_on_pref_site(pref_pages[0], name)
+    TRIED.setdefault(pref, tried[:8])
+    if hit:
+        return hit
+    FAIL_REASON[name] = "Excelが見つからない"
     return None, None
 
 
@@ -426,6 +494,7 @@ def main():
     if prev.get("_year") != fy_label:
         prev = {}
     got_by_pref = {}
+    result_ok = set()
     detail = len(targets) <= 20   # 対象が多いときは、取れなかった自治体だけ書く（Summary が長くなりすぎないように）
     for name, pref, isp, d, u in targets:
         if detail or name in badge_names:
@@ -449,6 +518,8 @@ def main():
             result[name] = prev[name]
             ok = "score" in prev[name] or name in badge_names
             out(f"- ↩️ {name}：前回取り込んだ同じ年度の文章を残しました")
+        if ok:
+            result_ok.add(name)
         if name in moved_names:
             g = got_by_pref.setdefault(pref or name, [0, 0])
             g[1] += 1
@@ -456,9 +527,20 @@ def main():
     if moved:
         total_ok = sum(v[0] for v in got_by_pref.values())
         out(f"\n### 体調が変わった・10点以上動いた自治体の説明：{total_ok} / {len(moved)} 団体で取り込めました\n")
-        out("| 都道府県 | 取り込めた / 対象 |\n|---|---|")
+        out("| 都道府県 | 取り込めた / 対象 | 取れなかった理由 |\n|---|---|---|")
         for pf, (a, b) in sorted(got_by_pref.items(), key=lambda x: (x[1][0] / x[1][1], x[0])):
-            out(f"| {pf} | {a} / {b}{' ⚠️' if a < b else ''} |")
+            rs = collections.Counter(FAIL_REASON.get(n, "その他") for n, p, *_ in moved if (p or n) == pf and n not in result_ok)
+            out(f"| {pf} | {a} / {b}{' ⚠️' if a < b else ''} | " + "、".join(f"{k} {v}" for k, v in rs.most_common()) + " |")
+        bad = [pf for pf, (a, b) in got_by_pref.items() if a < b and pf in TRIED]
+        if bad:
+            out("\n<details><summary>取れなかった都道府県で見たページ（手がかり）</summary>\n")
+            for pf in sorted(bad):
+                out(f"- **{pf}**：" + " → ".join(TRIED[pf]))
+            out("\n</details>")
+    # 取れなかった自治体の理由と、見たページを残す（Summary を見なくても、次に直すときの手がかりにできるように。アプリは使わない）
+    if moved:
+        result["_fail"] = {n: FAIL_REASON.get(n, "その他") for n, *_ in moved if n not in result_ok}
+        result["_tried"] = {pf: TRIED[pf] for pf in TRIED}
     path = DATA / "shiryou.json"
     path.write_text(json.dumps(result, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     n = len([k for k in result if not k.startswith("_")])
