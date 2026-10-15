@@ -271,69 +271,75 @@ def extract_comments(xlsx_bytes):
     return res, sheets
 
 
-def find_in_table_rows(page_url, name):
-    """都道府県のページの表で、市町村名が書かれた行にある ZIP / Excel を開いて、その市町村の Excel を探す。
-    （北海道庁のように「夕張市、岩見沢市、美唄市｜1／8（ZIP）」と並んでいる形）
-    戻り値：(Excelの中身, 説明) または (None, 説明)"""
+YEAR_MARKS = ("令和6", "令和６", "R6", "Ｒ６", "R06", "2024", "６年度", "6年度")
+FILE_EXT = (".xlsx", ".xls", ".xlsm")
+NOT_FILE = (".pdf", ".html", ".htm", ".zip", ".csv", ".docx", ".doc", ".jpg", ".png", "/")
+
+
+def _ym(text, year_marks):
+    return any(m in text for m in year_marks)
+
+
+def _zip_cands(zurl, name, base_score, year_marks):
+    """ZIP の中から、名前の付いた Excel を候補にする"""
+    res = []
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(get(zurl)))
+    except Exception:
+        return res
+    for n, info in zip_names(zf):
+        if has_name(n, name) and n.lower().endswith((".xlsx", ".xlsm")):
+            res.append((base_score + 3 + (2 if _ym(n + zurl, year_marks) else 0), "zip", zurl, n))
+    return res
+
+
+def table_candidates(page_url, name, year_marks):
+    """都道府県のページの表で、市町村名が書かれた行にある Excel / ZIP を候補にする
+    （北海道庁の「夕張市、岩見沢市…｜1／8（ZIP）」や、香川県の「市町名｜R2 R3 … R6」のような形）"""
     html = decode_html(get(page_url))
-    notes = []
-    rows = re.findall(r"<tr[\s>].*?</tr>", html, re.S | re.I)
-    cand = []
-    for r in rows:
+    res = []
+    for r in re.findall(r"<tr[\s>].*?</tr>", html, re.S | re.I):
         text = re.sub(r"<[^>]+>", "", unescape(r))
         if not has_name(text, name):
             continue
         for t, h, p in anchors(r, page_url):
             low = h.lower().split("?")[0]
-            # 「夕張市~歌志内市」のように範囲で書かれたリンクは決算カードなので後回し
-            if low.endswith((".zip", ".xlsx", ".xls")) and h not in [c[1] for c in cand]:
-                cand.append(("~" in t or "～" in t, h, t))
-    cand.sort(key=lambda c: c[0])
-    notes.append(f"{name}の行にあったファイル：{len(cand)}（" + "、".join(t for _, h, t in cand) + "）")
-    for _, h, t in cand:
-        data = get(h)
-        if h.lower().split("?")[0].endswith(".zip"):
-            zf = zipfile.ZipFile(io.BytesIO(data))
-            for n, info in zip_names(zf):
-                if has_name(n, name) and n.lower().endswith((".xlsx", ".xlsm")):
-                    notes.append(f"見つけたファイル：{t} の中の {n}")
-                    return zf.read(info), notes
-            notes.append(f"{t}：中身 " + "、".join(n for n, _ in zip_names(zf)[:6]))
-        elif has_name(t, name):
-            notes.append(f"見つけたファイル：{t}")
-            return data, notes
-    return None, notes
-
-
-YEAR_MARKS = ("令和6", "令和６", "R6", "Ｒ６", "R06", "2024", "６年度", "6年度")
+            ym = 2 if _ym(t + h, year_marks) else 0
+            if low.endswith(FILE_EXT):
+                # 範囲で書かれたリンク（「夕張市~歌志内市」）は決算カードなので低く
+                res.append((ym + (3 if has_name(t, name) else 1) - (2 if ("~" in t or "～" in t) else 0), "url", h, t))
+            elif low.endswith(".zip"):
+                res += _zip_cands(h, name, ym - (2 if ("~" in t or "～" in t) else 0), year_marks)
+    return res
 
 
 def _link_priority(t, h, name, year_marks):
-    t2 = t + " " + h
     sc = 0
     if "資料集" in t:
         sc += 3
-    if any(m in t2 for m in year_marks):
+    if _ym(t + " " + h, year_marks):
         sc += 2
     if has_name(t, name):
         sc += 4
-    if any(w in t for w in ("市町村", "区市町村", "市町")):
+    if any(w in t for w in ("市町村", "区市町村", "市町", "団体別")):
         sc += 1
     return sc
 
 
-def find_on_pref_site(start_url, name, max_pages=60, year_marks=YEAR_MARKS):
-    """都道府県のページから、市町村名の付いた Excel を探す（2026-10-15 作り直し）
+def site_candidates(start_url, name, max_pages=60, year_marks=YEAR_MARKS):
+    """都道府県のページから、その市町村の財政状況資料集の Excel の候補を集める（2026-10-15 作り直し）
     ・「資料集」「令和6年度」などの文字があるリンクから先に見る（関係のないページで上限を使い切らないように）
     ・「資料集」の文字があるリンクは、ほかのサイト（北海道のオープンデータなど）でもたどる
-    ・Excel が見つからないときは、ページにある ZIP の中も探す（北海道のように地域ごとの ZIP にまとめている県のため）
-    戻り値：((Excelの中身, 取得元) または None, 見たページ)"""
+    ・市町村名のリンクから入ったページ（東京都の団体別のページなど）では、「令和６年度」の文字のリンクも候補にする
+      （ファイル名に拡張子が無いサイトがあるため。中身が Excel かどうかは取り込むときに確かめる）
+    ・ページにある ZIP の中も探す（北海道のように地域ごとの ZIP にまとめている県のため）
+    戻り値：(候補のリスト, 見たページ)。候補＝(点, "url"/"zip", URL, ZIPの中の名前 or リンクの文字)"""
     from urllib.parse import urlparse
     host = urlparse(start_url).netloc
-    seen, queue, tried, zips = set(), [(0, 0, start_url)], [], []
+    seen, queue, tried, cands, zips = set(), [(0, 0, start_url, False)], [], [], []
     while queue and len(seen) < max_pages:
         queue.sort(key=lambda q: (q[1], -q[0]))
-        pri, depth, url = queue.pop(0)
+        pri, depth, url, named = queue.pop(0)
         if url in seen:
             continue
         seen.add(url)
@@ -343,43 +349,48 @@ def find_on_pref_site(start_url, name, max_pages=60, year_marks=YEAR_MARKS):
             tried.append(f"{url}（読めず：{ex}）")
             continue
         tried.append(url)
-        links = anchors(html, url)
-        for t, h, p in links:
-            low = h.lower().split("?")[0]
-            if has_name(t, name) and low.endswith((".xlsx", ".xls", ".xlsm")):
-                return (get(h), h), tried
-        # Excel のリンク文字が「Excel」だけのときは、すぐ前の文字に名前があるかで判定（前の行の名前を拾わないよう、直前の120文字だけ）
-        for t, h, p in links:
-            low = h.lower().split("?")[0]
-            if low.endswith((".xlsx", ".xls", ".xlsm")) and has_name(re.sub(r"<[^>]+>", "", html[max(0, p - 120):p]), name):
-                return (get(h), h), tried
-        for t, h, p in links:
-            low = h.lower().split("?")[0]
-            if low.endswith(".zip") and h not in zips and ("資料集" in t or "資料集" in unquote(h) or has_name(t, name) or "ダウンロード" in t):
-                zips.append(h)
-        if depth < 3:
-            for t, h, p in links:
-                low = h.lower().split("?")[0].split("#")[0]
+        title = " ".join(re.findall(r"<title[^>]*>(.*?)</title>|<h1[^>]*>(.*?)</h1>", html, re.S | re.I)[0]) if re.search(r"<title|<h1", html, re.I) else ""
+        named = named or has_name(re.sub(r"<[^>]+>", "", title), name)
+        for t, h, p in anchors(html, url):
+            low = h.lower().split("?")[0].split("#")[0]
+            ym = 2 if _ym(t + " " + h, year_marks) else 0
+            if low.endswith(FILE_EXT):
+                if has_name(t, name):
+                    cands.append((3 + ym, "url", h, t))
+                elif has_name(re.sub(r"<[^>]+>", "", html[max(0, p - 120):p]), name):
+                    cands.append((1 + ym, "url", h, t))
+                elif named and ym:
+                    cands.append((2 + ym, "url", h, t))
+            elif low.endswith(".zip"):
+                if h not in zips and ("資料集" in t or "資料集" in unquote(h) or has_name(t, name) or "ダウンロード" in t):
+                    zips.append(h)
+            elif named and ym and not low.endswith(NOT_FILE) and urlparse(h).netloc in (host, ""):
+                cands.append((1 + ym, "url", h, t))      # 拡張子の無いファイル（東京都など）
+            elif depth < 3 and h.split("#")[0] not in seen and not low.endswith((".pdf", ".xlsx", ".xls", ".csv", ".docx")):
                 other = urlparse(h).netloc != host
-                if low.endswith((".zip", ".pdf", ".xlsx", ".xls", ".csv", ".docx")) or h.split("#")[0] in seen:
-                    continue
                 if other and "資料集" not in t:
                     continue
                 pr = _link_priority(t, h, name, year_marks)
                 if depth == 0 or pr >= 2:
-                    queue.append((pr, depth + 1, h.split("#")[0]))
-    # ZIP の中を探す（多いときは、名前・資料集の文字があるものから20個まで）
-    for z in zips[:20]:
-        try:
-            zf = zipfile.ZipFile(io.BytesIO(get(z)))
-        except Exception as ex:
-            tried.append(f"{z}（ZIPを開けず：{ex}）")
-            continue
+                    queue.append((pr, depth + 1, h.split("#")[0], has_name(t, name)))
+        if any(c[0] >= 5 for c in cands):
+            break   # 名前と年度の両方が合うものが見つかったら、それ以上は探さない
+    if not any(c[0] >= 3 for c in cands):
+        for z in zips[:20]:
+            cands += _zip_cands(z, name, 0, year_marks)
+    return cands, tried
+
+
+def fetch_candidate(c):
+    """候補の中身（Excel のバイト列）と、取得元の説明を返す"""
+    sc, kind, url, extra = c
+    if kind == "zip":
+        zf = zipfile.ZipFile(io.BytesIO(get(url)))
         for n, info in zip_names(zf):
-            if has_name(n, name) and n.lower().endswith((".xlsx", ".xlsm")):
-                return (zf.read(info), z + " の中の " + n), tried
-        tried.append(f"{z}（中に{name}なし）")
-    return None, tried
+            if n == extra:
+                return zf.read(info), url + " の中の " + n
+        return None, url
+    return get(url), url
 
 
 def zip_names(zf):
@@ -404,25 +415,40 @@ TRIED = {}         # 都道府県ごとに、探したページ（Summary に出
 SCORE_LABELS = {"f": "比較_財政力指数", "x": "比較_経常収支比率", "d": "比較_実質公債費比率", "u": "比較_将来負担比率", "r": "財政調整基金"}
 
 
-def collect(name, xlsx_bytes, fy_label, badge=True, moved=False):
+def cell_strings(xlsx_bytes):
+    """Excel のセルの文字（sharedStrings）"""
+    try:
+        z = zipfile.ZipFile(io.BytesIO(xlsx_bytes))
+        x = z.read("xl/sharedStrings.xml").decode("utf-8")
+    except Exception:
+        return []
+    return [unescape("".join(re.findall(r"<t(?:\s[^>]*)?>(.*?)</t>", si, re.S))).strip() for si in re.findall(r"<si>.*?</si>", x, re.S)]
+
+
+def collect(name, xlsx_bytes, fy_label, badge=True, moved=False, quiet=False):
     """Excelから3つの説明を取り出す。名前・年度が違えば None"""
     res, sheets = extract_comments(xlsx_bytes)
     joined = "\n".join(it[3] for items in sheets.values() for it in items)
+    cells = cell_strings(xlsx_bytes)
     base = re.sub(r"（.*?）", "", name)
-    if not has_name(joined, name):
+    say = (lambda m: None) if quiet else out
+    # 名前・年度は、図形の文字とセルの文字の両方で確かめる（県によって、団体名や年度をセルに書いているため。2026-10-15）
+    if not has_name(joined, name) and not any(has_name(c, name) for c in cells if len(c) <= 30):
         FAIL_REASON[name] = "別の自治体のExcel"
-        out(f"- ❌ {name}：このExcelの中に「{base}」の名前がないため使いません")
+        say(f"- ❌ {name}：このExcelの中に「{base}」の名前がないため使いません")
         return None
-    if not any(it[3].strip() == fy_label for items in sheets.values() for it in items):
+    fy_full = fy_label.translate(str.maketrans("0123456789", "０１２３４５６７８９"))
+    texts = [it[3].strip() for items in sheets.values() for it in items] + cells
+    if not any(t in (fy_label, fy_full) for t in texts):
         FAIL_REASON[name] = "年度が違うExcel"
-        out(f"- ❌ {name}：このExcelは{fy_label}のものではないため使いません")
+        say(f"- ❌ {name}：このExcelは{fy_label}のものではないため使いません")
         return None
     entry = {}
     if badge:
         for k, label in LABELS.items():
             if label in res:
                 entry[k] = res[label].strip()
-            else:
+            elif not quiet:
                 out(f"- ⚠️ {label}の説明が見つかりませんでした")
     if moved:
         sc = {}
@@ -433,33 +459,38 @@ def collect(name, xlsx_bytes, fy_label, badge=True, moved=False):
             entry["score"] = sc
         else:
             FAIL_REASON[name] = "分析欄が見つからない"
-            out(f"- ⚠️ {name}：財政比較分析表の分析欄が見つかりませんでした")
+            if not quiet:
+                out(f"- ⚠️ {name}：財政比較分析表の分析欄が見つかりませんでした")
     return entry
 
 
 def find_excel(name, pref, isp, links, pos_muni):
-    """(Excelの中身, 取得元URL) を返す。見つからなければ (None, None)"""
+    """財政状況資料集の Excel の候補を、よさそうな順に返す（取り込むときに、名前と年度が合うものを使う）"""
     if isp:
         cand = [h for t, h, p in links if h.lower().endswith(".xlsx") and name in t and (pos_muni < 0 or p < pos_muni)]
-        return (get(cand[0]), cand[0]) if cand else (None, None)
+        return [(9, "url", h, name) for h in cand]
     after = [(t, h) for t, h, p in links if p > pos_muni]
     pref_pages = [h for t, h in after if pref in t and not h.lower().endswith((".zip", ".pdf", ".xlsx"))]
     if not pref_pages:
-        return None, None
+        FAIL_REASON[name] = "都道府県のページが見つからない"
+        return []
+    cands = []
     try:
-        data, notes = find_in_table_rows(pref_pages[0], re.sub(r"（.*?）", "", name))
+        cands += table_candidates(pref_pages[0], name, YEAR_MARKS)
     except Exception as ex:
-        data, notes = None, [f"表を読めず：{ex}"]
-    for nt in notes:
-        print(f"- {nt}")   # 手がかりは実行ログにだけ出す（対象が多いと Summary が長くなるため）
-    if data is not None:
-        return data, pref_pages[0]
-    hit, tried = find_on_pref_site(pref_pages[0], name)
-    TRIED.setdefault(pref, tried[:8])
-    if hit:
-        return hit
-    FAIL_REASON[name] = "Excelが見つからない"
-    return None, None
+        print(f"- {name}：表を読めず（{ex}）")
+    if not any(c[0] >= 5 for c in cands):
+        more, tried = site_candidates(pref_pages[0], name)
+        cands += more
+        TRIED.setdefault(pref, tried[:8])
+    uniq, seen = [], set()
+    for c in sorted(cands, key=lambda c: -c[0]):
+        if (c[2], c[3] if c[1] == "zip" else "") not in seen:
+            seen.add((c[2], c[3] if c[1] == "zip" else ""))
+            uniq.append(c)
+    if not uniq:
+        FAIL_REASON[name] = "Excelが見つからない"
+    return uniq
 
 
 def main():
@@ -501,17 +532,27 @@ def main():
             out(f"### {name}")
         try:
             ok = False
-            data, src = find_excel(name, pref, isp, links, pos_muni)
-            if data is None:
-                out(f"- ⚠️ {name}：財政状況資料集のExcelが見つかりませんでした")
-            else:
-                entry = collect(name, data, fy_label, badge=name in badge_names, moved=name in moved_names)
-                if entry:
+            cands = find_excel(name, pref, isp, links, pos_muni)
+            for c in cands[:6]:   # よさそうな順に、名前と年度が合う Excel が見つかるまで（6つまで）
+                try:
+                    data, src = fetch_candidate(c)
+                except Exception as ex:
+                    FAIL_REASON[name] = "Excelを読み込めない"
+                    continue
+                if not data or not data[:2] == b"PK":
+                    FAIL_REASON.setdefault(name, "Excelではないファイル")
+                    continue
+                entry = collect(name, data, fy_label, badge=name in badge_names, moved=name in moved_names, quiet=True)
+                if entry and ("score" in entry or name in badge_names):
                     entry["src"] = src
                     result[name] = entry
-                    ok = "score" in entry or name in badge_names
+                    ok = True
+                    FAIL_REASON.pop(name, None)
                     if name in badge_names:
                         out("- ✅ 取り込みました：" + "、".join(LABELS[k] for k in LABELS if k in entry))
+                    break
+            if not ok:
+                out(f"- ⚠️ {name}：{FAIL_REASON.get(name, '財政状況資料集のExcelが見つかりませんでした')}")
         except Exception as ex:
             out(f"- ⚠️ {name}：エラーのため取り込めませんでした（{ex}）")
         if not ok and name not in result and isinstance(prev.get(name), dict):
