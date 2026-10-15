@@ -504,7 +504,7 @@
         chg
       ], cur.ei >= cur.eo ? "差し引き約" + fmtOku(diff) + "が残った状態です（翌年度に繰り越す分を含む）"
                           : "歳出が歳入を上回った状態です。不足分は翌年度の収入を前倒しして埋めることになっています",
-         cur.ei >= cur.eo ? SIT_BLUE : SIT_RED, "");
+         cur.ei >= cur.eo ? SIT_BLUE : SIT_RED, FUTSU_NOTE);
     }
     if (key === "education" && cur.edu != null) {
       var med6 = DATA_STATS.edu[b];
@@ -560,6 +560,9 @@
     edu:"教育費", kosai:"公債費（借金の返済）", shobo:"消防費", norin:"農林水産業費", shoko:"商工費", saigai:"災害復旧費", keisatsu:"警察費", rodo:"労働費", gikai:"議会費"};
   var BD_ED_LABEL = {kyu:"学校給食費", sho:"小学校費", chu:"中学校費", koko:"高等学校費", shakai:"社会教育費（公民館・図書館など）", somu:"教育総務費", tokushi:"特別支援学校費", yochi:"幼稚園費", hoken:"保健体育費"};
   function okuT(v) { return fmtOku(v / 100000); }   // 千円 → 「◯億円」「◯兆◯億円」
+  // 歳入・歳出の金額は総務省の決算状況調の「普通会計」（2026-10-15）。
+  // 自治体が発表する一般会計の金額と合わないことがあるため、歳出／歳入の画面と内訳の枠に注記する
+  var FUTSU_NOTE = "※総務省が全国で比べられるようにそろえた「普通会計」の金額です。自治体が発表する一般会計の金額とは違うことがあります";
   function bdBox(title, rows, tail, tailColor) {
     if (!rows.length) return "";
     return "<div style='margin-top:12px;padding:12px 14px;background:#ffffffc0;border:1px solid #d8d5e8;border-radius:12px;'>" +
@@ -568,7 +571,12 @@
       (tail ? "<div style='font-size:16px;font-weight:700;color:" + (tailColor || SIT_BLUE) + ";line-height:1.7;margin-top:6px;'>→ " + tail + "</div>" : "") +
       "</div>";
   }
+  // 内訳の枠の下に「普通会計」の短い1行（歳出／歳入の画面は状況の欄で説明するので出さない）
   function breakdownHtml(key, cur, isPref, name) {
+    var h = breakdownHtml0(key, cur, isPref, name);
+    return (h && key !== "budget") ? h + "<div style='font-size:14px;color:#6a6a80;line-height:1.6;margin-top:4px;'>※普通会計の金額です</div>" : h;
+  }
+  function breakdownHtml0(key, cur, isPref, name) {
     var bd = cur && cur.bd;
     if (!bd || bd.y !== DATA_YEAR.fiscal) return "";   // 財政のデータと同じ年度のときだけ
     var rv = bd.rv || {}, ex = bd.ex || {}, ed = bd.ed || {};
@@ -773,6 +781,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.6.1", date:"2026.10", items:["説明の表示を改善"] },
     { version:"3.6.0", date:"2026.10", items:["詳しい画面の並びを整理し、読みやすくしました","総合スコアに「点数を見るときのヒント」を追加","説明の表示を改善"] },
     { version:"3.5.5", date:"2026.10", items:["「みっちーからのひとこと」の表示を改善"] },
     { version:"3.5.4", date:"2026.10", items:["グラフの表示を改善"] },
@@ -1012,6 +1021,7 @@
         "<div>" +
           "<div class='cname'>"+(mmIsMine(nm)?"\ud83d\udc27 ":"")+nm+"</div>" +
           "<div class='cpref'>"+d.p+"</div>" +
+          "<div style='font-size:13px;color:#7a7a90;margin-top:2px;'>" + reiwaText(DATA_YEAR.fiscal) + "度の決算</div>" +   // 年度はデータから自動（2026-10-15）
           "<div class='hlbl' style='background:"+pr.bg+";color:"+pr.c+";'>"+pr.l+"</div>" +
           "<div class='stars'>"+stars(h)+"</div>" +
           fiscalStatusBadge(d, nm===d.p) +
