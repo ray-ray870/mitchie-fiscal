@@ -1065,6 +1065,13 @@ def main():
     if sp:
         with open(sp, "a", encoding="utf-8") as fp:
             fp.write(text + "\n")
+    # 画面の文章のチェック（参考・止めない。2026-10-15）。照合の結果に関係なく、毎回あわせて行う
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import check_screen_text
+        check_screen_text.run()
+    except Exception as e:
+        print("画面の文章のチェックは行えませんでした：%s" % e)
     # 年次更新（--record）のときは、古い年の公式ファイルが見つからないだけなら止めない（最新の年は必ず照合される）
     if problems or (skipped and "--record" not in sys.argv):
         sys.exit(1)

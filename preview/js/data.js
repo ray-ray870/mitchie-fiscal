@@ -88,6 +88,16 @@
     var m = Math.floor(s.length / 2);
     return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
   }
+  /* --- 「ほぼ同じ」の幅（2026-10-15）---
+     比べる相手（似ている自治体・全国など）の値の、真ん中の半分が入る幅（四分位範囲）の4分の1。
+     差がこの幅以内なら「ほぼ同じ」。以前は指標ごとに決めた数字で、「ほぼ同じ」になる割合が
+     指標によって6%〜66%とばらばらだった。毎年のデータから自動で決まる。値が4つ未満なら null */
+  function sameWidth(vals) {
+    var s = (vals || []).filter(function(v){ return typeof v === "number" && !isNaN(v); }).sort(function(a, b){ return a - b; });
+    if (s.length < 4) return null;
+    var q = function(p){ var i = (s.length - 1) * p, lo = Math.floor(i); return s[lo] + (s[Math.min(lo + 1, s.length - 1)] - s[lo]) * (i - lo); };
+    return (q(0.75) - q(0.25)) / 4;
+  }
   function computeDataStats() {
     var get = {
       f: function(e){ return e.f; }, x: function(e){ return e.x; }, d: function(e){ return e.d; },
@@ -101,6 +111,7 @@
                                   .map(function(n){ return get[key](DB[n]); });
         var m = medianOf(vals);
         if (m != null) DATA_STATS[key][b] = m;
+        DATA_STATS[key][b + "W"] = sameWidth(vals);
         // 下位10%・上位10%の境目（「全国の中でも低いほう／高いほう」と言うときに使う）
         var s = vals.filter(function(v){ return v != null && !isNaN(v); }).sort(function(a,c){ return a - c; });
         if (s.length) {
@@ -120,6 +131,7 @@
                                     .map(function(n){ return KK[n][code]; });
           var m = medianOf(vals);
           if (m != null) KK_MEDIANS[code][b] = Math.round(m * 10) / 10;
+          KK_MEDIANS[code][b + "W"] = sameWidth(vals);
         });
       });
     }

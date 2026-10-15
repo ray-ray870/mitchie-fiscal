@@ -212,10 +212,35 @@ def parse_population(muni_path):
     return muni_idx, pref_idx
 
 
+def _check_deficit_columns(ws, path):
+    """実質赤字比率（列36）・連結実質赤字比率（列37）の列が、本当にその見出しかを確かめる（2026-10-15）。
+    赤字の無い自治体は「－」で空欄になるため、値だけでは取り込めているか分からない。
+    見出し（16行目より上）に「実質赤字」の文字が見つからなければ、Summary に ⚠️ を出す（止めない）。"""
+    heads = {35: "", 36: ""}
+    for row in ws.iter_rows(min_row=1, max_row=15, values_only=True):
+        for c in heads:
+            if c < len(row) and row[c] is not None:
+                heads[c] += str(row[c]).replace("\u3000", "").replace("\n", "")
+    ok = "実質赤字" in heads[35] and "連結" in heads[36] and "実質赤字" in heads[36]
+    name = os.path.basename(str(path))
+    if ok:
+        msg = "実質赤字比率の列を確認しました（%s）" % name
+    else:
+        msg = ("⚠️ 実質赤字比率・連結実質赤字比率の列の見出しが見つかりません（%s。列36の見出し：%s／列37：%s）。"
+               "早期健全化団体などの判定に使う値なので、Claude に見せてください"
+               % (name, heads[35][:30] or "なし", heads[36][:30] or "なし"))
+    print(msg)
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary and not ok:
+        with open(summary, "a", encoding="utf-8") as fp:
+            fp.write(msg + "\n\n")
+
+
 def parse_budget(city_path, town_path, pref_path):
     muni_idx = {}
     for path in (city_path, town_path):
         wb = openpyxl.load_workbook(path, data_only=True)
+        _check_deficit_columns(wb.active, path)
         cur_pref = None
         for row in wb.active.iter_rows(min_row=16, values_only=True):
             code, name = row[14], row[15]
