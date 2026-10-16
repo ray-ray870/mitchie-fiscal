@@ -8,8 +8,9 @@ name: 年次データ更新（プレビュー）
 #   3. 公会計（scripts/build_kokaikei.py）… 新しい年度が総務省から公表されていれば取り込む。まだなら何もしない
 #   4. 自治体の顔ぶれのチェック（scripts/check_data_consistency.py）
 #   5. 公式データとの照合（scripts/audit_official_data.py）… 全項目・全年度を総務省のExcelと突き合わせる
-#   6. 財政状況資料集（scripts/fetch_shiryou.py）… 国の基準を超えた自治体だけ、自治体自身の説明を取り込む。
-#      取り込めなくても止めない（その年は説明なしで表示される）
+#   6. 財政状況資料集（scripts/fetch_shiryou.py）… 国の基準を超えた自治体と、総合スコアの点数が動いた自治体について、
+#      自治体自身の説明を取り込む。総務省がまだ公表していなければ何もしない（公表後に「財政状況資料集の説明を取り込む」を実行）。
+#      取り込めなくても止めない（取り込もうとして取れなかった自治体には「取り込めませんでした」の注意書きが出る）
 #
 # ・書き込むのは preview/ のデータだけ（本番には触らない）。
 # ・どこかで1つでも問題があれば赤い×で止まり、何も保存しない。
@@ -92,7 +93,7 @@ jobs:
       - name: 5. 公式データとの照合
         run: python scripts/audit_official_data.py --record
 
-      - name: 6. 財政状況資料集（国の基準を超えた自治体の説明）
+      - name: 6. 財政状況資料集（自治体自身の説明）
         continue-on-error: true
         run: python scripts/fetch_shiryou.py
 
