@@ -275,6 +275,100 @@
     {k: "u", sk: "u", name: "将来負担比率", plain: "将来に残る負担の重さ", up: "上がった", down: "下がった", fmt: function(v){ return v <= 0 ? "「－」" : v.toFixed(1) + "%"; }, src: "将来負担比率の分析欄"},
     {k: "rr", sk: "r", name: "財政調整基金", plain: "自治体の貯金", up: "増えた", down: "減った", fmt: function(v){ return v.toFixed(1) + "%"; }, src: "財政調整基金の増減理由・今後の方針", ratio: true}
   ];
+  /* 財政状況資料集の自治体の説明を、短く読みやすくする（2026-10-16 決定）
+     ・言い換えはしない。文を選ぶことと、読点で区切ることだけをする
+     ・150字を超える説明は、理由が書かれた文（「により」「ため」＋「増・減」など）を優先して残し、
+       類似団体との比べ方だけの文、今後の方針の文は後回しにする。外した文がある場合は「抜粋」と書き、全文を見られるようにする
+     ・文の途中は「〜となり、」「〜ため、」「〜ものの、」などの区切りで箇条書きにする */
+  var HK_EX_ENDS = ["となり","となった","となる","ため","ものの","一方で","一方","おり","あり","により","によって","ことから","したが","なったが","増加し","減少し","上昇し","低下し","改善し","悪化し"];
+  function hkShiryouExcerpt(text, fy) {
+    // 財政調整基金の欄は「（増減理由）…（今後の方針）…」。理由を知りたいので、今後の方針の文は後回しにする
+    var t = String(text), plan = t.indexOf("（今後の方針）");
+    var reason = plan >= 0 ? t.slice(0, plan) : t, after = plan >= 0 ? t.slice(plan) : "";
+    var split = function(x){ return x.replace(/（(増減理由|今後の方針)）/g, "\n").split(/。\n?|\n/).map(function(y){ return y.trim().replace(/^[・●○◆◇■□\-－]\s*/, ""); }).filter(function(y){ return y.length > 4; }); };
+    var ssR = split(reason), ss = ssR.concat(split(after));
+    var fyRe = new RegExp((fy || "令和").replace(/\s/g, "") + "|前年度|当年度|今年度|本年度");
+    var limit = 150, pick;
+    if (t.replace(/\s/g, "").length <= limit) pick = ss;
+    else {
+      var sc = ss.map(function(x, i){
+        var v = 0;
+        if (fyRe.test(x.replace(/[６]/g, "6"))) v += 3;   // その年度（shiryou.json の _year）や「前年度」と書いた文
+        if (i >= ssR.length) v -= 6;   // 今後の方針の文
+        if (/^※/.test(x)) v -= 6;      // 注意書きの文
+        if (/により|による|ため|要因|影響/.test(x)) v += 3;
+        if (/増|減|改善|悪化|上昇|低下|上回|下回|取崩|積立|積み立/.test(x)) v += 2;
+        if (/類似団体|全国平均|県平均|平均値/.test(x) && !/により|ため/.test(x)) v -= 3;
+        if (/今後|努め|図って|取り組|目指|進めます|進めていく|必要がある|必要となる/.test(x)) v -= 4;   // これからの方針の文は後回し
+        return {i: i, v: v - i * 0.3};
+      }).sort(function(a, b){ return b.v - a.v; });
+      var got = [], n = 0;
+      for (var k = 0; k < sc.length; k++) {
+        var len = ss[sc[k].i].length;
+        if (n && (n + len > limit || sc[k].v <= 0)) continue;   // 2つ目からは、理由らしい文だけ足す
+        got.push(sc[k].i); n += len;
+        if (n >= limit * 0.6) break;
+      }
+      got.sort(function(a, b){ return a - b; });
+      pick = got.map(function(i){ return ss[i]; });
+    }
+    var items = [];
+    pick.forEach(function(x){
+      // 古いブラウザでも動くように、正規表現の「後読み」は使わない
+      var segs = x.split(/([、，,])/), cur = "", parts = [];
+      for (var j = 0; j < segs.length; j += 2) {
+        var c = cur + segs[j];
+        var hit = j + 1 < segs.length && HK_EX_ENDS.some(function(e){ return c.slice(-e.length) === e; });
+        if (hit) { parts.push(c.trim()); cur = ""; } else cur = c + (segs[j + 1] || "");
+      }
+      if (cur.trim()) parts.push(cur.trim());
+      parts.forEach(function(q, qi){
+        if (qi > 0 && (q.length < 12 || parts[qi - 1].length < 12)) items[items.length - 1] += "、" + q;
+        else items.push(q);
+      });
+    });
+    return {items: items, cut: pick.length < ss.length};
+  }
+  /* 財政状況資料集の文章の中の金額を、アプリの書き方にそろえる（2026-10-16 決定）
+     「53,300千円」→「5,330万円」、「210,206千円」→「約2.1億円」、「6億4,871万8千円」→「約6.5億円」
+     ・1億円以上は億円（100億円未満は小数第1位まで、100億円以上は整数）、1億円未満は万円（整数）。1万円未満はそのまま
+     ・まるめたときだけ「約」を付ける（ちょうど割り切れるときは付けない） */
+  function hkYenUnify(text) {
+    var z2h = function(x){ return x.replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).replace(/[，,]/g, ""); };
+    return String(text).replace(/((?:[0-9０-９][0-9０-９,，]*(?:\.[0-9０-９]+)?(?:兆|億|万|千|百|十)*)+)円/g, function(all, body, pos, whole){
+      // 日本語の数の読み方どおりに計算する：「4千6百万円」＝(4千＋6百)万＝4,600万円、「661百万円」＝6.61億円、「6億4,871万8千円」
+      var re = /([0-9０-９][0-9０-９,，]*(?:\.[0-9０-９]+)?)((?:兆|億|万|千|百|十)*)/g, m, total = 0, small = 0, units = 0;
+      var SMALL = {"千": 1e3, "百": 1e2, "十": 10}, BIG = {"兆": 1e12, "億": 1e8, "万": 1e4};
+      while ((m = re.exec(body)) && m[0]) {
+        var n = parseFloat(z2h(m[1])), us = m[2] || "";
+        if (us) units++;
+        var k = 0, mul = 1;
+        while (k < us.length && SMALL[us.charAt(k)]) { mul *= SMALL[us.charAt(k)]; k++; }
+        small += n * mul;
+        if (k < us.length) {
+          var big = 1;
+          for (; k < us.length; k++) big *= (BIG[us.charAt(k)] || SMALL[us.charAt(k)] || 1);
+          total += small * big; small = 0;
+        }
+      }
+      var v = total + small;
+      if (v < 1e4 || (!units && v < 1e6)) return all;   // 「円」だけの書き方は、百万円以上のときだけそろえる（1人当たりの金額などはそのまま）
+      var out, exact;
+      if (v >= 1e8) {
+        var oku = v / 1e8, r = oku >= 100 ? Math.round(oku) : Math.round(oku * 10) / 10;
+        exact = Math.abs(r * 1e8 - v) < 0.5;
+        if (r >= 10000) {   // 1兆円以上は fmtOku と同じ「1兆2,345億円」
+          var cho = Math.floor(r / 10000), rest = r - cho * 10000;
+          out = cho.toLocaleString() + "兆" + (rest > 0 ? rest.toLocaleString() + "億" : "") + "円";
+        } else out = r.toLocaleString(undefined, {maximumFractionDigits: 1}) + "億円";
+      } else {
+        var man = Math.round(v / 1e4);
+        exact = Math.abs(man * 1e4 - v) < 0.5;
+        out = man.toLocaleString() + "万円";
+      }
+      return (exact || whole.charAt(pos - 1) === "約" ? "" : "約") + out;   // 元の文に「約」があれば重ねない
+    });
+  }
   function hkScoreMoves(name, cur, isPref) {
     if (!cur) return "";
     var latest = DATA_YEAR.fiscal;
@@ -306,12 +400,19 @@
       var own = "";
       var sh0 = (typeof SHIRYOU === "object" && SHIRYOU) ? SHIRYOU : null;
       var sh = sh0 ? sh0[name] : null;
-      if (y === latest && why && sh && sh.score && sh.score[m.sk] && SHIRYOU._year === reiwaText(latest) + "度") {
-        var body = escapeHtml(sh.score[m.sk]).replace(/（(増減理由|今後の方針)）\n?/g, "<b style='color:#5a4a7a;'>（$1）</b>").replace(/\n/g, "<br>");
+      // 「主な理由」が出せないほど小さい動き（例：70→69点で体調の区切りをまたいだ）でも、自治体の説明は出す。
+      // どの項目の説明を出すかは、いちばん大きく動いた指標で決める（2026-10-16 決定）
+      if (y === latest && sh && sh.score && sh.score[m.sk] && SHIRYOU._year === reiwaText(latest) + "度") {
+        // 長い説明は、理由の文だけを原文のまま抜き出し、区切りのよいところで箇条書きにする（2026-10-16 決定。言い換えはしない）
+        var raw = hkYenUnify(sh.score[m.sk]), ex = hkShiryouExcerpt(raw, SHIRYOU._year), yenChanged = raw !== sh.score[m.sk];
+        var full = escapeHtml(raw).replace(/（(増減理由|今後の方針)）\n?/g, "<b style='color:#5a4a7a;'>（$1）</b>").replace(/\n/g, "<br>");
         own = "<div style='background:#ffffff;border:1px solid #d8d5e8;border-radius:10px;padding:10px 12px;margin-top:8px;'>" +
-          "<div style='font-size:15px;font-weight:700;color:#3a2a6e;margin-bottom:4px;'>📄 " + escapeHtml(name) + "の説明（" + escapeHtml(SHIRYOU._year) + " 財政状況資料集の「" + m.src + "」より）</div>" +
-          "<div style='font-size:15px;color:#3a3a4a;line-height:1.8;'>" + body + "</div></div>";
-      } else if (y === latest && why && sh0 && sh0._year === reiwaText(latest) + "度" && sh0._fail && sh0._fail[name]) {
+          "<div style='font-size:15px;font-weight:700;color:#3a2a6e;margin-bottom:4px;'>📄 " + escapeHtml(name) + "の説明" + (ex.cut ? "（抜粋）" : "") + "</div>" +
+          ex.items.map(function(t){ return "<div style='font-size:15px;color:#3a3a4a;line-height:1.7;padding-left:1em;text-indent:-1em;margin-top:2px;'>・" + escapeHtml(t) + "</div>"; }).join("") +
+          (ex.cut ? "<div role='button' tabindex='0' onclick=\"var c=this.nextElementSibling,o=c.style.display==='none';c.style.display=o?'block':'none';this.textContent=o?'全文を閉じる ▲':'全文を見る ▼';\" style='font-size:14px;color:#6a5aa8;cursor:pointer;margin-top:6px;'>全文を見る ▼</div>" +
+            "<div style='display:none;font-size:14px;color:#4a4a5a;line-height:1.8;margin-top:4px;border-top:1px dashed #d8d5e8;padding-top:6px;'>" + full + "</div>" : "") +
+          "<div style='font-size:13px;color:#7a7a90;margin-top:6px;'>出典：" + escapeHtml(SHIRYOU._year) + " 財政状況資料集の「" + m.src + "」（言い換えなし" + (yenChanged ? "。金額の書き方だけアプリにそろえています" : "") + "）</div></div>";
+      } else if (y === latest && sh0 && sh0._year === reiwaText(latest) + "度" && sh0._fail && sh0._fail[name]) {
         // 取り込もうとして取れなかった自治体だけ（2026-10-16 決定）。まだ取り込んでいない年度には出さない
         own = "<div style='font-size:15px;color:#5a5a70;line-height:1.7;margin-top:6px;padding-left:1em;'>※財政状況資料集から、この自治体の説明を取り込めませんでした（PDFでしか公開されていない、公開しているサイトの障害、分析欄が書かれていない などのため）</div>";
       }
@@ -850,6 +951,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.7.1", date:"2026.10", items:["「点数の動き」の自治体の説明を見やすく"] },
     { version:"3.7.0", date:"2026.10", items:["総合スコアに「点数の動き」を追加"] },
     { version:"3.6.3", date:"2026.10", items:["総合スコアの推移の計算を改善"] },
     { version:"3.6.2", date:"2026.10", items:["比べ方の説明を改善"] },
