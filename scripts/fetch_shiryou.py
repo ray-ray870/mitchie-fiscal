@@ -645,9 +645,11 @@ def collect(name, xlsx_bytes, fy_label, badge=True, moved=False, quiet=False, sr
 
 def find_excel(name, pref, isp, links, pos_muni):
     """財政状況資料集の Excel の候補を、よさそうな順に返す（取り込むときに、名前と年度が合うものを使う）"""
-    if isp:
+    if isp or name in SEIREI:
+        # 都道府県と政令市（2026-10-16 追加：浜松市）は、総務省のページに直接 Excel がある
         cand = [h for t, h, p in links if h.lower().endswith(".xlsx") and name in t and (pos_muni < 0 or p < pos_muni)]
-        return [(9, "url", h, name) for h in cand]
+        if cand or isp:
+            return [(9, "url", h, name) for h in cand]
     after = [(t, h) for t, h, p in links if p > pos_muni]
     pref_pages = [h for t, h in after if pref in t and not h.lower().endswith((".zip", ".pdf", ".xlsx"))]
     if not pref_pages:
