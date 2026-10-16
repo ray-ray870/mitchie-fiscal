@@ -1308,6 +1308,16 @@
   },
   "src": "https://www.soumu.go.jp/main_content/001063398.xlsx"
  },
+ "浜松市": {
+  "score": {
+   "f": "類似団体内では中位に位置。景気低迷に伴う市税の減等により平成20年度をピークに悪化していたが、平成25～27年度にかけて法人市民税の税収の増などにより基準財政収入額が増加し、改善傾向となる。\n令和6年度については、こども子育て費の創設などによる基準財政需要額の増はあるものの、固定資産税及び定額減税の影響を除いた個人市民税所得割の増などによる基準財政収入額の増もあり、前年度比増減なし\n今後も行財政改革により歳出の削減に努めるとともに歳入の確保に努め、財政基盤を強化していく。",
+   "x": "平成28年度以降、市税などの増に伴う経常一般財源の増加により、改善傾向となっている。\n令和6年度は、地方交付税、地方特例交付金及び法人市民税の増等による経常一般財源の増を、清掃工場の運営等にかかる物件費や退職手当及び職員人件費等の経常経費の増が上回ったことにより、経常収支比率は前年度より2.1ポイント上昇した。",
+   "d": "類似団体内では上位に位置する。\n実質公債費比率は、主に元利償還金の減により、前年度比0.5ポイント改善した。\n単年度数値（2.71％）では、令和5年度（3.14％）に対し0.44ポイント改善した。",
+   "u": "平成20年度以降、着実に将来負担比率が改善し、平成26年度から充当可能財源等が将来負担額を上回るため「-」となる。\n令和6年度の将来負担額は、公営企業債等繰入見込額の減などにより、前年度比63億円の減。\n充当可能財源等は、減債基金の増などにより充当可能基金が前年度比62億円の増の一方、地方債現在高の減などにより、充当可能特定歳入100億円の減などにより、前年度比59億円減となった。",
+   "r": "（増減理由）\n財源不足を補うため40億円を取崩した一方、前年度決算剰余金45億円を積立てたことにより、年度末残高は前年度比5億円増の151億円\n（今後の方針）\n・基金残高についてコロナ禍前の水準を確保。"
+  },
+  "src": "https://www.soumu.go.jp/main_content/001063432.xlsx"
+ },
  "名古屋市": {
   "score": {
    "f": "財政力指数の分子である基準財政収入額は、市民税（個人・法人）や固定資産税等が前年度より増となり、全体で2億4,568万円の増となった。\nまた、分母となる基準財政需要額は、扶助費の増や臨時財政対策債の減額による振替相当額の増などにより、全体で6億7,548万6千円の増となり、結果として令和6年度の財政力指数（3か年平均）は横ばいとなった。\n市税収入は回復傾向にあり、基準財政収入額は今後も増加を見込む。また、基準財政需要額は、扶助費の上昇が予測されるが、現在、公債費が償還のピークにあり、需要額全体では緩やかに減少すると見込まれる。",
@@ -2799,7 +2809,6 @@
   "美浦村": "Excelが見つからない",
   "五霞町": "Excelが見つからない",
   "利根町": "Excelが見つからない",
-  "浜松市": "別の自治体のExcel",
   "香南市": "Excelが見つからない",
   "北川村": "Excelが見つからない",
   "大川村": "Excelが見つからない",
@@ -2817,41 +2826,12 @@
    "https://www.harp.lg.jp/opendata/dataset/2270.html",
    "https://www.harp.lg.jp/opendata/dataset/2269.html"
   ],
-  "秋田県": [
-   "https://www.pref.akita.lg.jp/pages/archive/94258"
-  ],
   "茨城県": [
    "https://www.pref.ibaraki.jp/somu/shichoson/zaisei/zaisei_jokyo_shiryoshu/r6.html",
    "https://www.pref.ibaraki.jp/somu/shichoson/zaisei/zaisei_jokyo_shiryoshu/ken/index.html",
    "https://www.pref.ibaraki.jp/somu/shichoson/zaisei/zaisei_jokyo_shiryoshu/kenkei/index.html",
    "https://www.pref.ibaraki.jp/somu/shichoson/zaisei/zaisei_jokyo_shiryoshu/gikai/index.html",
    "https://www.pref.ibaraki.jp/somu/shichoson/zaisei/zaisei_jokyo_shiryoshu/houdou/index.html"
-  ],
-  "埼玉県": [
-   "https://www.pref.saitama.lg.jp/a0107/zaiseitantou/zaiseijyoukyousiryousyu-r6nendo.html"
-  ],
-  "静岡県": [
-   "https://www.pref.shizuoka.jp/kensei/zaiseisuito/zaisei/1044537/1046000/1081111.html",
-   "https://www.pref.shizuoka.jp/kensei/zaiseisuito/zaisei/1044537/1046000/1012176.html",
-   "https://www.pref.shizuoka.jp/kensei/zaiseisuito/zaisei/1044537/1046000/1071186.html",
-   "https://www.pref.shizuoka.jp/kensei/zaiseisuito/zaisei/1044537/1046000/1062353.html",
-   "https://www.pref.shizuoka.jp/kensei/zaiseisuito/zaisei/1044537/1046000/1052939.html",
-   "https://www.pref.shizuoka.jp/kensei/zaiseisuito/zaisei/1044537/1046000/1012119.html",
-   "https://www.pref.shizuoka.jp/kensei/zaiseisuito/zaisei/1044537/1046000/1012199.html",
-   "https://www.pref.shizuoka.jp/kensei/zaiseisuito/zaisei/1044537/1046000/1012195.html"
-  ],
-  "徳島県": [
-   "https://www.pref.tokushima.lg.jp/ippannokata/kurashi/chihososei/2013041700035/"
-  ],
-  "香川県": [
-   "https://www.pref.kagawa.lg.jp/jichisin/zaisei/siryo/wfcvwp161110145228.html",
-   "https://www.pref.kagawa.lg.jp/jichisin/zaisei/koueikigyo/bapponntekikaikaku.html",
-   "https://www.pref.kagawa.lg.jp/jichisin/zaisei/wwsjr3160510110001.html",
-   "https://www.pref.kagawa.lg.jp/jichisin/zaisei/kessantoukei-kohyo/r5kessantoukei.html",
-   "https://www.pref.kagawa.lg.jp/jichisin/zaisei/chihosai/wowj4h160507153742.html",
-   "https://www.pref.kagawa.lg.jp/jichisin/zaisei/seisitu-saishutu/wbos83160507144355.html",
-   "https://www.pref.kagawa.lg.jp/jichisin/zaisei/mokuteki-saishutu/w7eopu160507141952.html",
-   "https://www.pref.kagawa.lg.jp/jichisin/zaisei/sainyu/wqp3e0160507123059.html"
   ],
   "高知県": [
    "https://www.pref.kochi.lg.jp/doc/2023100500131/",
@@ -2877,17 +2857,6 @@
   "美浦村": [],
   "五霞町": [],
   "利根町": [],
-  "浜松市": [
-   "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/012/176/222038aza_2014.xlsx",
-   "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/012/119/222038aza_2020.xlsx",
-   "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/012/199/222038aza_2019.xlsx",
-   "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/012/195/222038aza_2018.xlsx",
-   "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/012/193/222038aza_2017.xlsx",
-   "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/012/188/222038aza_2016.xlsx",
-   "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/012/177/222038aza_2015.xlsx",
-   "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/012/175/222038numazu_2013.xlsx",
-   "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/012/174/222038numazu_2012_1.xls"
-  ],
   "香南市": [],
   "北川村": [],
   "大川村": [],
@@ -2934,75 +2903,9 @@
    "title": "茨城県ホームページ（臨時ページ）",
    "text": " 茨城県ホームページ（臨時ページ） 茨城県ホームページ（臨時ページ） 現在、システム障害のため、茨城県のホームページを臨時のページで表示しています。ご不便をおかけしており、誠に申し訳ございません。 最終更新日時 2026年10月15日 15:00現在 県 警察 議会 教育委員会 &#9888; 緊急情報 現在、情報はありません。 茨城県庁・警察本部共通 手続き関係 ◆ いばらき電子申請・届出サービス 茨城県及び各市町村の申請・届出をわかりやすく表示し、電子申請を行うことができます。 本サービスでは、申請様式のダウンロードをすることも可能です。 トップ画面の「申請書ダウンロード」から、ご希望の手"
   },
-  "静岡県": {
-   "page": "https://www.pref.shizuoka.jp/kensei/zaiseisuito/zaisei/1044537/1046000/1081111.html",
-   "bytes": 34648,
-   "head": "<!DOCTYPE html>\n<html lang=\"ja\">\n<head prefix=\"og: http://ogp.me/ns# fb: http://ogp.me/ns/fb# article: http://ogp.me/ns/article#\">\n<meta charset=\"UTF-8\">\n<!-- Google tag (gtag.js) -->\r\n<script async src=\"https://www.googletagmanager.com/gtag/js?id=G-8LZFD1ET3R\"></script>\r\n<script>\r\nwindow.dataLayer ",
-   "links": 125,
-   "excel_links": 33,
-   "excel_sample": [
-    [
-     "沼津市 （Excel 811.9KB）",
-     "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/081/111/222038numazu_2024.xlsx"
-    ],
-    [
-     "熱海市 （Excel 837.7KB）",
-     "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/081/111/222054atami_2024.xlsx"
-    ],
-    [
-     "三島市 （Excel 857.4KB）",
-     "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/081/111/222062mishima_2024.xlsx"
-    ],
-    [
-     "富士宮市 （Excel 837.1KB）",
-     "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/081/111/222071fujinomiya_2024.xlsx"
-    ],
-    [
-     "伊東市 （Excel 898.2KB）",
-     "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/081/111/222089ito_2024.xlsx"
-    ]
-   ],
-   "name_in_page": false,
-   "xlsx_text_count": 33,
-   "title": "令和6年度財政状況資料集｜静岡県公式ホームページ",
-   "text": " 令和6年度財政状況資料集｜静岡県公式ホームページ 当ホームページではjavascriptを使用しています。 javascriptの使用を有効にしなければ、一部の機能が正確に動作しない恐れがあります。お手数ですがjavascriptの使用を有効にしてください。 エンターキーを押すと、ナビゲーション部分をスキップし本文へ移動します。 検索の方法 防災・緊急情報 閲覧補助 Foreign language English 中文（简化字） 中文（繁體字） 한국어 Português Tagalog Tiếng Việt ホーム 目的から探す 目的から探す 閉じる イベント 電子申請 オープンデータ・"
-  },
-  "香川県": {
-   "page": "https://www.pref.kagawa.lg.jp/jichisin/zaisei/siryo/wfcvwp161110145228.html",
-   "bytes": 26997,
-   "head": "<!doctype html>\n<html lang=\"ja\" xmlns:og=\"http://ogp.me/ns#\" xmlns:fb=\"http://www.facebook.com/2008/fbml\">\n<head>\n<meta charset=\"utf-8\">\n\n<title>������������������������������������������������</title>\n\n<meta name=\"author\" content=\"���������\">\n<meta property=\"og:title\" content=\"���������������������",
-   "links": 135,
-   "excel_links": 85,
-   "excel_sample": [
-    [
-     "R2（エクセル：788KB）",
-     "https://www.pref.kagawa.lg.jp/documents/2010/01takamatsu_2020.xlsx"
-    ],
-    [
-     "R3（エクセル：797KB）",
-     "https://www.pref.kagawa.lg.jp/documents/2010/01takamatsu_2021.xlsx"
-    ],
-    [
-     "R4（エクセル：828KB）",
-     "https://www.pref.kagawa.lg.jp/documents/2010/01takamatsu_2022.xlsx"
-    ],
-    [
-     "R5（エクセル：866KB）",
-     "https://www.pref.kagawa.lg.jp/documents/2010/01takamatsu_2023.xlsx"
-    ],
-    [
-     "R6（エクセル：872KB）",
-     "https://www.pref.kagawa.lg.jp/documents/2010/01takamatsu_2024.xlsx"
-    ]
-   ],
-   "name_in_page": true,
-   "xlsx_text_count": 85,
-   "title": "県内市町の財政状況資料集｜香川県",
-   "text": " 県内市町の財政状況資料集｜香川県 このサイトではJavaScriptを使用したコンテンツ・機能を提供しています。JavaScriptを有効にするとご利用いただけます。 本文へスキップします。 香川県 防災・安全 健康・福祉 子育て・教育・スポーツ 文化・観光 くらし・環境 社会基盤 しごと・産業 県政情報 文字サイズ・色合い変更 音声読み上げ &nbsp; &nbsp; メニュー 閉じる キーワードから探す 検索の仕方 ホーム &gt; 組織から探す &gt; 市町の財政 &gt; 県内市町の財政状況資料集 ツイート ページID：2010 公開日：2016年11月10日 ここから本文です。 "
-  },
   "高知県": {
    "page": "https://www.pref.kochi.lg.jp/doc/2023100500131/",
-   "bytes": 24708,
+   "bytes": 24709,
    "head": "<!DOCTYPE html>\n<html lang=\"ja\" prefix=\"og: http://ogp.me/ns#\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\" />\n  <title>��������������������������� | ���������</title>\n  <!-- Google Tag Manager -->\r\n<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'g",
    "links": 109,
    "excel_links": 0,
