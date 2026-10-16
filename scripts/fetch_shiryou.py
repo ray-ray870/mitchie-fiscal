@@ -472,6 +472,7 @@ LABELS = {"reserve": "財政調整基金", "debt": "実質公債費比率", "fut
 FAIL_REASON = {}   # 取れなかった理由（Summary の表に出す）
 TRIED = {}         # 都道府県ごとに、探したページ（Summary に出す手がかり）
 TRIED_FILES = {}   # 取れなかった自治体ごとに、試したファイル
+DIAG = {}          # 取れなかったときの詳しい手がかり（次に直すため。アプリは使わない）
 SCORE_LABELS = {"f": "比較_財政力指数", "x": "比較_経常収支比率", "d": "比較_実質公債費比率", "u": "比較_将来負担比率", "r": "財政調整基金"}
 
 
@@ -535,6 +536,13 @@ def collect(name, xlsx_bytes, fy_label, badge=True, moved=False, quiet=False, sr
             entry["score"] = sc
         else:
             FAIL_REASON[name] = "分析欄が見つからない"
+            try:
+                cl = sheet_cells(xlsx_bytes, "")
+            except Exception:
+                cl = {}
+            DIAG[name] = {"sheets": list(sheets.keys())[:40],
+                          "shape_labels": [it[3][:30] for its in sheets.values() for it in its if "分析" in it[3]][:15],
+                          "cell_labels": [(nm, it[0], it[1], it[3][:30]) for nm, its in cl.items() for it in its if "分析" in it[3]][:15]}
             if not quiet:
                 out(f"- ⚠️ {name}：財政比較分析表の分析欄が見つかりませんでした")
     return entry
@@ -566,6 +574,17 @@ def find_excel(name, pref, isp, links, pos_muni):
             uniq.append(c)
     if not uniq:
         FAIL_REASON[name] = "Excelが見つからない"
+    if not any(c[0] >= 5 for c in uniq) and pref not in DIAG:
+        try:
+            raw = get(pref_pages[0])
+            html = decode_html(raw)
+            ls = anchors(html, pref_pages[0])
+            xl = [(t, h) for t, h, p in ls if ".xls" in h.lower()]
+            DIAG[pref] = {"page": pref_pages[0], "bytes": len(raw), "head": raw[:300].decode("ascii", "replace"),
+                          "links": len(ls), "excel_links": len(xl), "excel_sample": xl[:5],
+                          "name_in_page": has_name(html, name), "xlsx_text_count": html.lower().count(".xls")}
+        except Exception as ex:
+            DIAG[pref] = {"page": pref_pages[0], "error": str(ex)}
     return uniq
 
 
@@ -606,8 +625,21 @@ def main():
     for name, pref, isp, d, u in targets:
         if detail or name in badge_names:
             out(f"### {name}")
+        ok = False
+        # 同じ年度で前回取れた自治体は、取り直さない（2026-10-16：全部取り直すと1時間以上かかるため。
+        # 取れなかった自治体だけを探し直す。年度が変われば前回の分は使わないので、年次更新では全部取り直す）
+        pe = prev.get(name)
+        if isinstance(pe, dict) and (name not in moved_names or "score" in pe) and (name not in badge_names or any(k in pe for k in LABELS)):
+            result[name] = pe
+            result_ok.add(name)
+            if name in badge_names:
+                out("- ↩️ 前回取り込んだ同じ年度の文章を使います")
+            if name in moved_names:
+                g = got_by_pref.setdefault(pref or name, [0, 0])
+                g[0] += 1
+                g[1] += 1
+            continue
         try:
-            ok = False
             cands = find_excel(name, pref, isp, links, pos_muni)
             for c in cands[:10]:   # よさそうな順に、名前と年度が合う Excel が見つかるまで（10まで）
                 try:
@@ -660,6 +692,7 @@ def main():
         result["_fail"] = {n: FAIL_REASON.get(n, "その他") for n, *_ in moved if n not in result_ok}
         result["_tried"] = {pf: TRIED[pf] for pf in TRIED}
         result["_tried_files"] = {n: TRIED_FILES[n] for n in TRIED_FILES if n in result["_fail"]}
+        result["_diag"] = DIAG
     path = DATA / "shiryou.json"
     path.write_text(json.dumps(result, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     n = len([k for k in result if not k.startswith("_")])
