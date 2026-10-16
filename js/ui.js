@@ -262,6 +262,67 @@
   function peerLine(medText) {
     return "似ている自治体の中央値は" + medText + "です";   // 比べた結果（高め・低め）は「→」の行に書く（重複させない）
   }
+  /* --- 総合スコアの「点数の動き」（2026-10-15）---
+     前の年度から、みっちーの体調が変わった年、または10点以上動いた年だけ、グラフのすぐ下に出す。
+     ・「主な理由」は、5つの指標のうち点数をいちばん大きく動かした指標（データから決まる。推測はしない）
+     ・最新の年度は、財政状況資料集に自治体自身が書いた、その指標の分析欄があれば、言い換えずにそのまま添える（shiryou.json の score）
+     ・その指標がなぜ動いたかは、アプリからは書かない */
+  var HK_STATE_LABEL = {happy: "絶好調", normal: "元気", tired: "ちょっとしんどい", sick: "ぐったり", critical: "ひんし"};
+  var HK_MOVE_IND = [
+    {k: "f", sk: "f", name: "財政力指数", plain: "税収でまかなえる度合い", up: "上がった", down: "下がった", fmt: function(v){ return v.toFixed(2); }, src: "財政力指数の分析欄"},
+    {k: "d", sk: "d", name: "実質公債費比率", plain: "借金返済の重さ", up: "上がった", down: "下がった", fmt: function(v){ return v.toFixed(1) + "%"; }, src: "実質公債費比率の分析欄"},
+    {k: "x", sk: "x", name: "経常収支比率", plain: "決まって出ていくお金の割合", up: "上がった", down: "下がった", fmt: function(v){ return v.toFixed(1) + "%"; }, src: "経常収支比率の分析欄"},
+    {k: "u", sk: "u", name: "将来負担比率", plain: "将来に残る負担の重さ", up: "上がった", down: "下がった", fmt: function(v){ return v <= 0 ? "「－」" : v.toFixed(1) + "%"; }, src: "将来負担比率の分析欄"},
+    {k: "rr", sk: "r", name: "財政調整基金", plain: "自治体の貯金", up: "増えた", down: "減った", fmt: function(v){ return v.toFixed(1) + "%"; }, src: "財政調整基金の増減理由・今後の方針", ratio: true}
+  ];
+  function hkScoreMoves(name, cur, isPref) {
+    if (!cur) return "";
+    var latest = DATA_YEAR.fiscal;
+    var yearOf = function(y){
+      var s = y === latest ? "" : "_r" + y, g = function(k){ return cur[k + s]; };
+      var f = g("f"), d = g("d"), x = g("x"), r = g("r"), u = g("u"), sfs = g("sfs");
+      if (f == null || d == null || x == null || r == null) return null;
+      if (sfs == null) sfs = cur.sfs;
+      var p = scoreBreakdown({f: f, d: d, x: x, u: u, r: r, sfs: sfs}, isPref);
+      return {p: p, sc: Math.round(Math.min(p.f + p.d + p.x + p.u + p.r, 100)),
+              v: {f: f, d: d, x: x, u: (u == null || u <= 0) ? 0 : u, rr: (sfs && sfs > 0) ? r / sfs * 100 : null}};
+    };
+    var lines = [], explained = {}, sub = "";
+    for (var y = latest; y >= 2; y--) {
+      var a = yearOf(y - 1), b = yearOf(y);
+      if (!a || !b) continue;
+      var sa = healthState(a.sc), sb = healthState(b.sc), dd = b.sc - a.sc;
+      if (sa === sb && Math.abs(dd) < 10) continue;
+      var best = null;
+      HK_MOVE_IND.forEach(function(m){ var c = b.p[m.sk] - a.p[m.sk]; if (best == null || Math.abs(c) > Math.abs(best.c)) best = {m: m, c: c}; });
+      var m = best.m, va = a.v[m.k], vb = b.v[m.k];
+      var head = reiwaText(y) + "度：" + (sa !== sb
+        ? "みっちーの体調が「" + HK_STATE_LABEL[sa] + "」から「" + HK_STATE_LABEL[sb] + "」に変わりました（" + a.sc + "→" + b.sc + "点）"
+        : Math.abs(dd) + "点" + (dd > 0 ? "上がりました" : "下がりました") + "（" + a.sc + "→" + b.sc + "点）");
+      var term = explained[m.k] ? m.name : m.name + "（" + m.plain + "）";
+      explained[m.k] = true;
+      var why = (va != null && vb != null && Math.abs(best.c) >= 0.5)
+        ? "主な理由は、" + term + (m.ratio ? "の割合" : "") + "が" + (vb > va ? m.up : m.down) + "ことです（" + m.fmt(va) + "→" + m.fmt(vb) + "）" : "";
+      var own = "";
+      var sh0 = (typeof SHIRYOU === "object" && SHIRYOU) ? SHIRYOU : null;
+      var sh = sh0 ? sh0[name] : null;
+      if (y === latest && why && sh && sh.score && sh.score[m.sk] && SHIRYOU._year === reiwaText(latest) + "度") {
+        var body = escapeHtml(sh.score[m.sk]).replace(/（(増減理由|今後の方針)）\n?/g, "<b style='color:#5a4a7a;'>（$1）</b>").replace(/\n/g, "<br>");
+        own = "<div style='background:#ffffff;border:1px solid #d8d5e8;border-radius:10px;padding:10px 12px;margin-top:8px;'>" +
+          "<div style='font-size:15px;font-weight:700;color:#3a2a6e;margin-bottom:4px;'>📄 " + escapeHtml(name) + "の説明（" + escapeHtml(SHIRYOU._year) + " 財政状況資料集の「" + m.src + "」より）</div>" +
+          "<div style='font-size:15px;color:#3a3a4a;line-height:1.8;'>" + body + "</div></div>";
+      } else if (y === latest && why && sh0 && sh0._year === reiwaText(latest) + "度" && sh0._fail && sh0._fail[name]) {
+        // 取り込もうとして取れなかった自治体だけ（2026-10-16 決定）。まだ取り込んでいない年度には出さない
+        own = "<div style='font-size:15px;color:#5a5a70;line-height:1.7;margin-top:6px;padding-left:1em;'>※財政状況資料集から、この自治体の説明を取り込めませんでした（PDFでしか公開されていない、公開しているサイトの障害、分析欄が書かれていない などのため）</div>";
+      }
+      if (!sub) sub = reiwaText(y) + "度：" + (sa !== sb ? "「" + HK_STATE_LABEL[sa] + "」→「" + HK_STATE_LABEL[sb] + "」" : "") + "（" + a.sc + "→" + b.sc + "点）";
+      lines.push("<div style='margin-top:10px;'><div style='font-size:15px;color:#2a2a3a;line-height:1.7;padding-left:1em;text-indent:-1em;'>・" + head + "。" + (why ? why : "") + "</div>" + own + "</div>");
+    }
+    if (!lines.length) return "";
+    // 説明が長くなるので、たたんで出す（2026-10-15）。たたんだ見出しの下に、いちばん新しい動きを1行で出す
+    if (lines.length > 1) sub += " ほか" + (lines.length - 1) + "件";
+    return hkFold("moves-health", "📈 点数の動き", sub, "<div style='margin-top:-8px;'>" + lines.join("") + "</div>");
+  }
   /* --- 総合スコアの「📝 点数を見るときのヒント」（2026-10-04 決定）---
      グラフの下にたたんで置く。都道府県は3つ目（この点数に入っていないこと）だけ。
      中央値（人口5千人未満の町や村の貯金の金額）は、データから毎回計算する */
@@ -789,6 +850,7 @@
      番号の決め方：大きな作り直し→左、機能の追加→真ん中、不具合の修正だけ→右 を1つ上げる。
      （みっちーの席くじと同じ考え方） */
   var APP_UPDATES = [
+    { version:"3.7.0", date:"2026.10", items:["総合スコアに「点数の動き」を追加"] },
     { version:"3.6.3", date:"2026.10", items:["総合スコアの推移の計算を改善"] },
     { version:"3.6.2", date:"2026.10", items:["比べ方の説明を改善"] },
     { version:"3.6.1", date:"2026.10", items:["説明の表示を改善"] },
@@ -1912,7 +1974,7 @@
       topSummaryHtml += sitBoxHtml(cur.ei>=cur.eo ? "#6dcfad" : cur.ei>=cur.eo*0.99 ? "#7bb8e8" : "#f0876a");
     }
     var hkCross = hkTakeCross(topSummaryHtml);
-    document.getElementById("shTop").innerHTML = hkMoreFold(key, descHtml) + rankHtml + hkCross.top; if (typeof hkPlaceChart === "function") hkPlaceChart(); document.getElementById("shDesc").innerHTML = hkHealthHint(key, isPrefView) + ((key==="debt"||key==="future"||key==="reserve") ? legalStatusBoxHtml(key, cur, isPrefView, curName) : "") + meyasu.html + (hkCross.cross ? hkFold("cross-" + key, "🔗 公会計と比べてみると", hkCross.sub, hkCross.cross) : "") + hkCross.caveat;
+    document.getElementById("shTop").innerHTML = hkMoreFold(key, descHtml) + rankHtml + hkCross.top; if (typeof hkPlaceChart === "function") hkPlaceChart(); document.getElementById("shDesc").innerHTML = (key === "health" ? hkScoreMoves(curName, cur, isPrefView) : "") + hkHealthHint(key, isPrefView) + ((key==="debt"||key==="future"||key==="reserve") ? legalStatusBoxHtml(key, cur, isPrefView, curName) : "") + meyasu.html + (hkCross.cross ? hkFold("cross-" + key, "🔗 公会計と比べてみると", hkCross.sub, hkCross.cross) : "") + hkCross.caveat;
     var shElAfter = document.querySelector("#ovEl .sh");
     if (shElAfter) shElAfter.scrollTop = 0;
     setTimeout(function(){ var s = document.querySelector("#ovEl .sh"); if (s) s.scrollTop = 0; }, 50);

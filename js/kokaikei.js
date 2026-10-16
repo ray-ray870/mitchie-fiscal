@@ -1072,7 +1072,7 @@ document.addEventListener("keydown", function (e) {
     return "<div style='background:#f6f5fb;border:1px solid #dcd8ec;border-radius:12px;margin-top:12px;overflow:hidden;'>" +
       "<div role='button' tabindex='0' aria-expanded='" + o + "' onclick=\"hkFoldToggle(this,'" + id + "')\" onkeydown=\"if(event.key==='Enter'||event.key===' '){event.preventDefault();hkFoldToggle(this,'" + id + "');}\" style='display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;padding:12px 14px;'>" +
         "<span><span style='display:block;font-size:16px;font-weight:700;color:#3a2a6e;'>" + title + "</span>" +
-        (sub ? "<span style='display:block;font-size:14px;color:#6a6a80;margin-top:2px;line-height:1.5;'>" + sub + "</span>" : "") + "</span>" +
+        (sub ? "<span class='hk-sub' style='display:" + (o ? "none" : "block") + ";font-size:14px;color:#6a6a80;margin-top:2px;line-height:1.5;'>" + sub + "</span>" : "") + "</span>" +
         "<span class='hk-tg' style='font-size:15px;color:#6a5aa8;flex-shrink:0;'>" + (o ? "▲" : "▼") + "</span></div>" +
       "<div class='hk-fc' style='display:" + (o ? "block" : "none") + ";padding:0 14px 14px;'>" + inner + "</div></div>";
   }
@@ -1080,6 +1080,8 @@ document.addEventListener("keydown", function (e) {
     var c = el.nextElementSibling, o = c.style.display === "none";
     c.style.display = o ? "block" : "none";
     el.querySelector(".hk-tg").textContent = o ? "▲" : "▼";
+    // 見出しの下の1行は、中身と同じことを書いているので、開いたら隠す（2026-10-15）
+    var sb = el.querySelector(".hk-sub"); if (sb) sb.style.display = o ? "none" : "block";
     el.setAttribute("aria-expanded", o ? "true" : "false");
     HK_FOLD_OPEN[id] = o;
   }
