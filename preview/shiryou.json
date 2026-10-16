@@ -2664,54 +2664,8 @@
    "https://www.harp.lg.jp/opendata/dataset/2270.html",
    "https://www.harp.lg.jp/opendata/dataset/2269.html"
   ],
-  "青森県": [
-   "https://www.pref.aomori.lg.jp/soshiki/zaimu/shichoson/2024_zaisei_shiryousyuu.html"
-  ],
-  "岩手県": [
-   "https://www.pref.iwate.jp/kensei/seisaku/shichouson/zaisei/joukyou/index.html",
-   "https://www.pref.iwate.jp/kensei/seisaku/shichouson/zaisei/joukyou/1097113.html",
-   "https://www.pref.iwate.jp/kensei/seisaku/shichouson/zaisei/joukyou/1018059.html",
-   "https://www.pref.iwate.jp/kensei/seisaku/shichouson/zaisei/joukyou/1082232.html",
-   "https://www.pref.iwate.jp/kensei/seisaku/shichouson/zaisei/joukyou/1073053.html",
-   "https://www.pref.iwate.jp/kensei/seisaku/shichouson/zaisei/joukyou/1063639.html",
-   "https://www.pref.iwate.jp/kensei/seisaku/shichouson/zaisei/joukyou/1053314.html",
-   "https://www.pref.iwate.jp/kensei/seisaku/shichouson/zaisei/joukyou/1040859.html"
-  ],
-  "福島県": [
-   "https://www.pref.fukushima.lg.jp/sec/01145b/06dantaibetsu-index.html",
-   "https://www.pref.fukushima.lg.jp/sec/01145b/",
-   "https://www.pref.fukushima.lg.jp/",
-   "https://www.pref.fukushima.lg.jp/site/userguide/",
-   "https://www.pref.fukushima.lg.jp/sec/01010d/foreign.html",
-   "https://www.pref.fukushima.lg.jp/sitemap.html",
-   "https://www.pref.fukushima.lg.jp/sec/",
-   "https://www.pref.fukushima.lg.jp/calendar/"
-  ],
-  "宮城県": [
-   "https://www.pref.miyagi.jp/soshiki/sichouson/mieruka.html"
-  ],
   "秋田県": [
    "https://www.pref.akita.lg.jp/pages/archive/94258"
-  ],
-  "山形県": [
-   "https://www.pref.yamagata.jp/020024/kensei/information/zaisei/zaiseijoukyou/shiryo06.html",
-   "https://www.pref.yamagata.jp/020024/kensei/information/zaisei/zaiseijoukyou/siryou26.html",
-   "https://www.pref.yamagata.jp/020024/kensei/information/zaisei/zaiseijoukyou/siryou28.html",
-   "https://www.pref.yamagata.jp/020024/kensei/information/zaisei/zaiseijoukyou/siryou29.html",
-   "https://www.pref.yamagata.jp/020024/kensei/information/zaisei/zaiseijoukyou/siryou30.html",
-   "https://www.pref.yamagata.jp/020024/kensei/information/zaisei/zaiseijoukyou/siryou01.html",
-   "https://www.pref.yamagata.jp/020024/kensei/information/zaisei/zaiseijoukyou/siryou02.html",
-   "https://www.pref.yamagata.jp/020024/kensei/information/zaisei/zaiseijoukyou/shiryo03.html"
-  ],
-  "神奈川県": [
-   "https://www.pref.kanagawa.jp/docs/v2x/cnt/f360417/p1223752.html",
-   "https://www.pref.kanagawa.jp/menu/6/29/155/index.html",
-   "https://www.pref.kanagawa.jp/div/0103/index.html",
-   "https://www.pref.kanagawa.jp/translate.html?p=/docs/v2x/cnt/f360417/p1223752.html",
-   "https://www.pref.kanagawa.jp/master/index.html",
-   "https://www.pref.kanagawa.jp/index.html",
-   "https://www.pref.kanagawa.jp/emergency/index.html",
-   "https://www.pref.kanagawa.jp/search/index.html"
   ],
   "茨城県": [
    "https://www.pref.ibaraki.jp/somu/shichoson/zaisei/zaisei_jokyo_shiryoshu/r6.html",
@@ -2719,46 +2673,6 @@
    "https://www.pref.ibaraki.jp/somu/shichoson/zaisei/zaisei_jokyo_shiryoshu/kenkei/index.html",
    "https://www.pref.ibaraki.jp/somu/shichoson/zaisei/zaisei_jokyo_shiryoshu/gikai/index.html",
    "https://www.pref.ibaraki.jp/somu/shichoson/zaisei/zaisei_jokyo_shiryoshu/houdou/index.html"
-  ],
-  "栃木県": [
-   "https://www.pref.tochigi.lg.jp/a02/pref/shichouson/zaisei/r06zaiseijoukyou.html",
-   "https://www.pref.tochigi.lg.jp/a02/pref/shichouson/zaisei/h26zaiseisiryousyu.html",
-   "https://www.pref.tochigi.lg.jp/a02/pref/shichouson/zaisei/r05zaiseijoukyou.html",
-   "https://www.pref.tochigi.lg.jp/a02/pref/shichouson/zaisei/r04zaiseijoukyou.html",
-   "https://www.pref.tochigi.lg.jp/a02/pref/shichouson/zaisei/r03zaiseijoukyou.html",
-   "https://www.pref.tochigi.lg.jp/a02/pref/shichouson/zaisei/r02zaiseijoukyou.html",
-   "https://www.pref.tochigi.lg.jp/a02/pref/shichouson/zaisei/r01zaiseisiryousyu.html",
-   "https://www.pref.tochigi.lg.jp/a02/pref/shichouson/zaisei/h30zaiseisiryousyu.html"
-  ],
-  "千葉県": [
-   "https://www.pref.chiba.lg.jp/shichou/zaisei/zaiseijouhou/r6-zaiseijokyou.html",
-   "https://www.pref.chiba.lg.jp/cate/kt/goannnai/chiiki/shichouson/index.html",
-   "https://www.pref.chiba.lg.jp/shichou/zaisei/index.html",
-   "https://www.pref.chiba.lg.jp/shichou/zaisei/zaiseijouhou/index.html",
-   "https://www.pref.chiba.lg.jp/shichou/gyousei/shokuin-kyuuyo/index.html",
-   "https://www.pref.chiba.lg.jp/shichou/",
-   "https://www.pref.chiba.lg.jp/index.html",
-   "https://www.pref.chiba.lg.jp/international/index.html"
-  ],
-  "東京都": [
-   "https://www.soumu.metro.tokyo.lg.jp/05gyousei/04kusichousonindex/04kusichousonzaisei",
-   "https://www.soumu.metro.tokyo.lg.jp/05gyousei/dantaibetsu.html",
-   "https://www.soumu.metro.tokyo.lg.jp/05gyousei/kita.html",
-   "https://www.soumu.metro.tokyo.lg.jp/05gyousei/04kusichousonindex/04kusichousonzaisei/dantaibetsu",
-   "https://www.soumu.metro.tokyo.lg.jp/05gyousei/04kusichousonindex/04kusichousonzaisei/years",
-   "https://www.soumu.metro.tokyo.lg.jp/05gyousei/06nend.html",
-   "https://www.soumu.metro.tokyo.lg.jp/05gyousei/04kusichousonindex/04tokubetsukuzaiseichouseikouhukin/c",
-   "https://www.soumu.metro.tokyo.lg.jp/05gyousei/04kusichousonindex"
-  ],
-  "群馬県": [
-   "https://www.pref.gunma.jp/site/shichousonzai/749582.html",
-   "https://www.pref.gunma.jp/site/shichousonzai/list42-295.html",
-   "https://www.pref.gunma.jp/site/shichousonzai/list36-265.html",
-   "https://www.pref.gunma.jp/site/shichousonzai/list33-60570.html",
-   "https://www.pref.gunma.jp/page/649386.html",
-   "https://www.pref.gunma.jp/site/shichousonzai/list35-60562.html",
-   "https://www.pref.gunma.jp/site/shichousonzai/list40-60629.html",
-   "https://www.pref.gunma.jp/site/shichousonzai/"
   ],
   "埼玉県": [
    "https://www.pref.saitama.lg.jp/a0107/zaiseitantou/zaiseijyoukyousiryousyu-r6nendo.html"
@@ -2773,136 +2687,6 @@
    "https://www.pref.shizuoka.jp/kensei/zaiseisuito/zaisei/1044537/1046000/1012199.html",
    "https://www.pref.shizuoka.jp/kensei/zaiseisuito/zaisei/1044537/1046000/1012195.html"
   ],
-  "愛知県": [
-   "https://www.pref.aichi.jp/soshiki/shichoson/0000061122.html",
-   "https://www.pref.aichi.jp/soshiki/shichoson/0000054848.html",
-   "https://www.pref.aichi.jp/life/6/37/",
-   "https://www.pref.aichi.jp/life/6/37/118/",
-   "https://www.pref.aichi.jp/life/7/48/170/",
-   "https://www.pref.aichi.jp/",
-   "https://www.pref.aichi.jp/site/userguide/auto-translation.html",
-   "https://www.pref.aichi.jp/site/userguide/multilingual-translation.html"
-  ],
-  "山梨県": [
-   "https://www.pref.yamanashi.jp/zaisei-k/tt.html",
-   "https://www.pref.yamanashi.jp/zaisei-k/r6zaiseijyoukyoushiryousyu.html",
-   "https://www.pref.yamanashi.jp/zaisei-k/h26zaisei_s.html",
-   "https://www.pref.yamanashi.jp/zaisei-k/r5zaiseijyoukyoushiryousyu.html",
-   "https://www.pref.yamanashi.jp/zaisei-k/r4zaiseijyoukyoushiryousyu.html",
-   "https://www.pref.yamanashi.jp/zaisei-k/r3zaiseijyoukyoushiryousyu.html",
-   "https://www.pref.yamanashi.jp/zaisei-k/r2zaiseijyoukyoushiryousyu.html",
-   "https://www.pref.yamanashi.jp/zaisei-k/r1zaiseijyoukyoushiryousyu.html"
-  ],
-  "岐阜県": [
-   "https://www.pref.gifu.lg.jp/page/56574.html",
-   "https://www.pref.gifu.lg.jp/page/488987.html",
-   "https://www.pref.gifu.lg.jp/page/14732.html",
-   "https://www.pref.gifu.lg.jp/page/488514.html",
-   "https://www.pref.gifu.lg.jp/page/14399.html",
-   "https://www.pref.gifu.lg.jp/page/487824.html",
-   "https://www.pref.gifu.lg.jp/page/14396.html",
-   "https://www.pref.gifu.lg.jp/page/422551.html"
-  ],
-  "新潟県": [
-   "https://www.pref.niigata.lg.jp/sec/shichouson/zaiseijyoukyou-shiryousyuu-r6.html",
-   "https://www.pref.niigata.lg.jp/life/7/37/",
-   "https://www.pref.niigata.lg.jp/sec/shichouson/",
-   "https://www.pref.niigata.lg.jp/site/userguide/",
-   "https://www.pref.niigata.lg.jp/site/kyotsu/biz.html",
-   "https://www.pref.niigata.lg.jp/site/multilingual/",
-   "https://www.pref.niigata.lg.jp/",
-   "https://www.pref.niigata.lg.jp/life/1/1/"
-  ],
-  "富山県": [
-   "https://www.pref.toyama.jp/140403/r6zaiseijoukyou.html"
-  ],
-  "福井県": [
-   "https://www.pref.fukui.lg.jp/doc/sityousinkou/r06zaiseisiryoushuu.html"
-  ],
-  "長野県": [
-   "https://www.pref.nagano.lg.jp/shichoson/kensei/shichoson/zaise/shiryo/index.html",
-   "https://www.pref.nagano.lg.jp/shichoson/kensei/shichoson/zaise/shiryo/r6zaiseishiryoshu.html"
-  ],
-  "兵庫県": [
-   "https://web.pref.hyogo.lg.jp/kk25/zaiseijoukyoushiryou06.html",
-   "https://web.pref.hyogo.lg.jp/kk25/zaiseijoukyoushiryou05.html",
-   "https://web.pref.hyogo.lg.jp/pref/cate3_663.html",
-   "https://web.pref.hyogo.lg.jp/kk25/pa05_000000120.html",
-   "https://web.pref.hyogo.lg.jp/kk25/zaiseizyoukyou.html",
-   "https://web.pref.hyogo.lg.jp/index.html",
-   "https://web.pref.hyogo.lg.jp/cnavi/cnavi_kanri.html",
-   "https://web.pref.hyogo.lg.jp/search/about.html"
-  ],
-  "三重県": [
-   "https://www.pref.mie.lg.jp/common/07/ci600017045.htm",
-   "https://www.pref.mie.lg.jp/SHICHOS/HP/89248000001_00015.htm",
-   "https://www.pref.mie.lg.jp/SHICHOS/HP/89248000001_00014.htm",
-   "https://www.pref.mie.lg.jp/common/07/ci600003935.htm",
-   "https://www.pref.mie.lg.jp/common/07/ci600012489.htm",
-   "https://www.pref.mie.lg.jp/s_kensei/kensei/ci300000444.htm",
-   "https://www.pref.mie.lg.jp/common/07/ci400000245.htm",
-   "https://www.pref.mie.lg.jp/common/07/ci500003931.htm"
-  ],
-  "滋賀県": [
-   "https://www.pref.shiga.lg.jp/kensei/zaiseikaikei/shicyou/349494.html",
-   "https://www.pref.shiga.lg.jp/bh00/23158.html",
-   "https://www.pref.shiga.lg.jp/menu/27194.html",
-   "https://www.pref.shiga.lg.jp/bh00/9197.html",
-   "https://www.pref.shiga.lg.jp/bh00/9198.html",
-   "https://www.pref.shiga.lg.jp/bh00/9199.html",
-   "https://www.pref.shiga.lg.jp/bh00/9200.html",
-   "https://www.pref.shiga.lg.jp/bh00/9201.html"
-  ],
-  "京都府": [
-   "https://www.pref.kyoto.jp/tiho/zaisei.html",
-   "https://www.pref.kyoto.jp/tiho/06zaiseijoukyou.html"
-  ],
-  "大阪府": [
-   "https://www.pref.osaka.lg.jp/o040050/shichoson/zaiseijoukyo/06zaiseijoukyo.html",
-   "https://www.pref.osaka.lg.jp/o040050/shichoson/zaiseijoukyo/05zaiseijyoukyo.html",
-   "https://www.pref.osaka.lg.jp/o040050/shichoson/zaiseijoukyo/01zaiseijyoukyou.html",
-   "https://www.pref.osaka.lg.jp/o040050/shichoson/zaiseijoukyo/02zaiseijyoukyou.html",
-   "https://www.pref.osaka.lg.jp/o040050/shichoson/zaiseijoukyo/03zaiseijyoukyou.html",
-   "https://www.pref.osaka.lg.jp/o040050/shichoson/zaiseijoukyo/04zaiseijyoukyo.html",
-   "https://www.pref.osaka.lg.jp/o040050/shichoson/zaiseijoukyo/shiryosyu.html",
-   "https://www.pref.osaka.lg.jp/fuseiunei/shichouson/index.html"
-  ],
-  "奈良県": [
-   "https://www.pref.nara.lg.jp/n006/p152004.html",
-   "https://www.pref.nara.lg.jp/n006/p152008.html",
-   "https://www.pref.nara.lg.jp/kenseijouhou/chiikishinkou/shichousonshien/index.html",
-   "https://www.pref.nara.lg.jp/kenseijouhou/chiikishinkou/shichousonshien/zaisei/index.html",
-   "https://www.pref.nara.lg.jp/n006/2013.html",
-   "https://www.pref.nara.lg.jp/n006/p152000.html",
-   "https://www.pref.nara.lg.jp/index.html",
-   "https://www.pref.nara.lg.jp/language/languages.html"
-  ],
-  "島根県": [
-   "https://www.pref.shimane.lg.jp/admin/sichoson/sichoson_info/zaisei/shiryousyuu/R6.html"
-  ],
-  "岡山県": [
-   "https://www.pref.okayama.jp/page/884702.html",
-   "https://www.pref.okayama.jp/soshiki/17/",
-   "https://www.pref.okayama.jp/",
-   "https://www.pref.okayama.jp/page/842694.html",
-   "https://www.pref.okayama.jp/page/407495.html",
-   "https://www.pref.okayama.jp/site/100/",
-   "https://www.pref.okayama.jp/life/6/",
-   "https://www.pref.okayama.jp/page/detail-17177.html"
-  ],
-  "広島県": [
-   "https://www.pref.hiroshima.lg.jp/soshiki/36/r06zaiseijoukyou.html",
-   "https://www.pref.hiroshima.lg.jp/soshiki/36/",
-   "https://www.pref.hiroshima.lg.jp/",
-   "https://www.pref.hiroshima.lg.jp/site/userguide/keyword.html",
-   "https://www.pref.hiroshima.lg.jp/soshiki/",
-   "https://www.pref.hiroshima.lg.jp/sitemap.html",
-   "https://www.pref.hiroshima.lg.jp/site/english/",
-   "https://www.pref.hiroshima.lg.jp/site/spanish/"
-  ],
-  "山口県": [
-   "https://www.pref.yamaguchi.lg.jp/soshiki/31/340223.html"
-  ],
   "徳島県": [
    "https://www.pref.tokushima.lg.jp/ippannokata/kurashi/chihososei/2013041700035/"
   ],
@@ -2916,16 +2700,6 @@
    "https://www.pref.kagawa.lg.jp/jichisin/zaisei/mokuteki-saishutu/w7eopu160507141952.html",
    "https://www.pref.kagawa.lg.jp/jichisin/zaisei/sainyu/wqp3e0160507123059.html"
   ],
-  "愛媛県": [
-   "https://www.pref.ehime.jp/page/140353.html",
-   "https://www.pref.ehime.jp/soshiki/7/",
-   "https://www.pref.ehime.jp/",
-   "https://www.pref.ehime.jp/site/userguide/38033.html",
-   "https://www.pref.ehime.jp/soshiki/",
-   "https://www.pref.ehime.jp/site/userguide/38120.html",
-   "https://www.pref.ehime.jp/adv/ba.php?id=13",
-   "https://www.pref.ehime.jp/adv/ba.php?id=14"
-  ],
   "高知県": [
    "https://www.pref.kochi.lg.jp/doc/2023100500131/",
    "https://www.pref.kochi.lg.jp/soshiki/110000/111701/",
@@ -2935,72 +2709,6 @@
    "https://www.pref.kochi.lg.jp/category/bunya/kurashi/",
    "https://www.pref.kochi.lg.jp/category/bunya/kurashi/bosai_anzen/",
    "https://www.pref.kochi.lg.jp/category/bunya/kurashi/machizukuri_infra/"
-  ],
-  "熊本県": [
-   "https://www.pref.kumamoto.jp/soshiki/12/262179.html",
-   "https://www.pref.kumamoto.jp/soshiki/12/",
-   "https://www.pref.kumamoto.jp/index2.html",
-   "https://www.pref.kumamoto.jp/life/1/",
-   "https://www.pref.kumamoto.jp/life/1/1/",
-   "https://www.pref.kumamoto.jp/life/1/2/",
-   "https://www.pref.kumamoto.jp/life/1/3/",
-   "https://www.pref.kumamoto.jp/life/1/4/"
-  ],
-  "佐賀県": [
-   "https://www.pref.saga.lg.jp/kiji003118621/index.html",
-   "https://www.pref.saga.lg.jp/list00654.html",
-   "https://www.pref.saga.lg.jp/list03435.html",
-   "https://www.pref.saga.lg.jp/list04489.html",
-   "https://www.pref.saga.lg.jp/default.html",
-   "https://www.pref.saga.lg.jp/bousai/default.html",
-   "https://www.pref.saga.lg.jp/list00500.html",
-   "https://www.pref.saga.lg.jp/list00546.html"
-  ],
-  "福岡県": [
-   "https://www.pref.fukuoka.lg.jp/contents/zaiseisiryosyur6.html",
-   "https://www.pref.fukuoka.lg.jp/life/8/54/391/",
-   "https://www.pref.fukuoka.lg.jp/life/8/61/",
-   "https://www.pref.fukuoka.lg.jp/life/8/61/265/",
-   "https://www.pref.fukuoka.lg.jp/life/8/61/266/",
-   "https://www.pref.fukuoka.lg.jp/life/8/61/267/",
-   "https://www.pref.fukuoka.lg.jp/soshiki/4230020/",
-   "https://www.pref.fukuoka.lg.jp/"
-  ],
-  "長崎県": [
-   "https://www.pref.nagasaki.jp/doc/45114.html",
-   "https://www.pref.nagasaki.jp/bunrui/kenseijoho/zaiseijoho/",
-   "https://www.pref.nagasaki.jp/organization/chiikishinkobu/shicho/",
-   "https://www.pref.nagasaki.jp/bunrui/kenseijoho/zaiseijoho/zaiseijoho/",
-   "https://www.pref.nagasaki.jp/bunrui/kenseijoho/zaiseijoho/zaiseijoho/sicho_gyosei/",
-   "https://www.pref.nagasaki.jp/",
-   "https://www.pref.nagasaki.jp/bunrui/anzen-anshin/bosai-kokuminhogo/",
-   "https://www.pref.nagasaki.jp/bunrui/anzen-anshin/anzen-anshinmachidukuri/"
-  ],
-  "大分県": [
-   "https://www.pref.oita.jp/soshiki/11650/zaisei-01.html",
-   "http://www.soumu.go.jp/iken/zaisei/jyoukyou_shiryou/index.html",
-   "https://www.pref.oita.jp/soshiki/11650/",
-   "https://www.pref.oita.jp/site/bosaiportal/",
-   "https://www.pref.oita.jp/",
-   "https://www.pref.oita.jp/site/userguide/",
-   "https://www.pref.oita.jp/site/userguide/other-languages.html",
-   "https://www.pref.oita.jp/soshiki/10400/soudanmadoguchi.html"
-  ],
-  "宮崎県": [
-   "https://www.pref.miyazaki.lg.jp/kense/shichoson/joho/shiryo/index.html",
-   "https://www.pref.miyazaki.lg.jp/shichoson/kense/shichoson/20260317105750.html",
-   "https://www.pref.miyazaki.lg.jp/shichoson/kense/shichoson/20240306142400.html"
-  ],
-  "鹿児島県": [
-   "http://www.pref.kagoshima.jp/ab08/kensei/shityoson/zaisei/zaiseijoukyo.html",
-   "http://www.pref.kagoshima.jp/ab08/kensei/shityoson/zaisei/r06zaiseishiryoushu.html",
-   "http://www.pref.kagoshima.jp/ab08/kensei/shityoson/zaisei/zaisei_h26kessann.html",
-   "http://www.pref.kagoshima.jp/ab08/kensei/shityoson/zaisei/r05zaiseishiryoushu.html",
-   "http://www.pref.kagoshima.jp/ab08/kensei/shityoson/zaisei/r04zaiseishiryoushu.html"
-  ],
-  "沖縄県": [
-   "https://www.pref.okinawa.lg.jp/kensei/shinko/1016703/1016705/1016706/1022600/1016725/index.html",
-   "https://www.pref.okinawa.lg.jp/kensei/shinko/1016703/1016705/1016706/1022600/1016725/1039311.html"
   ]
  },
  "_tried_files": {
@@ -3107,5 +2815,555 @@
   "大川村": [],
   "佐川町": [],
   "日高村": []
+ },
+ "_diag": {
+  "長沼町": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "小坂町": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "猿払村": {
+   "sheets": [
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [
+    "（12）市町村公会計指標分析／財政指標組合せ分析表",
+    "有形固定資産減価償却率の分析欄",
+    "債務償還比率の分析欄",
+    "(13)-1市町村施設類型別ストック情報分析表①",
+    "施設情報の分析欄",
+    "(13)-2市町村施設類型別ストック情報分析表②",
+    "施設情報の分析欄"
+   ],
+   "cell_labels": []
+  },
+  "滝上町": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "安平町": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": []
+  },
+  "せたな町": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "標茶町": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "茨城県": {
+   "page": "https://www.pref.ibaraki.jp/somu/shichoson/zaisei/zaisei_jokyo_shiryoshu/r6.html",
+   "bytes": 108865,
+   "head": "\r\n\r\n<!doctype html>\r\n<html lang=\"ja\">\r\n<head>\r\n  <meta charset=\"utf-8\">\r\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\r\n  <meta name=\"robots\" content=\"noindex, nofollow\">\r\n  <title>������������������������������������������������</title>\r\n  <!-- Single-file version: styles a",
+   "links": 47,
+   "excel_links": 0,
+   "excel_sample": [],
+   "name_in_page": false,
+   "xlsx_text_count": 0
+  },
+  "東秩父村": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "静岡県": {
+   "page": "https://www.pref.shizuoka.jp/kensei/zaiseisuito/zaisei/1044537/1046000/1081111.html",
+   "bytes": 34649,
+   "head": "<!DOCTYPE html>\n<html lang=\"ja\">\n<head prefix=\"og: http://ogp.me/ns# fb: http://ogp.me/ns/fb# article: http://ogp.me/ns/article#\">\n<meta charset=\"UTF-8\">\n<!-- Google tag (gtag.js) -->\r\n<script async src=\"https://www.googletagmanager.com/gtag/js?id=G-8LZFD1ET3R\"></script>\r\n<script>\r\nwindow.dataLayer ",
+   "links": 125,
+   "excel_links": 33,
+   "excel_sample": [
+    [
+     "沼津市 （Excel 811.9KB）",
+     "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/081/111/222038numazu_2024.xlsx"
+    ],
+    [
+     "熱海市 （Excel 837.7KB）",
+     "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/081/111/222054atami_2024.xlsx"
+    ],
+    [
+     "三島市 （Excel 857.4KB）",
+     "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/081/111/222062mishima_2024.xlsx"
+    ],
+    [
+     "富士宮市 （Excel 837.1KB）",
+     "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/081/111/222071fujinomiya_2024.xlsx"
+    ],
+    [
+     "伊東市 （Excel 898.2KB）",
+     "https://www.pref.shizuoka.jp/_res/projects/default_project/_page_/001/081/111/222089ito_2024.xlsx"
+    ]
+   ],
+   "name_in_page": false,
+   "xlsx_text_count": 33
+  },
+  "磐田市": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "掛川市": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "御殿場市": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "下田市": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "裾野市": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "伊豆市": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "小松島市": {
+   "sheets": [
+    "普通会計の状況",
+    "財政比較分析表",
+    "経常経費分析表（経常収支比率の分析）",
+    "経常経費分析表（人件費・公債費・普通建設事業費の分析）",
+    "性質別歳出決算分析表（住民一人当たりのコスト）",
+    "目的別歳出決算分析表（住民一人当たりのコスト）",
+    "実質収支比率等に係る経年分析",
+    "連結実質赤字比率に係る赤字・黒字の構成分析",
+    "実質公債費比率（分子）の構造",
+    "将来負担比率（分子）の構造",
+    "基金残高に係る経年分析",
+    "公会計指標分析・財政指標組合せ分析表",
+    "施設類型別ストック情報分析表①",
+    "施設類型別ストック情報分析表②"
+   ],
+   "shape_labels": [],
+   "cell_labels": [
+    [
+     "データシート",
+     23,
+     0,
+     "連結実質赤字比率に係る赤字・黒字の構成分析"
+    ],
+    [
+     "データシート",
+     69,
+     0,
+     "基金残高に係る経年分析"
+    ]
+   ]
+  },
+  "香川県": {
+   "page": "https://www.pref.kagawa.lg.jp/jichisin/zaisei/siryo/wfcvwp161110145228.html",
+   "bytes": 26997,
+   "head": "<!doctype html>\n<html lang=\"ja\" xmlns:og=\"http://ogp.me/ns#\" xmlns:fb=\"http://www.facebook.com/2008/fbml\">\n<head>\n<meta charset=\"utf-8\">\n\n<title>������������������������������������������������</title>\n\n<meta name=\"author\" content=\"���������\">\n<meta property=\"og:title\" content=\"���������������������",
+   "links": 135,
+   "excel_links": 85,
+   "excel_sample": [
+    [
+     "R2（エクセル：788KB）",
+     "https://www.pref.kagawa.lg.jp/documents/2010/01takamatsu_2020.xlsx"
+    ],
+    [
+     "R3（エクセル：797KB）",
+     "https://www.pref.kagawa.lg.jp/documents/2010/01takamatsu_2021.xlsx"
+    ],
+    [
+     "R4（エクセル：828KB）",
+     "https://www.pref.kagawa.lg.jp/documents/2010/01takamatsu_2022.xlsx"
+    ],
+    [
+     "R5（エクセル：866KB）",
+     "https://www.pref.kagawa.lg.jp/documents/2010/01takamatsu_2023.xlsx"
+    ],
+    [
+     "R6（エクセル：872KB）",
+     "https://www.pref.kagawa.lg.jp/documents/2010/01takamatsu_2024.xlsx"
+    ]
+   ],
+   "name_in_page": true,
+   "xlsx_text_count": 85
+  },
+  "高知県": {
+   "page": "https://www.pref.kochi.lg.jp/doc/2023100500131/",
+   "bytes": 24709,
+   "head": "<!DOCTYPE html>\n<html lang=\"ja\" prefix=\"og: http://ogp.me/ns#\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\" />\n  <title>��������������������������� | ���������</title>\n  <!-- Google Tag Manager -->\r\n<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'g",
+   "links": 109,
+   "excel_links": 0,
+   "excel_sample": [],
+   "name_in_page": false,
+   "xlsx_text_count": 0
+  }
  }
 }
