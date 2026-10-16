@@ -102,7 +102,10 @@ def name_variants(name):
 
 
 def has_name(text, name):
-    return any(v in text for v in name_variants(name))
+    if any(v in text for v in name_variants(name)):
+        return True
+    t = re.sub(r"\s|&nbsp;|&#160;|&#12288;", "", text)
+    return any(v in t for v in name_variants(name))
 
 
 def _score(e, sfx, pref):
@@ -211,21 +214,30 @@ def shapes_by_sheet(xlsx_bytes):
             srels = z.read(f"xl/worksheets/_rels/{sheet_file}.rels").decode("utf-8")
         except KeyError:
             continue
-        d = re.search(r'Target="\.\./drawings/(drawing\d+\.xml)"', srels)
-        if not d:
-            continue
-        xml = z.read("xl/drawings/" + d.group(1)).decode("utf-8")
+        # 図形の書き方は、Excel以外のソフトで保存されたファイルだと少し違う（2026-10-16：静岡県・北海道などで
+        # 図形が1つも読めていなかった）。名前の前の「xdr:」などの有無・改行・パスの書き方・古い形式（VML）にも対応する
         items = []
-        for a in re.findall(r"<xdr:(?:twoCellAnchor|oneCellAnchor)[\s>].*?</xdr:(?:twoCellAnchor|oneCellAnchor)>", xml, re.S):
-            fr = re.search(r"<xdr:from><xdr:col>(\d+)</xdr:col>.*?<xdr:row>(\d+)</xdr:row>", a, re.S)
-            to = re.search(r"<xdr:to><xdr:col>(\d+)</xdr:col>.*?<xdr:row>(\d+)</xdr:row>", a, re.S)
-            paras = []
-            for pp in re.findall(r"<a:p[\s>].*?</a:p>", a, re.S):
-                t = "".join(re.findall(r"<a:t(?:\s[^>]*)?>(.*?)</a:t>", pp, re.S))
-                if t.strip():
-                    paras.append(unescape(t).strip())
-            if fr and paras:
-                items.append((int(fr.group(2)), int(fr.group(1)), int(to.group(2)) if to else int(fr.group(2)), "\n".join(paras)))
+        for tg in re.findall(r'Target="([^"]*drawings/(?:vmlDrawing|drawing)[^"/]*)"', srels):
+            path = "xl/drawings/" + tg.split("/")[-1]
+            try:
+                xml = z.read(path).decode("utf-8", "replace")
+            except KeyError:
+                continue
+            if path.endswith(".vml"):
+                items += vml_items(xml)
+                continue
+            for a in re.findall(r"<(?:\w+:)?(?:twoCellAnchor|oneCellAnchor)[\s>].*?</(?:\w+:)?(?:twoCellAnchor|oneCellAnchor)>", xml, re.S):
+                fr = re.search(r"<(?:\w+:)?from>\s*<(?:\w+:)?col>(\d+)</(?:\w+:)?col>.*?<(?:\w+:)?row>(\d+)</(?:\w+:)?row>", a, re.S)
+                to = re.search(r"<(?:\w+:)?to>\s*<(?:\w+:)?col>(\d+)</(?:\w+:)?col>.*?<(?:\w+:)?row>(\d+)</(?:\w+:)?row>", a, re.S)
+                paras = []
+                for pp in re.findall(r"<(?:\w+:)?p[\s>](?:(?!<(?:\w+:)?p[\s>]).)*?</(?:\w+:)?p>", a, re.S):
+                    t = "".join(re.findall(r"<(?:\w+:)?t(?:\s[^>]*)?>(.*?)</(?:\w+:)?t>", pp, re.S))
+                    if t.strip():
+                        paras.append(unescape(t).strip())
+                if fr and paras:
+                    items.append((int(fr.group(2)), int(fr.group(1)), int(to.group(2)) if to else int(fr.group(2)), "\n".join(paras)))
+        if not items and not re.search(r"drawings/", srels):
+            continue
         res[unescape(nm.group(1))] = items
     return res
 
@@ -270,6 +282,23 @@ def sheet_cells(xlsx_bytes, want):
                 items.append((int(c.group(2)) - 1, col - 1, int(c.group(2)) - 1, t.strip()))
         res[unescape(nm.group(1))] = items
     return res
+
+
+def vml_items(xml):
+    """古い形式（VML）の図形の文章と位置。位置は <x:Anchor> 左の列, ずれ, 上の行, ずれ, 右の列, ずれ, 下の行, ずれ"""
+    items = []
+    for sh in re.findall(r"<v:shape[\s>].*?</v:shape>", xml, re.S):
+        an = re.search(r"<x:Anchor>\s*([\d,\s]+)</x:Anchor>", sh)
+        tb = re.search(r"<v:textbox[^>]*>(.*?)</v:textbox>", sh, re.S)
+        if not an or not tb:
+            continue
+        nums = [int(x) for x in an.group(1).replace(" ", "").split(",") if x.strip()]
+        body = re.sub(r"<br\s*/?>|</div>|</p>", "\n", tb.group(1))
+        t = unescape(re.sub(r"<[^>]+>", "", body))
+        t = "\n".join(x.strip() for x in t.split("\n") if x.strip())
+        if len(nums) >= 8 and t:
+            items.append((nums[2], nums[0], nums[6], t))
+    return items
 
 
 def is_comment(t):
@@ -582,7 +611,9 @@ def find_excel(name, pref, isp, links, pos_muni):
             xl = [(t, h) for t, h, p in ls if ".xls" in h.lower()]
             DIAG[pref] = {"page": pref_pages[0], "bytes": len(raw), "head": raw[:300].decode("ascii", "replace"),
                           "links": len(ls), "excel_links": len(xl), "excel_sample": xl[:5],
-                          "name_in_page": has_name(html, name), "xlsx_text_count": html.lower().count(".xls")}
+                          "name_in_page": has_name(html, name), "xlsx_text_count": html.lower().count(".xls"),
+                          "title": re.sub(r"<[^>]+>", "", (re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I) or re.search(r"(.*)", "")).group(1 if re.search(r"<title", html, re.I) else 0))[:80],
+                          "text": re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", re.sub(r"<(script|style)[^>]*>.*?</\1>", "", html, flags=re.S | re.I)))[:300]}
         except Exception as ex:
             DIAG[pref] = {"page": pref_pages[0], "error": str(ex)}
     return uniq
