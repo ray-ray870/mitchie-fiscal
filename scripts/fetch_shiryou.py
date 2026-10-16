@@ -227,8 +227,9 @@ def shapes_by_sheet(xlsx_bytes):
                 items += vml_items(xml)
                 continue
             for a in re.findall(r"<(?:\w+:)?(?:twoCellAnchor|oneCellAnchor)[\s>].*?</(?:\w+:)?(?:twoCellAnchor|oneCellAnchor)>", xml, re.S):
-                fr = re.search(r"<(?:\w+:)?from>\s*<(?:\w+:)?col>(\d+)</(?:\w+:)?col>.*?<(?:\w+:)?row>(\d+)</(?:\w+:)?row>", a, re.S)
-                to = re.search(r"<(?:\w+:)?to>\s*<(?:\w+:)?col>(\d+)</(?:\w+:)?col>.*?<(?:\w+:)?row>(\d+)</(?:\w+:)?row>", a, re.S)
+                # 静岡県などのファイルは <xdr:from xmlns:xdr="…"> のように、タグに付け足しがある（2026-10-16 磐田市のファイルで確認）
+                fr = re.search(r"<(?:\w+:)?from(?:\s[^>]*)?>\s*<(?:\w+:)?col(?:\s[^>]*)?>(\d+)</(?:\w+:)?col>.*?<(?:\w+:)?row(?:\s[^>]*)?>(\d+)</(?:\w+:)?row>", a, re.S)
+                to = re.search(r"<(?:\w+:)?to(?:\s[^>]*)?>\s*<(?:\w+:)?col(?:\s[^>]*)?>(\d+)</(?:\w+:)?col>.*?<(?:\w+:)?row(?:\s[^>]*)?>(\d+)</(?:\w+:)?row>", a, re.S)
                 paras = []
                 for pp in re.findall(r"<(?:\w+:)?p[\s>](?:(?!<(?:\w+:)?p[\s>]).)*?</(?:\w+:)?p>", a, re.S):
                     t = "".join(re.findall(r"<(?:\w+:)?t(?:\s[^>]*)?>(.*?)</(?:\w+:)?t>", pp, re.S))
@@ -282,6 +283,30 @@ def sheet_cells(xlsx_bytes, want):
                 items.append((int(c.group(2)) - 1, col - 1, int(c.group(2)) - 1, t.strip()))
         res[unescape(nm.group(1))] = items
     return res
+
+
+def drawing_peek(xlsx_bytes):
+    """図形が読めなかったときの手がかり：「財政比較分析表」のシートの図形のファイルの中身の一部"""
+    try:
+        z = zipfile.ZipFile(io.BytesIO(xlsx_bytes))
+        names = z.namelist()
+        wb = z.read("xl/workbook.xml").decode("utf-8")
+        rels = z.read("xl/_rels/workbook.xml.rels").decode("utf-8")
+        m = re.search(r'<sheet\s[^>]*name="財政比較分析表"[^>]*r:id="([^"]+)"', wb)
+        tgt = re.search(r'Id="%s"[^>]*Target="([^"]+)"|Target="([^"]+)"[^>]*Id="%s"' % (m.group(1), m.group(1)), rels) if m else None
+        sf = (tgt.group(1) or tgt.group(2)).split("/")[-1] if tgt else ""
+        srels = z.read(f"xl/worksheets/_rels/{sf}.rels").decode("utf-8", "replace") if f"xl/worksheets/_rels/{sf}.rels" in names else ""
+        out = {"files": [n for n in names if "drawing" in n][:30], "sheet": sf, "srels": srels[:800]}
+        d = re.search(r'Target="([^"]*drawings/[^"]+)"', srels)
+        if d:
+            x = z.read("xl/drawings/" + d.group(1).split("/")[-1]).decode("utf-8", "replace")
+            out["size"] = len(x)
+            out["tags"] = collections.Counter(re.findall(r"<([\w:]+)", x)).most_common(25)
+            i = x.find("分析欄")
+            out["around"] = x[max(0, i - 600):i + 100] if i >= 0 else x[:600]
+        return out
+    except Exception as ex:
+        return {"error": str(ex)}
 
 
 def vml_items(xml):
@@ -414,7 +439,43 @@ def _link_priority(t, h, name, year_marks):
     return sc
 
 
-def site_candidates(start_url, name, max_pages=60, year_marks=YEAR_MARKS):
+_MUNIS = {}
+
+
+def pref_munis(pref):
+    """その都道府県の市町村名の一覧（データファイルから）"""
+    if not _MUNIS:
+        for f in DATA_FILES:
+            try:
+                for n, e in json.loads((DATA / f).read_text(encoding="utf-8")).items():
+                    if not is_pref(n, e):
+                        _MUNIS.setdefault(e.get("p"), []).append(n)
+            except Exception:
+                pass
+    return _MUNIS.get(pref, [])
+
+
+def owner_candidates(html, url, name, munis, year_marks):
+    """リンクの前に最後に出てきた自治体名を、そのリンクの持ち主とみなす
+    （2026-10-16：香川県のように、自治体名の横に R2〜R6 のリンクが並ぶ形。表の形でなくても読めるように）"""
+    res, owner, last = [], None, 0
+    others = [m for m in munis if m != name]
+    for t, h, p in anchors(html, url):
+        seg = re.sub(r"\s|&nbsp;|&#160;", "", re.sub(r"<[^>]+>", "", unescape(html[last:p])))
+        best = -1
+        for m in [name] + others:
+            for v in name_variants(m):
+                i = seg.rfind(v)
+                if i > best or (i == best and i >= 0 and m == name):
+                    best, owner = i, m
+        last = p + 1
+        low = h.lower().split("?")[0].split("#")[0]
+        if owner == name and low.endswith(FILE_EXT) and not has_name(t, name):
+            res.append((2 + (2 if _ym(t + " " + h, year_marks) else 0), "url", h, t))
+    return res
+
+
+def site_candidates(start_url, name, max_pages=60, year_marks=YEAR_MARKS, munis=()):
     """都道府県のページから、その市町村の財政状況資料集の Excel の候補を集める（2026-10-15 作り直し）
     ・「資料集」「令和6年度」などの文字があるリンクから先に見る（関係のないページで上限を使い切らないように）
     ・「資料集」の文字があるリンクは、ほかのサイト（北海道のオープンデータなど）でもたどる
@@ -439,6 +500,8 @@ def site_candidates(start_url, name, max_pages=60, year_marks=YEAR_MARKS):
         tried.append(url)
         title = " ".join(re.findall(r"<title[^>]*>(.*?)</title>|<h1[^>]*>(.*?)</h1>", html, re.S | re.I)[0]) if re.search(r"<title|<h1", html, re.I) else ""
         named = named or has_name(re.sub(r"<[^>]+>", "", title), name)
+        if munis:
+            cands += owner_candidates(html, url, name, munis, year_marks)
         for t, h, p in anchors(html, url):
             low = h.lower().split("?")[0].split("#")[0]
             ym = 2 if _ym(t + " " + h, year_marks) else 0
@@ -538,7 +601,8 @@ def collect(name, xlsx_bytes, fy_label, badge=True, moved=False, quiet=False, sr
     say = (lambda m: None) if quiet else out
     # 名前・年度は、図形の文字とセルの文字の両方で確かめる（県によって、団体名や年度をセルに書いているため。2026-10-15）
     if not has_name(joined, name) and not any(has_name(c, name) for c in cells if len(c) <= 30):
-        FAIL_REASON[name] = "別の自治体のExcel"
+        if FAIL_REASON.get(name) != "分析欄が見つからない":   # いちばん手がかりになる理由を残す
+            FAIL_REASON[name] = "別の自治体のExcel"
         say(f"- ❌ {name}：このExcelの中に「{base}」の名前がないため使いません")
         return None
     half = lambda t: re.sub(r"\s", "", t.translate(str.maketrans("０１２３４５６７８９", "0123456789")))
@@ -546,7 +610,8 @@ def collect(name, xlsx_bytes, fy_label, badge=True, moved=False, quiet=False, sr
     fname = unquote(src.replace(" の中の ", "/")).split("/")[-1]
     by_name = str(2018 + reiwa_num(fy_label)) in fname and has_name(fname, name)
     if not by_name and not any(half(t) in (fy_label, fy_label + "決算") for t in texts if len(t) <= 12):
-        FAIL_REASON[name] = "年度が違うExcel"
+        if FAIL_REASON.get(name) != "分析欄が見つからない":
+            FAIL_REASON[name] = "年度が違うExcel"
         say(f"- ❌ {name}：このExcelは{fy_label}のものではないため使いません")
         return None
     entry = {}
@@ -571,7 +636,8 @@ def collect(name, xlsx_bytes, fy_label, badge=True, moved=False, quiet=False, sr
                 cl = {}
             DIAG[name] = {"sheets": list(sheets.keys())[:40],
                           "shape_labels": [it[3][:30] for its in sheets.values() for it in its if "分析" in it[3]][:15],
-                          "cell_labels": [(nm, it[0], it[1], it[3][:30]) for nm, its in cl.items() for it in its if "分析" in it[3]][:15]}
+                          "cell_labels": [(nm, it[0], it[1], it[3][:30]) for nm, its in cl.items() for it in its if "分析" in it[3]][:15],
+                          "drawing": drawing_peek(xlsx_bytes)}
             if not quiet:
                 out(f"- ⚠️ {name}：財政比較分析表の分析欄が見つかりませんでした")
     return entry
@@ -593,7 +659,7 @@ def find_excel(name, pref, isp, links, pos_muni):
     except Exception as ex:
         print(f"- {name}：表を読めず（{ex}）")
     if not any(c[0] >= 5 for c in cands):
-        more, tried = site_candidates(pref_pages[0], name)
+        more, tried = site_candidates(pref_pages[0], name, munis=pref_munis(pref))
         cands += more
         TRIED.setdefault(pref, tried[:8])
     uniq, seen = [], set()
