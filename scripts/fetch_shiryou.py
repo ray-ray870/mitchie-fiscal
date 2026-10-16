@@ -58,7 +58,7 @@ def get(url):
     if url in _CACHE:
         return _CACHE[url]
     req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=120) as r:
+    with urllib.request.urlopen(req, timeout=60) as r:
         data = r.read()
     if len(_CACHE) < 400:
         _CACHE[url] = data
@@ -708,8 +708,12 @@ def main():
         links = anchors(html, index_url)
         pos_muni = html.find("市町村の財政状況資料集")
     except Exception as ex:
-        out(f"- ⚠️ 総務省の一覧ページを読めませんでした（{ex}）。今年は説明なしで続けます")
+        out(f"- ⚠️ 総務省の一覧ページを読めませんでした（{ex}）。まだ公表されていない可能性があります。"
+            "公表されたら「財政状況資料集の説明を取り込む（プレビュー）」を実行してください")
         targets, links, pos_muni = [], [], -1
+        index_ok = False
+    else:
+        index_ok = True
     # 同じ年度の取り込みをやり直したときに、今回は取れなかった自治体は、前回取れた同じ年度の文章を残す
     # （2026-10-15：夕張市のように、都道府県のサイトの都合で取れない回があるため。違う年度の文章は残さない）
     try:
@@ -718,8 +722,53 @@ def main():
         prev = {}
     if prev.get("_year") != fy_label:
         prev = {}
+    if not index_ok and prev:
+        # 同じ年度の取り込み直しで、総務省のページが一時的に読めなかったときは、前回の分を消さない
+        out("- ↩️ 前回取り込んだ同じ年度の説明を、そのまま残します")
+        return
     got_by_pref = {}
     result_ok = set()
+    # 取りに行く自治体（前回取れた分は除く）を、都道府県ごとにまとめて、いくつかの都道府県を同時に進める
+    # （2026-10-16：全部を順番に取ると1時間半かかるため。同じ都道府県の中は順番に取る＝相手のサイトに負担をかけない）
+    def need(name):
+        pe = prev.get(name)
+        return not (isinstance(pe, dict) and (name not in moved_names or "score" in pe) and (name not in badge_names or any(k in pe for k in LABELS)))
+
+    def fetch_one(name, pref, isp):
+        try:
+            cands = find_excel(name, pref, isp, links, pos_muni)
+            for c in cands[:10]:   # よさそうな順に、名前と年度が合う Excel が見つかるまで（10まで）
+                try:
+                    data, src = fetch_candidate(c)
+                except Exception:
+                    FAIL_REASON[name] = "Excelを読み込めない"
+                    continue
+                if not data or not data[:2] == b"PK":
+                    FAIL_REASON.setdefault(name, "Excelではないファイル")
+                    continue
+                entry = collect(name, data, fy_label, badge=name in badge_names, moved=name in moved_names, quiet=True, src=src)
+                if entry and ("score" in entry or name in badge_names):
+                    entry["src"] = src
+                    FAIL_REASON.pop(name, None)
+                    return entry, None
+            TRIED_FILES[name] = [c[2] + (" の中の " + c[3] if c[1] == "zip" else "") for c in cands[:10]]
+            return None, f"- ⚠️ {name}：{FAIL_REASON.get(name, '財政状況資料集のExcelが見つかりませんでした')}"
+        except Exception as ex:
+            return None, f"- ⚠️ {name}：エラーのため取り込めませんでした（{ex}）"
+
+    groups = collections.OrderedDict()
+    for name, pref, isp, d, u in targets:
+        if need(name):
+            groups.setdefault(name if isp or name in SEIREI else pref, []).append((name, pref, isp))
+    fetched = {}
+
+    def run_group(items):
+        for name, pref, isp in items:
+            fetched[name] = fetch_one(name, pref, isp)
+
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        list(ex.map(run_group, groups.values()))
     detail = len(targets) <= 20   # 対象が多いときは、取れなかった自治体だけ書く（Summary が長くなりすぎないように）
     for name, pref, isp, d, u in targets:
         if detail or name in badge_names:
@@ -738,31 +787,14 @@ def main():
                 g[0] += 1
                 g[1] += 1
             continue
-        try:
-            cands = find_excel(name, pref, isp, links, pos_muni)
-            for c in cands[:10]:   # よさそうな順に、名前と年度が合う Excel が見つかるまで（10まで）
-                try:
-                    data, src = fetch_candidate(c)
-                except Exception as ex:
-                    FAIL_REASON[name] = "Excelを読み込めない"
-                    continue
-                if not data or not data[:2] == b"PK":
-                    FAIL_REASON.setdefault(name, "Excelではないファイル")
-                    continue
-                entry = collect(name, data, fy_label, badge=name in badge_names, moved=name in moved_names, quiet=True, src=src)
-                if entry and ("score" in entry or name in badge_names):
-                    entry["src"] = src
-                    result[name] = entry
-                    ok = True
-                    FAIL_REASON.pop(name, None)
-                    if name in badge_names:
-                        out("- ✅ 取り込みました：" + "、".join(LABELS[k] for k in LABELS if k in entry))
-                    break
-            if not ok:
-                TRIED_FILES[name] = [c[2] + (" の中の " + c[3] if c[1] == "zip" else "") for c in cands[:10]]
-                out(f"- ⚠️ {name}：{FAIL_REASON.get(name, '財政状況資料集のExcelが見つかりませんでした')}")
-        except Exception as ex:
-            out(f"- ⚠️ {name}：エラーのため取り込めませんでした（{ex}）")
+        entry, msg = fetched.get(name, (None, None))
+        if entry:
+            result[name] = entry
+            ok = True
+            if name in badge_names:
+                out("- ✅ 取り込みました：" + "、".join(LABELS[k] for k in LABELS if k in entry))
+        elif msg:
+            out(msg)
         if not ok and name not in result and isinstance(prev.get(name), dict):
             result[name] = prev[name]
             ok = "score" in prev[name] or name in badge_names
@@ -786,8 +818,12 @@ def main():
             for pf in sorted(bad):
                 out(f"- **{pf}**：" + " → ".join(TRIED[pf]))
             out("\n</details>")
-    # 取れなかった自治体の理由と、見たページを残す（Summary を見なくても、次に直すときの手がかりにできるように。アプリは使わない）
-    if moved:
+    # 取れなかった自治体の理由と、見たページを残す（Summary を見なくても、次に直すときの手がかりにできるように）
+    # アプリは _fail にある自治体にだけ「取り込めませんでした」と出す。総務省のページを読めなかった年
+    # （3月の年次更新の時点でまだ公表されていないなど）は、取り込みを試していないので _fail を作らない
+    if not index_ok:
+        result["_pending"] = "総務省の一覧ページを読めなかったため、まだ取り込んでいません"
+    elif moved:
         result["_fail"] = {n: FAIL_REASON.get(n, "その他") for n, *_ in moved if n not in result_ok}
         result["_tried"] = {pf: TRIED[pf] for pf in TRIED}
         result["_tried_files"] = {n: TRIED_FILES[n] for n in TRIED_FILES if n in result["_fail"]}

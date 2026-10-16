@@ -304,12 +304,16 @@
       var why = (va != null && vb != null && Math.abs(best.c) >= 0.5)
         ? "主な理由は、" + term + (m.ratio ? "の割合" : "") + "が" + (vb > va ? m.up : m.down) + "ことです（" + m.fmt(va) + "→" + m.fmt(vb) + "）" : "";
       var own = "";
-      var sh = (typeof SHIRYOU === "object" && SHIRYOU) ? SHIRYOU[name] : null;
+      var sh0 = (typeof SHIRYOU === "object" && SHIRYOU) ? SHIRYOU : null;
+      var sh = sh0 ? sh0[name] : null;
       if (y === latest && why && sh && sh.score && sh.score[m.sk] && SHIRYOU._year === reiwaText(latest) + "度") {
         var body = escapeHtml(sh.score[m.sk]).replace(/（(増減理由|今後の方針)）\n?/g, "<b style='color:#5a4a7a;'>（$1）</b>").replace(/\n/g, "<br>");
         own = "<div style='background:#ffffff;border:1px solid #d8d5e8;border-radius:10px;padding:10px 12px;margin-top:8px;'>" +
           "<div style='font-size:15px;font-weight:700;color:#3a2a6e;margin-bottom:4px;'>📄 " + escapeHtml(name) + "の説明（" + escapeHtml(SHIRYOU._year) + " 財政状況資料集の「" + m.src + "」より）</div>" +
           "<div style='font-size:15px;color:#3a3a4a;line-height:1.8;'>" + body + "</div></div>";
+      } else if (y === latest && why && sh0 && sh0._year === reiwaText(latest) + "度" && sh0._fail && sh0._fail[name]) {
+        // 取り込もうとして取れなかった自治体だけ（2026-10-16 決定）。まだ取り込んでいない年度には出さない
+        own = "<div style='font-size:15px;color:#5a5a70;line-height:1.7;margin-top:6px;padding-left:1em;'>※財政状況資料集から、この自治体の説明を取り込めませんでした（PDFでしか公開されていない、公開しているサイトの障害、分析欄が書かれていない などのため）</div>";
       }
       if (!sub) sub = reiwaText(y) + "度：" + (sa !== sb ? "「" + HK_STATE_LABEL[sa] + "」→「" + HK_STATE_LABEL[sb] + "」" : "") + "（" + a.sc + "→" + b.sc + "点）";
       lines.push("<div style='margin-top:10px;'><div style='font-size:15px;color:#2a2a3a;line-height:1.7;padding-left:1em;text-indent:-1em;'>・" + head + "。" + (why ? why : "") + "</div>" + own + "</div>");
